@@ -6,6 +6,7 @@ import {
   TipoMovimientoCuentaCorriente,
   TipoMovimientoStock,
 } from '@prisma/client';
+import * as ExcelJS from 'exceljs';
 import { PrismaService } from '../prisma/prisma.service';
 import { StockService } from '../stock/stock.service';
 import { CuentasCorrientesService } from '../cuentas-corrientes/cuentas-corrientes.service';
@@ -16,6 +17,17 @@ const NOTAS_QUE_REQUIEREN_MOTIVO: TipoDocumentoElectronico[] = [
   TipoDocumentoElectronico.NOTA_CREDITO_ELECTRONICA,
   TipoDocumentoElectronico.NOTA_DEBITO_ELECTRONICA,
 ];
+
+// Abreviaturas cortas para el reporte -- mismo criterio que
+// frontend/src/pages/comprobante-labels.ts (TIPO_DOCUMENTO_ABREVIADO).
+const TIPO_DOCUMENTO_ABREVIADO: Record<TipoDocumentoElectronico, string> = {
+  FACTURA_ELECTRONICA: 'FE',
+  NOTA_CREDITO_ELECTRONICA: 'NCE',
+  NOTA_DEBITO_ELECTRONICA: 'NDE',
+  AUTOFACTURA_ELECTRONICA: 'AFE',
+  NOTA_REMISION_ELECTRONICA: 'NRE',
+  COMPROBANTE_RETENCION_ELECTRONICO: 'CRE',
+};
 
 @Injectable()
 export class ComprobantesService {
@@ -197,5 +209,105 @@ export class ComprobantesService {
       where: { id },
       data: { estado: EstadoComprobante.ANULADO },
     });
+  }
+
+  // Libro de Ventas: formato general que usa la DNIT para el reporte de
+  // ventas (RG 90) -- columnas con el desglose exento/gravado/IVA por
+  // comprobante y una fila de totales al pie. Solo documentos de venta
+  // (con clienteId), no compras/autofactura, que usan otra convencion.
+  async generarLibroVentas(empresaId: string, desde: string, hasta: string): Promise<Buffer> {
+    const desdeDate = new Date(`${desde}T00:00:00`);
+    const hastaDate = new Date(`${hasta}T23:59:59.999`);
+
+    const comprobantes = await this.prisma.comprobante.findMany({
+      where: {
+        empresaId,
+        clienteId: { not: null },
+        fechaEmision: { gte: desdeDate, lte: hastaDate },
+      },
+      include: {
+        cliente: true,
+        timbrado: { include: { puntoExpedicion: { include: { establecimiento: true } } } },
+      },
+      orderBy: { fechaEmision: 'asc' },
+    });
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Libro de Ventas');
+
+    sheet.columns = [
+      { header: 'Fecha', key: 'fecha', width: 12 },
+      { header: 'Tipo Doc.', key: 'tipo', width: 10 },
+      { header: 'Timbrado', key: 'timbrado', width: 12 },
+      { header: 'Nº Comprobante', key: 'numero', width: 18 },
+      { header: 'RUC/CI Cliente', key: 'docCliente', width: 16 },
+      { header: 'Razón Social', key: 'cliente', width: 32 },
+      { header: 'Cond. Venta', key: 'condicion', width: 12 },
+      { header: 'Estado', key: 'estado', width: 10 },
+      { header: 'Exentas', key: 'exenta', width: 14 },
+      { header: 'Gravadas 5%', key: 'grav5', width: 14 },
+      { header: 'Gravadas 10%', key: 'grav10', width: 14 },
+      { header: 'IVA 5%', key: 'iva5', width: 12 },
+      { header: 'IVA 10%', key: 'iva10', width: 12 },
+      { header: 'Total', key: 'total', width: 16 },
+    ];
+    sheet.getRow(1).font = { bold: true };
+
+    const montoCols = ['exenta', 'grav5', 'grav10', 'iva5', 'iva10', 'total'];
+
+    const totales = { exenta: 0, grav5: 0, grav10: 0, iva5: 0, iva10: 0, total: 0 };
+
+    for (const c of comprobantes) {
+      const est = c.timbrado?.puntoExpedicion?.establecimiento;
+      const pe = c.timbrado?.puntoExpedicion;
+      const numeroCompleto = est && pe ? `${est.codigo}-${pe.codigo}-${c.numero}` : c.numero;
+
+      const row = {
+        fecha: c.fechaEmision.toLocaleDateString('es-PY'),
+        tipo: TIPO_DOCUMENTO_ABREVIADO[c.tipoDocumento],
+        timbrado: c.timbrado?.numeroTimbrado ?? '',
+        numero: numeroCompleto,
+        docCliente: c.cliente?.numeroDocumento ?? '',
+        cliente: c.cliente?.razonSocial ?? '',
+        condicion: c.condicionVenta,
+        estado: c.estado,
+        exenta: Number(c.subtotalExenta),
+        grav5: Number(c.subtotalGravada5),
+        grav10: Number(c.subtotalGravada10),
+        iva5: Number(c.iva5),
+        iva10: Number(c.iva10),
+        total: Number(c.total),
+      };
+      sheet.addRow(row);
+
+      // Los comprobantes anulados no suman al total (no representan una
+      // venta efectiva), pero quedan listados en el detalle para que el
+      // libro sea trazable.
+      if (c.estado !== EstadoComprobante.ANULADO) {
+        totales.exenta += row.exenta;
+        totales.grav5 += row.grav5;
+        totales.grav10 += row.grav10;
+        totales.iva5 += row.iva5;
+        totales.iva10 += row.iva10;
+        totales.total += row.total;
+      }
+    }
+
+    for (const row of sheet.getRows(2, sheet.rowCount - 1) ?? []) {
+      for (const key of montoCols) {
+        row.getCell(key).numFmt = '#,##0';
+      }
+    }
+
+    const totalRow = sheet.addRow({ cliente: 'TOTALES (excluye anulados)', ...totales });
+    totalRow.font = { bold: true };
+    for (const key of montoCols) {
+      totalRow.getCell(key).numFmt = '#,##0';
+    }
+    totalRow.eachCell((cell) => {
+      cell.border = { top: { style: 'thin' } };
+    });
+
+    return Buffer.from(await workbook.xlsx.writeBuffer());
   }
 }

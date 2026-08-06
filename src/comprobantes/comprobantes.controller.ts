@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, Res, StreamableFile } from '@nestjs/common';
 import { TipoDocumentoElectronico } from '@prisma/client';
+import type { Response } from 'express';
 import { ComprobantesService } from './comprobantes.service';
 import { CreateComprobanteDto } from './dto/create-comprobante.dto';
 
@@ -10,6 +11,21 @@ export class ComprobantesController {
   @Post()
   create(@Body() dto: CreateComprobanteDto) {
     return this.comprobantesService.create(dto);
+  }
+
+  @Get('reporte-ventas')
+  async reporteVentas(
+    @Query('empresaId') empresaId: string,
+    @Query('desde') desde: string,
+    @Query('hasta') hasta: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const buffer = await this.comprobantesService.generarLibroVentas(empresaId, desde, hasta);
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="libro-ventas-${desde}-a-${hasta}.xlsx"`,
+    });
+    return new StreamableFile(buffer);
   }
 
   @Get()
