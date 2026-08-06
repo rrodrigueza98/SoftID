@@ -1,4 +1,5 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../../lib/auth-context';
 import { cn } from '../../lib/cn';
 
@@ -15,17 +16,55 @@ const NAV_ITEMS = [
 
 export function AppShell() {
   const { usuario, logout } = useAuth();
+  const [navOpen, setNavOpen] = useState(false);
+  const location = useLocation();
+
+  // Al navegar (click en un link del menu) cerramos el drawer mobile --
+  // si no, queda tapando la pantalla despues de elegir una seccion.
+  useEffect(() => {
+    setNavOpen(false);
+  }, [location.pathname]);
 
   return (
     <div className="flex min-h-screen bg-ink-50">
-      <aside className="flex w-60 shrink-0 flex-col border-r border-ink-200 bg-ink-900 text-ink-100">
-        <div className="flex items-center gap-2.5 px-5 py-5">
+      {/* Barra superior solo en mobile: el sidebar completo no entra en pantallas chicas. */}
+      <div className="fixed inset-x-0 top-0 z-30 flex items-center justify-between border-b border-ink-200 bg-ink-900 px-4 py-3 md:hidden">
+        <div className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-brand-600 font-mono text-sm font-bold text-white">
             S
           </div>
           <span className="text-sm font-semibold text-white">SoftID</span>
         </div>
-        <nav className="flex-1 space-y-0.5 px-3">
+        <button
+          onClick={() => setNavOpen((v) => !v)}
+          aria-label="Abrir menú"
+          className="flex h-9 w-9 items-center justify-center rounded-md text-ink-200 hover:bg-ink-800 hover:text-white"
+        >
+          <span className="text-xl leading-none">☰</span>
+        </button>
+      </div>
+
+      {navOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-ink-950/50 md:hidden"
+          onClick={() => setNavOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        className={cn(
+          'fixed inset-y-0 left-0 z-40 flex w-60 shrink-0 flex-col border-r border-ink-200 bg-ink-900 text-ink-100 transition-transform duration-200 md:static md:translate-x-0',
+          navOpen ? 'translate-x-0' : '-translate-x-full',
+        )}
+      >
+        <div className="hidden items-center gap-2.5 px-5 py-5 md:flex">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-brand-600 font-mono text-sm font-bold text-white">
+            S
+          </div>
+          <span className="text-sm font-semibold text-white">SoftID</span>
+        </div>
+        <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 pt-16 md:pt-3">
           {NAV_ITEMS.map((item) => (
             <NavLink
               key={item.to}
@@ -54,8 +93,8 @@ export function AppShell() {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-6xl px-8 py-8">
+      <main className="w-full flex-1 overflow-y-auto pt-14 md:pt-0">
+        <div className="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-8">
           <Outlet />
         </div>
       </main>
