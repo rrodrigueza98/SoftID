@@ -7,6 +7,7 @@ import { Card } from '../components/ui/Card';
 import type { Producto, Stock, Tercero } from '../lib/types';
 
 const SECTIONS = [
+  { to: '/pos', label: 'Punto de venta', hint: 'Venta rápida de mostrador' },
   { to: '/facturacion/emitir', label: 'Facturación', hint: 'Cargar y emitir un nuevo documento' },
   { to: '/facturacion', label: 'Comprobantes emitidos', hint: 'Consultar historial de facturación' },
   { to: '/clientes', label: 'Clientes', hint: 'Base de datos de clientes' },

@@ -5,6 +5,7 @@ import { cn } from '../../lib/cn';
 
 const NAV_ITEMS = [
   { to: '/', label: 'Inicio', end: true },
+  { to: '/pos', label: 'Punto de venta' },
   { to: '/facturacion/emitir', label: 'Facturación' },
   { to: '/facturacion', label: 'Comprobantes emitidos', end: true },
   { to: '/clientes', label: 'Clientes' },

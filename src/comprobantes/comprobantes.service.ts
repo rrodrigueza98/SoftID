@@ -48,6 +48,13 @@ export class ComprobantesService {
     const subtotales = calcularSubtotales(itemsCalculados);
 
     return this.prisma.$transaction(async (tx) => {
+      if (dto.sesionCajaId) {
+        const sesion = await tx.sesionCaja.findUniqueOrThrow({ where: { id: dto.sesionCajaId } });
+        if (sesion.estado !== 'ABIERTA') {
+          throw new BadRequestException('La sesión de caja indicada ya está cerrada');
+        }
+      }
+
       // El numero de comprobante sale siempre del timbrado (proximoNumero),
       // nunca lo manda el cliente -- es la unica forma de garantizar que no
       // se salteen ni se repitan numeros dentro de un timbrado (obligatorio
@@ -87,6 +94,7 @@ export class ComprobantesService {
           comprobanteAsociadoId: dto.comprobanteAsociadoId,
           motivoEmision: dto.motivoEmision,
           observacion: dto.observacion,
+          sesionCajaId: dto.sesionCajaId,
           estado: EstadoComprobante.EMITIDO,
           ...subtotales,
           items: {

@@ -5,6 +5,7 @@ import { PageSpinner } from './components/ui/Spinner';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import ComprobantesPage from './pages/ComprobantesPage';
+import PosPage from './pages/PosPage';
 import EmitirComprobantePage from './pages/EmitirComprobantePage';
 import TercerosPage from './pages/TercerosPage';
 import ProductosPage from './pages/ProductosPage';
@@ -33,6 +34,7 @@ export default function App() {
         <Route path="/" element={<DashboardPage />} />
         <Route path="/facturacion" element={<ComprobantesPage />} />
         <Route path="/facturacion/emitir" element={<EmitirComprobantePage />} />
+        <Route path="/pos" element={<PosPage />} />
         <Route path="/clientes" element={<TercerosPage tipo="CLIENTE" />} />
         <Route path="/proveedores" element={<TercerosPage tipo="PROVEEDOR" />} />
         <Route path="/productos" element={<ProductosPage />} />

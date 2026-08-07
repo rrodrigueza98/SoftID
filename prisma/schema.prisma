@@ -177,6 +177,11 @@ enum EstadoComprobante {
   ANULADO
 }
 
+enum EstadoSesionCaja {
+  ABIERTA
+  CERRADA
+}
+
 /// Ciclo de vida del DE ante SIFEN.
 enum EstadoDocumentoElectronico {
   BORRADOR
@@ -236,6 +241,7 @@ model Empresa {
   condicionesPago   CondicionPago[]
   roles             Rol[]
   recibos           Recibo[]
+  sesionesCaja      SesionCaja[]
 
   @@map("empresas")
 }
@@ -275,6 +281,7 @@ model PuntoExpedicion {
   establecimiento Establecimiento @relation(fields: [establecimientoId], references: [id])
   timbrados       Timbrado[]
   comprobantes    Comprobante[]
+  sesionesCaja    SesionCaja[]
 
   @@unique([establecimientoId, codigo])
   @@map("puntos_expedicion")
@@ -327,6 +334,9 @@ model Usuario {
 
   empresa Empresa @relation(fields: [empresaId], references: [id])
   rol     Rol     @relation(fields: [rolId], references: [id])
+
+  sesionesCajaAbiertas SesionCaja[] @relation("SesionCajaApertura")
+  sesionesCajaCerradas SesionCaja[] @relation("SesionCajaCierre")
 
   @@map("usuarios")
 }
@@ -596,6 +606,37 @@ model ReciboAplicacion {
 // 5. COMPROBANTES DE VENTA/COMPRA + DOCUMENTO ELECTRONICO (SIFEN)
 // ─────────────────────────────────────────────────────────────────────────
 
+/// Turno de caja del Punto de Venta (POS): agrupa las ventas hechas por un
+/// cajero entre la apertura (monto inicial declarado) y el cierre (arqueo:
+/// efectivo contado vs. lo que deberia haber segun las ventas en efectivo
+/// del turno). No es un concepto de SIFEN -- es control interno del negocio.
+model SesionCaja {
+  id                  String           @id @default(cuid())
+  empresaId           String
+  puntoExpedicionId   String
+  usuarioAperturaId   String
+  usuarioCierreId     String?
+
+  montoInicial        Decimal          @db.Decimal(15, 2)
+  // Se completan recien al cerrar -- ver CajaService.cerrarSesion().
+  montoFinalDeclarado Decimal?         @db.Decimal(15, 2) // lo que el cajero contó físicamente
+  montoFinalCalculado Decimal?         @db.Decimal(15, 2) // montoInicial + ventas en efectivo del turno
+  diferencia          Decimal?         @db.Decimal(15, 2) // declarado - calculado (sobrante/faltante)
+
+  estado              EstadoSesionCaja @default(ABIERTA)
+  fechaApertura       DateTime         @default(now())
+  fechaCierre         DateTime?
+  observacionCierre   String?
+
+  empresa           Empresa         @relation(fields: [empresaId], references: [id])
+  puntoExpedicion   PuntoExpedicion @relation(fields: [puntoExpedicionId], references: [id])
+  usuarioApertura   Usuario         @relation("SesionCajaApertura", fields: [usuarioAperturaId], references: [id])
+  usuarioCierre     Usuario?        @relation("SesionCajaCierre", fields: [usuarioCierreId], references: [id])
+  ventas            Comprobante[]
+
+  @@map("sesiones_caja")
+}
+
 model Comprobante {
   id                  String                   @id @default(cuid())
   empresaId           String
@@ -623,6 +664,12 @@ model Comprobante {
   comprobanteAsociadoId String? // NC/ND referenciando la factura original
   motivoEmision         MotivoEmisionNotaCD? // obligatorio si tipoDocumento es NC/ND (catalogo cerrado SIFEN)
 
+  // Si la venta se emitio desde el Punto de Venta (POS), queda asociada a la
+  // sesion de caja abierta en ese momento -- asi el cierre de caja puede
+  // sumar el efectivo esperado. Las facturas cargadas desde el flujo de
+  // Facturacion normal no pasan por una sesion y quedan en null.
+  sesionCajaId        String?
+
   estado              EstadoComprobante        @default(BORRADOR)
   observacion         String?
   createdAt           DateTime                 @default(now())
@@ -636,6 +683,7 @@ model Comprobante {
   condicionPago     CondicionPago?     @relation(fields: [condicionPagoId], references: [id])
   comprobanteAsociado   Comprobante?   @relation("ComprobantesRelacionados", fields: [comprobanteAsociadoId], references: [id])
   comprobantesRelacionados Comprobante[] @relation("ComprobantesRelacionados")
+  sesionCaja            SesionCaja?    @relation(fields: [sesionCajaId], references: [id])
 
   items                       ComprobanteItem[]
   documentoElectronico        DocumentoElectronico?

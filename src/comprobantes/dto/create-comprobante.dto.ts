@@ -122,6 +122,12 @@ export class CreateComprobanteDto {
   @IsString()
   depositoId?: string;
 
+  // Si la venta se hace desde el Punto de Venta (POS), se informa la sesion
+  // de caja abierta para que quede asociada y sume al arqueo del turno.
+  @IsOptional()
+  @IsString()
+  sesionCajaId?: string;
+
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })

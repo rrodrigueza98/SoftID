@@ -20,6 +20,7 @@ import { CuentasCorrientesModule } from './cuentas-corrientes/cuentas-corrientes
 import { RecibosModule } from './recibos/recibos.module';
 import { ComprobantesModule } from './comprobantes/comprobantes.module';
 import { ComprobantePagosModule } from './comprobante-pagos/comprobante-pagos.module';
+import { CajaModule } from './caja/caja.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { ComprobantePagosModule } from './comprobante-pagos/comprobante-pagos.mo
     RecibosModule,
     ComprobantesModule,
     ComprobantePagosModule,
+    CajaModule,
   ],
 })
 export class AppModule {}

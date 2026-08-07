@@ -247,9 +247,50 @@ export interface Comprobante {
   iva5: string;
   total: string;
   estado: 'BORRADOR' | 'EMITIDO' | 'ANULADO';
+  sesionCajaId?: string | null;
   items: ComprobanteItem[];
   empresa?: Empresa;
   timbrado?: Timbrado;
+}
+
+export interface ComprobantePago {
+  id: string;
+  comprobanteId: string;
+  formaPago: FormaPago;
+  monto: string;
+  banco?: string | null;
+  numeroCheque?: string | null;
+  fecha: string;
+}
+
+export interface UsuarioResumen {
+  id: string;
+  nombre: string;
+}
+
+export interface ResumenPago {
+  formaPago: FormaPago;
+  total: number;
+}
+
+export interface SesionCaja {
+  id: string;
+  empresaId: string;
+  puntoExpedicionId: string;
+  usuarioAperturaId: string;
+  usuarioCierreId?: string | null;
+  usuarioApertura?: UsuarioResumen;
+  usuarioCierre?: UsuarioResumen | null;
+  montoInicial: string;
+  montoFinalDeclarado?: string | null;
+  montoFinalCalculado?: string | null;
+  diferencia?: string | null;
+  estado: 'ABIERTA' | 'CERRADA';
+  fechaApertura: string;
+  fechaCierre?: string | null;
+  observacionCierre?: string | null;
+  resumenPagos?: ResumenPago[];
+  ventas?: Comprobante[];
 }
 
 export interface ReciboAplicacion {
