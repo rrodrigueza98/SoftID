@@ -10,6 +10,7 @@ import * as ExcelJS from 'exceljs';
 import { PrismaService } from '../prisma/prisma.service';
 import { StockService } from '../stock/stock.service';
 import { CuentasCorrientesService } from '../cuentas-corrientes/cuentas-corrientes.service';
+import { AsientosContablesService } from '../contabilidad/asientos-contables.service';
 import { CreateComprobanteDto } from './dto/create-comprobante.dto';
 import { calcularItem, calcularSubtotales } from './comprobantes.util';
 
@@ -35,6 +36,7 @@ export class ComprobantesService {
     private readonly prisma: PrismaService,
     private readonly stockService: StockService,
     private readonly cuentasCorrientesService: CuentasCorrientesService,
+    private readonly asientosContablesService: AsientosContablesService,
   ) {}
 
   async create(dto: CreateComprobanteDto) {
@@ -155,6 +157,13 @@ export class ComprobantesService {
             tx,
           );
         }
+      }
+
+      // Asiento contable automatico: mismo alcance que el efecto de stock de
+      // arriba (solo Factura Electronica = venta real), pero sin requerir
+      // depositoId -- la contabilidad no depende de si se controla stock.
+      if (dto.tipoDocumento === TipoDocumentoElectronico.FACTURA_ELECTRONICA) {
+        await this.asientosContablesService.generarAsientoVenta(tx, comprobante, dto.formaPago);
       }
 
       if (dto.clienteId && dto.condicionVenta === CondicionVenta.CREDITO) {

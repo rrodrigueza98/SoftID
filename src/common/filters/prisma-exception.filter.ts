@@ -1,6 +1,8 @@
-import { ArgumentsHost, Catch, ConflictException, ExceptionFilter, NotFoundException, BadRequestException } from '@nestjs/common';
+import { ArgumentsHost, Catch, ConflictException, ExceptionFilter, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { Response } from 'express';
+
+const logger = new Logger('PrismaExceptionFilter');
 
 // Convierte errores de Prisma/Postgres que se escapan de los servicios (sobre
 // todo en deletes) en respuestas HTTP legibles, en vez del 500 crudo que tira
@@ -13,6 +15,9 @@ export class PrismaExceptionFilter implements ExceptionFilter {
   catch(exception: Prisma.PrismaClientKnownRequestError | Prisma.PrismaClientUnknownRequestError, host: ArgumentsHost) {
     const response = host.switchToHttp().getResponse<Response>();
     const mapped = this.map(exception);
+    if (mapped.getStatus() >= 500 || !(exception instanceof Prisma.PrismaClientKnownRequestError) || !['P2002', 'P2025', 'P2003'].includes(exception.code)) {
+      logger.error(exception.message, exception.stack);
+    }
     response.status(mapped.getStatus()).json(mapped.getResponse());
   }
 

@@ -206,6 +206,7 @@ export default function PosPage() {
           condicionVenta: 'CONTADO',
           depositoId: depositoId || undefined,
           sesionCajaId: sesion!.id,
+          formaPago,
           items: cart.map((row) => ({
             productoId: row.productoId,
             descripcion: row.descripcion,

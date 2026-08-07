@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { to: '/productos', label: 'Productos' },
   { to: '/stock', label: 'Stock' },
   { to: '/cuentas-corrientes', label: 'Cuentas corrientes' },
+  { to: '/contabilidad', label: 'Contabilidad' },
 ];
 
 export function AppShell() {

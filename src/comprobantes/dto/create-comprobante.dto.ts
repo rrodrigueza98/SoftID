@@ -1,6 +1,7 @@
 import {
   AfectacionIVA,
   CondicionVenta,
+  FormaPago,
   MotivoEmisionNotaCD,
   TipoDocumentoElectronico,
 } from '@prisma/client';
@@ -127,6 +128,14 @@ export class CreateComprobanteDto {
   @IsOptional()
   @IsString()
   sesionCajaId?: string;
+
+  // Solo para el asiento contable automatico de una venta al contado (ver
+  // ComprobantesService.create): decide si la contrapartida es Caja o Banco.
+  // No se persiste en el Comprobante -- el detalle real de cobro sigue
+  // viviendo en ComprobantePago (POST /comprobante-pagos).
+  @IsOptional()
+  @IsEnum(FormaPago)
+  formaPago?: FormaPago;
 
   @IsArray()
   @ArrayMinSize(1)

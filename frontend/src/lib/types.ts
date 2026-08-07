@@ -349,3 +349,75 @@ export interface Empresa {
   telefono?: string | null;
   proximoNumeroRecibo: number;
 }
+
+export type TipoCuentaContable = 'ACTIVO' | 'PASIVO' | 'PATRIMONIO' | 'INGRESO' | 'EGRESO';
+export type NaturalezaCuenta = 'DEUDORA' | 'ACREEDORA';
+export type OrigenAsiento = 'MANUAL' | 'VENTA' | 'COBRO';
+
+export interface CuentaContable {
+  id: string;
+  empresaId: string;
+  codigo: string;
+  nombre: string;
+  tipo: TipoCuentaContable;
+  naturaleza: NaturalezaCuenta;
+  imputable: boolean;
+  cuentaPadreId?: string | null;
+  activo: boolean;
+}
+
+export type RolCuenta = 'CAJA' | 'BANCO' | 'CLIENTES' | 'VENTAS' | 'IVA_DEBITO' | 'COSTO_VENTA' | 'INVENTARIO';
+export type MapeoContable = Partial<Record<RolCuenta, string>>;
+
+export interface AsientoContableDetalle {
+  id: string;
+  asientoId: string;
+  cuentaId: string;
+  cuenta?: CuentaContable;
+  debe: string;
+  haber: string;
+  glosa?: string | null;
+}
+
+export interface AsientoContable {
+  id: string;
+  empresaId: string;
+  numero: number;
+  fecha: string;
+  concepto: string;
+  origen: OrigenAsiento;
+  comprobanteId?: string | null;
+  reciboId?: string | null;
+  detalles: AsientoContableDetalle[];
+}
+
+export interface LibroMayorMovimiento {
+  asientoId: string;
+  numero: number;
+  fecha: string;
+  concepto: string;
+  glosa?: string | null;
+  debe: number;
+  haber: number;
+  saldo: number;
+}
+
+export interface LibroMayor {
+  cuenta: CuentaContable;
+  movimientos: LibroMayorMovimiento[];
+}
+
+export interface BalanceSumasSaldosFila {
+  cuentaId: string;
+  codigo: string;
+  nombre: string;
+  tipo: TipoCuentaContable;
+  debe: number;
+  haber: number;
+  saldo: number;
+}
+
+export interface BalanceSumasSaldos {
+  filas: BalanceSumasSaldosFila[];
+  totales: { debe: number; haber: number };
+}

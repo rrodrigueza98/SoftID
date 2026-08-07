@@ -228,6 +228,15 @@ model Empresa {
   // igual necesita numeracion correlativa propia -- un contador simple por
   // empresa alcanza, sin la jerarquia de establecimiento/punto de expedicion.
   proximoNumeroRecibo Int             @default(1)
+  // Correlativo del Libro Diario -- mismo criterio simple que el de Recibo
+  // (no es un documento SIFEN, solo necesita ser unico y consecutivo).
+  proximoNumeroAsiento Int            @default(1)
+  // Mapeo de "roles" contables (que cuenta usar para Caja, Clientes, Ventas,
+  // IVA Debito Fiscal, Costo de Venta, Inventario...) a un id de
+  // CuentaContable. Se guarda como JSON en vez de columnas/relaciones fijas
+  // por cuenta para poder agregar roles nuevos sin migracion; las claves
+  // validas viven en src/contabilidad/mapeo-contable.ts (CUENTA_ROL).
+  mapeoContable     Json?
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
@@ -242,6 +251,8 @@ model Empresa {
   roles             Rol[]
   recibos           Recibo[]
   sesionesCaja      SesionCaja[]
+  cuentasContables  CuentaContable[]  @relation("EmpresaCuentas")
+  asientosContables AsientoContable[] @relation("EmpresaAsientos")
 
   @@map("empresas")
 }
@@ -585,6 +596,7 @@ model Recibo {
   tercero      Tercero                     @relation(fields: [terceroId], references: [id])
   aplicaciones ReciboAplicacion[]
   movimientosCC MovimientoCuentaCorriente[]
+  asientosContables AsientoContable[]
 
   @@unique([empresaId, numero])
   @@map("recibos")
@@ -691,6 +703,7 @@ model Comprobante {
   movimientosCuentaCorriente  MovimientoCuentaCorriente[]
   pagos                       ComprobantePago[]
   reciboAplicaciones          ReciboAplicacion[]
+  asientosContables           AsientoContable[]
 
   @@unique([puntoExpedicionId, tipoDocumento, numero])
   @@index([empresaId, fechaEmision])
@@ -780,4 +793,91 @@ model EventoDocumentoElectronico {
   documentoElectronico DocumentoElectronico @relation(fields: [documentoElectronicoId], references: [id])
 
   @@map("eventos_documento_electronico")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Contabilidad general (partida doble) -- Plan de Cuentas + Libro Diario.
+// El Plan de Cuentas por defecto que se siembra por empresa sigue textual la
+// codificacion del modelo oficial de Estados Financieros de la DNIT
+// (Balance General / Estado de Resultado, Obligacion 948), para que el
+// Estado de Variacion del Patrimonio Neto (reservas, resultados acumulados)
+// que exige la RG 49/26 salga directo de estas cuentas sin tener que
+// remapear nada despues.
+// ─────────────────────────────────────────────────────────────────────────
+
+enum TipoCuentaContable {
+  ACTIVO
+  PASIVO
+  PATRIMONIO
+  INGRESO
+  EGRESO
+}
+
+enum NaturalezaCuenta {
+  DEUDORA
+  ACREEDORA
+}
+
+enum OrigenAsiento {
+  MANUAL
+  VENTA
+  COBRO
+}
+
+model CuentaContable {
+  id            String             @id @default(cuid())
+  empresaId     String
+  codigo        String // jerarquico, ej "1-01-01-01" -- igual al Plan de Cuentas DNIT
+  nombre        String
+  tipo          TipoCuentaContable
+  naturaleza    NaturalezaCuenta
+  // false = cuenta "rubro"/encabezado (ej "1-01-01- DISPONIBILIDADES"), solo
+  // agrupa subcuentas y no se le puede asentar directo -- asi el Libro Mayor
+  // no mezcla totales de grupo con movimientos reales.
+  imputable     Boolean            @default(true)
+  cuentaPadreId String?
+  activo        Boolean            @default(true)
+  createdAt     DateTime           @default(now())
+
+  empresa     Empresa                   @relation("EmpresaCuentas", fields: [empresaId], references: [id])
+  cuentaPadre CuentaContable?           @relation("JerarquiaCuentas", fields: [cuentaPadreId], references: [id])
+  subcuentas  CuentaContable[]          @relation("JerarquiaCuentas")
+  detalles    AsientoContableDetalle[]
+
+  @@unique([empresaId, codigo])
+  @@map("cuentas_contables")
+}
+
+model AsientoContable {
+  id            String        @id @default(cuid())
+  empresaId     String
+  numero        Int // correlativo por empresa (folio del Libro Diario)
+  fecha         DateTime      @default(now())
+  concepto      String
+  origen        OrigenAsiento @default(MANUAL)
+  comprobanteId String? // presente si el asiento salio automatico de una venta
+  reciboId      String? // presente si el asiento salio automatico de un cobro
+  createdAt     DateTime      @default(now())
+
+  empresa     Empresa                  @relation("EmpresaAsientos", fields: [empresaId], references: [id])
+  comprobante Comprobante?             @relation(fields: [comprobanteId], references: [id])
+  recibo      Recibo?                  @relation(fields: [reciboId], references: [id])
+  detalles    AsientoContableDetalle[]
+
+  @@unique([empresaId, numero])
+  @@map("asientos_contables")
+}
+
+model AsientoContableDetalle {
+  id        String  @id @default(cuid())
+  asientoId String
+  cuentaId  String
+  debe      Decimal @default(0) @db.Decimal(15, 2)
+  haber     Decimal @default(0) @db.Decimal(15, 2)
+  glosa     String?
+
+  asiento AsientoContable @relation(fields: [asientoId], references: [id])
+  cuenta  CuentaContable  @relation(fields: [cuentaId], references: [id])
+
+  @@map("asiento_contable_detalles")
 }

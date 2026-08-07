@@ -21,6 +21,7 @@ import { RecibosModule } from './recibos/recibos.module';
 import { ComprobantesModule } from './comprobantes/comprobantes.module';
 import { ComprobantePagosModule } from './comprobante-pagos/comprobante-pagos.module';
 import { CajaModule } from './caja/caja.module';
+import { ContabilidadModule } from './contabilidad/contabilidad.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { CajaModule } from './caja/caja.module';
     ComprobantesModule,
     ComprobantePagosModule,
     CajaModule,
+    ContabilidadModule,
   ],
 })
 export class AppModule {}

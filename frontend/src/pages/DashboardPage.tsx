@@ -14,6 +14,7 @@ const SECTIONS = [
   { to: '/productos', label: 'Productos', hint: 'Catálogo y precios' },
   { to: '/stock', label: 'Stock', hint: 'Saldos y movimientos' },
   { to: '/cuentas-corrientes', label: 'Cuentas corrientes', hint: 'Saldos y cobros' },
+  { to: '/contabilidad', label: 'Contabilidad', hint: 'Plan de Cuentas, Libro Diario y Mayor' },
 ];
 
 function useCount<T>(key: string, url: string, params: Record<string, string>) {

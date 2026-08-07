@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { TipoMovimientoCuentaCorriente } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CuentasCorrientesService } from '../cuentas-corrientes/cuentas-corrientes.service';
+import { AsientosContablesService } from '../contabilidad/asientos-contables.service';
 import { CreateReciboDto } from './dto/create-recibo.dto';
 
 @Injectable()
@@ -9,6 +10,7 @@ export class RecibosService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cuentasCorrientesService: CuentasCorrientesService,
+    private readonly asientosContablesService: AsientosContablesService,
   ) {}
 
   async create(dto: CreateReciboDto) {
@@ -66,6 +68,8 @@ export class RecibosService {
           })),
         });
       }
+
+      await this.asientosContablesService.generarAsientoCobro(tx, recibo);
 
       return tx.recibo.findUniqueOrThrow({
         where: { id: recibo.id },
