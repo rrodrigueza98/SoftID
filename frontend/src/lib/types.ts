@@ -224,6 +224,28 @@ export interface ComprobanteItem {
   total: string;
 }
 
+export interface RentabilidadItem {
+  productoId: string;
+  codigo: string;
+  descripcion: string;
+  cantidad: number;
+  totalVenta: number;
+  totalCosto: number;
+  margen: number;
+  margenPorcentual: number;
+}
+
+export interface ReporteRentabilidad {
+  items: RentabilidadItem[];
+  ventaSinCosto: number;
+  totales: {
+    totalVenta: number;
+    totalCosto: number;
+    margen: number;
+    margenPorcentual: number;
+  };
+}
+
 export interface Comprobante {
   id: string;
   empresaId: string;

@@ -713,6 +713,11 @@ model ComprobanteItem {
   montoGravado    Decimal       @default(0) @db.Decimal(15, 2)
   liquidacionIva  Decimal       @default(0) @db.Decimal(15, 2)
   total           Decimal       @db.Decimal(15, 2)
+  // Snapshot del precioCosto del producto al momento de la venta -- asi el
+  // reporte de rentabilidad no queda mal si despues cambia el costo del
+  // producto. Null en items libres (sin productoId) o si el producto no
+  // tenia costo cargado.
+  costoUnitario   Decimal?      @db.Decimal(15, 2)
 
   comprobante  Comprobante   @relation(fields: [comprobanteId], references: [id])
   producto     Producto?     @relation(fields: [productoId], references: [id])

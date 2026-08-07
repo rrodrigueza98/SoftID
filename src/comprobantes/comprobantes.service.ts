@@ -47,6 +47,15 @@ export class ComprobantesService {
     const itemsCalculados = dto.items.map((item) => ({ ...item, ...calcularItem(item) }));
     const subtotales = calcularSubtotales(itemsCalculados);
 
+    // Costo de cada producto al momento de la venta, para el reporte de
+    // rentabilidad -- se saca antes del create para que quede "congelado"
+    // en el item aunque el costo del producto cambie despues.
+    const productoIds = [...new Set(itemsCalculados.map((i) => i.productoId).filter((id): id is string => !!id))];
+    const productos = productoIds.length
+      ? await this.prisma.producto.findMany({ where: { id: { in: productoIds } } })
+      : [];
+    const costoPorProducto = new Map(productos.map((p) => [p.id, p.precioCosto]));
+
     return this.prisma.$transaction(async (tx) => {
       if (dto.sesionCajaId) {
         const sesion = await tx.sesionCaja.findUniqueOrThrow({ where: { id: dto.sesionCajaId } });
@@ -112,6 +121,7 @@ export class ComprobantesService {
               montoGravado: item.montoGravado,
               liquidacionIva: item.liquidacionIva,
               total: item.total,
+              costoUnitario: item.productoId ? costoPorProducto.get(item.productoId) : undefined,
             })),
           },
         },
@@ -318,4 +328,123 @@ export class ComprobantesService {
 
     return Buffer.from(await workbook.xlsx.writeBuffer());
   }
+
+  // Rentabilidad de ventas: agrupa por producto la venta (total con IVA
+  // incluido, mismo criterio que el resto del sistema) contra el costo
+  // congelado en cada item al momento de emitir. Solo Factura Electronica
+  // emitida cuenta como venta -- mismo criterio que el descuento de stock.
+  async reporteRentabilidad(empresaId: string, desde: string, hasta: string) {
+    const desdeDate = new Date(`${desde}T00:00:00`);
+    const hastaDate = new Date(`${hasta}T23:59:59.999`);
+
+    const comprobantes = await this.prisma.comprobante.findMany({
+      where: {
+        empresaId,
+        tipoDocumento: TipoDocumentoElectronico.FACTURA_ELECTRONICA,
+        estado: EstadoComprobante.EMITIDO,
+        fechaEmision: { gte: desdeDate, lte: hastaDate },
+      },
+      include: { items: { include: { producto: true } } },
+    });
+
+    type Fila = { productoId: string; codigo: string; descripcion: string; cantidad: number; totalVenta: number; totalCosto: number };
+    const porProducto = new Map<string, Fila>();
+    let ventaSinCosto = 0;
+
+    for (const comprobante of comprobantes) {
+      for (const item of comprobante.items) {
+        const totalItem = Number(item.total);
+        if (!item.productoId || item.costoUnitario === null) {
+          ventaSinCosto = round2(ventaSinCosto + totalItem);
+          continue;
+        }
+        const costoTotal = round2(Number(item.costoUnitario) * Number(item.cantidad));
+        const fila = porProducto.get(item.productoId) ?? {
+          productoId: item.productoId,
+          codigo: item.producto?.codigo ?? '',
+          descripcion: item.descripcion,
+          cantidad: 0,
+          totalVenta: 0,
+          totalCosto: 0,
+        };
+        fila.cantidad = round2(fila.cantidad + Number(item.cantidad));
+        fila.totalVenta = round2(fila.totalVenta + totalItem);
+        fila.totalCosto = round2(fila.totalCosto + costoTotal);
+        porProducto.set(item.productoId, fila);
+      }
+    }
+
+    const items = [...porProducto.values()]
+      .map((fila) => {
+        const margen = round2(fila.totalVenta - fila.totalCosto);
+        return { ...fila, margen, margenPorcentual: fila.totalVenta ? round2((margen / fila.totalVenta) * 100) : 0 };
+      })
+      .sort((a, b) => b.margen - a.margen);
+
+    const totalVenta = round2(items.reduce((s, i) => s + i.totalVenta, 0) + ventaSinCosto);
+    const totalCosto = round2(items.reduce((s, i) => s + i.totalCosto, 0));
+    const margen = round2(totalVenta - totalCosto);
+
+    return {
+      items,
+      ventaSinCosto,
+      totales: {
+        totalVenta,
+        totalCosto,
+        margen,
+        margenPorcentual: totalVenta ? round2((margen / totalVenta) * 100) : 0,
+      },
+    };
+  }
+
+  async generarReporteRentabilidadExcel(empresaId: string, desde: string, hasta: string): Promise<Buffer> {
+    const { items, ventaSinCosto, totales } = await this.reporteRentabilidad(empresaId, desde, hasta);
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Rentabilidad');
+
+    sheet.columns = [
+      { header: 'Código', key: 'codigo', width: 14 },
+      { header: 'Producto', key: 'descripcion', width: 34 },
+      { header: 'Cantidad vendida', key: 'cantidad', width: 16 },
+      { header: 'Venta total', key: 'totalVenta', width: 16 },
+      { header: 'Costo total', key: 'totalCosto', width: 16 },
+      { header: 'Margen', key: 'margen', width: 16 },
+      { header: 'Margen %', key: 'margenPorcentual', width: 12 },
+    ];
+    sheet.getRow(1).font = { bold: true };
+
+    const montoCols = ['totalVenta', 'totalCosto', 'margen'];
+    for (const item of items) {
+      const row = sheet.addRow(item);
+      for (const key of montoCols) row.getCell(key).numFmt = '#,##0';
+      row.getCell('margenPorcentual').numFmt = '0.0"%"';
+    }
+
+    if (ventaSinCosto > 0) {
+      const row = sheet.addRow({ descripcion: 'Ítems libres / sin costo cargado (no incluidos en el margen)', totalVenta: ventaSinCosto });
+      row.font = { italic: true };
+      row.getCell('totalVenta').numFmt = '#,##0';
+    }
+
+    const totalRow = sheet.addRow({
+      descripcion: 'TOTALES',
+      totalVenta: totales.totalVenta,
+      totalCosto: totales.totalCosto,
+      margen: totales.margen,
+      margenPorcentual: totales.margenPorcentual,
+    });
+    totalRow.font = { bold: true };
+    for (const key of montoCols) totalRow.getCell(key).numFmt = '#,##0';
+    totalRow.getCell('margenPorcentual').numFmt = '0.0"%"';
+    totalRow.eachCell((cell) => {
+      cell.border = { top: { style: 'thin' } };
+    });
+
+    return Buffer.from(await workbook.xlsx.writeBuffer());
+  }
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
 }

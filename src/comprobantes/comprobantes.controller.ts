@@ -28,6 +28,30 @@ export class ComprobantesController {
     return new StreamableFile(buffer);
   }
 
+  @Get('reporte-rentabilidad')
+  reporteRentabilidad(
+    @Query('empresaId') empresaId: string,
+    @Query('desde') desde: string,
+    @Query('hasta') hasta: string,
+  ) {
+    return this.comprobantesService.reporteRentabilidad(empresaId, desde, hasta);
+  }
+
+  @Get('reporte-rentabilidad.xlsx')
+  async reporteRentabilidadExcel(
+    @Query('empresaId') empresaId: string,
+    @Query('desde') desde: string,
+    @Query('hasta') hasta: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const buffer = await this.comprobantesService.generarReporteRentabilidadExcel(empresaId, desde, hasta);
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="rentabilidad-${desde}-a-${hasta}.xlsx"`,
+    });
+    return new StreamableFile(buffer);
+  }
+
   @Get()
   findAll(
     @Query('empresaId') empresaId: string,
