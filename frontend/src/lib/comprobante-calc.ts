@@ -35,10 +35,12 @@ export function calcularItem(item: ItemInput): ItemCalculado {
   const proporcion = item.afectacionIva === 'GRAVADO_PARCIAL' ? (item.proporcionGravada ?? 100) : 100;
   const montoGravadoBruto = round2(total * (proporcion / 100));
   const montoExenta = round2(total - montoGravadoBruto);
-  const base = montoGravadoBruto / (1 + tasaIva / 100);
+  // montoGravado es la base imponible (sin IVA) -- asi el Libro de Ventas
+  // (RG 90) cuadra: Total = Exenta + Gravada + IVA.
+  const base = round2(montoGravadoBruto / (1 + tasaIva / 100));
   const liquidacionIva = round2(montoGravadoBruto - base);
 
-  return { total, montoExenta, montoGravado: montoGravadoBruto, liquidacionIva, tasaIva };
+  return { total, montoExenta, montoGravado: base, liquidacionIva, tasaIva };
 }
 
 export interface Subtotales {
