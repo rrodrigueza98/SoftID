@@ -7,6 +7,14 @@ import { Button } from '../components/ui/Button';
 import { Input, Select, FormField } from '../components/ui/Field';
 import type { Tercero, TipoDocumentoIdentidad, TipoTercero } from '../lib/types';
 
+interface ResultadoBusquedaRuc {
+  ruc: string;
+  dv: string;
+  razonSocial: string;
+  activo: boolean;
+  estado: string;
+}
+
 const TIPOS_DOCUMENTO: { value: TipoDocumentoIdentidad; label: string }[] = [
   { value: 'RUC', label: 'RUC' },
   { value: 'CEDULA_PARAGUAYA', label: 'Cédula paraguaya' },
@@ -66,9 +74,38 @@ export function TerceroFormDialog({
   const [error, setError] = useState<string | null>(null);
   const isEdit = Boolean(tercero);
 
+  const [dniQuery, setDniQuery] = useState('');
+  const [dniResultados, setDniResultados] = useState<ResultadoBusquedaRuc[] | null>(null);
+  const [buscandoDni, setBuscandoDni] = useState(false);
+  const [dniError, setDniError] = useState<string | null>(null);
+
+  const buscarEnDnit = async () => {
+    if (!dniQuery.trim()) return;
+    setBuscandoDni(true);
+    setDniError(null);
+    setDniResultados(null);
+    try {
+      const res = await api.get<ResultadoBusquedaRuc[]>('/terceros/buscar-ruc', { params: { q: dniQuery.trim() } });
+      setDniResultados(res.data);
+    } catch (err) {
+      setDniError(apiErrorMessage(err));
+    } finally {
+      setBuscandoDni(false);
+    }
+  };
+
+  const elegirResultadoDnit = (r: ResultadoBusquedaRuc) => {
+    setForm({ ...form, tipoDocumento: 'RUC', numeroDocumento: r.ruc, dvRuc: r.dv, razonSocial: r.razonSocial });
+    setDniResultados(null);
+    setDniQuery('');
+  };
+
   useEffect(() => {
     if (!open) return;
     setError(null);
+    setDniQuery('');
+    setDniResultados(null);
+    setDniError(null);
     if (tercero) {
       setForm({
         tipo: tercero.tipo,
@@ -126,6 +163,55 @@ export function TerceroFormDialog({
         className="flex flex-col gap-4"
       >
         {error && <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+
+        {!isEdit && (
+          <div className="rounded-md border border-ink-200 bg-ink-50 p-3">
+            <div className="flex items-end gap-2">
+              <FormField label="Buscar en DNIT (RUC o razón social)" htmlFor="dni-search">
+                <Input
+                  id="dni-search"
+                  value={dniQuery}
+                  onChange={(e) => setDniQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      buscarEnDnit();
+                    }
+                  }}
+                  placeholder="Ej. 80012345 o Distribuidora Central"
+                />
+              </FormField>
+              <Button type="button" variant="secondary" onClick={buscarEnDnit} disabled={buscandoDni || !dniQuery.trim()}>
+                {buscandoDni ? 'Buscando…' : 'Buscar'}
+              </Button>
+            </div>
+            <p className="mt-1.5 text-xs text-ink-400">
+              Fuente no oficial (datos públicos de la DNIT indexados por terceros) — verificá antes de confiar el dato.
+            </p>
+            {dniError && <p className="mt-2 text-xs text-red-600">{dniError}</p>}
+            {dniResultados && dniResultados.length === 0 && <p className="mt-2 text-xs text-ink-500">Sin resultados.</p>}
+            {dniResultados && dniResultados.length > 0 && (
+              <div className="mt-2 flex max-h-48 flex-col gap-1 overflow-y-auto">
+                {dniResultados.map((r) => (
+                  <button
+                    key={r.ruc}
+                    type="button"
+                    onClick={() => elegirResultadoDnit(r)}
+                    className="flex items-center justify-between rounded-md border border-ink-200 bg-white px-3 py-1.5 text-left text-sm hover:border-brand-300 hover:bg-brand-50"
+                  >
+                    <span>
+                      <span className="font-mono text-ink-500">
+                        {r.ruc}-{r.dv}
+                      </span>{' '}
+                      <span className="text-ink-900">{r.razonSocial}</span>
+                    </span>
+                    <span className={r.activo ? 'text-xs text-emerald-600' : 'text-xs text-ink-400'}>{r.estado}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           <FormField label="Tipo" required>

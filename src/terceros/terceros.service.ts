@@ -1,8 +1,17 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadGatewayException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, TipoTercero } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTerceroDto } from './dto/create-tercero.dto';
 import { UpdateTerceroDto } from './dto/update-tercero.dto';
+
+interface ResultadoBusquedaRuc {
+  ruc: string;
+  dv: string;
+  fullRuc: string;
+  name: string;
+  active: boolean;
+  state: string;
+}
 
 @Injectable()
 export class TercerosService {
@@ -59,5 +68,33 @@ export class TercerosService {
   async remove(id: string) {
     await this.findOne(id);
     return this.prisma.tercero.delete({ where: { id } });
+  }
+
+  // Busqueda de RUC contra ruc.sun.com.py -- NO es un servicio oficial de la
+  // DNIT (que exige apiKey de Marangatu), es un tercero que indexa datos
+  // publicos de la DNIT. Se usa server-side (nunca desde el navegador) para
+  // no exponer la dependencia externa ni pelear con CORS, y con timeout
+  // corto para que una caida de ese servicio no trabe el alta de terceros.
+  async buscarEnDnit(query: string) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    try {
+      const res = await fetch(`https://ruc.sun.com.py/api/search?q=${encodeURIComponent(query)}`, {
+        signal: controller.signal,
+      });
+      if (!res.ok) throw new Error(`ruc.sun.com.py respondio ${res.status}`);
+      const data = (await res.json()) as { results: ResultadoBusquedaRuc[] };
+      return data.results.slice(0, 15).map((r) => ({
+        ruc: r.ruc,
+        dv: r.dv,
+        razonSocial: r.name,
+        activo: r.active,
+        estado: r.state,
+      }));
+    } catch {
+      throw new BadGatewayException('No se pudo consultar el RUC en este momento. Probá de nuevo en un rato.');
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 }

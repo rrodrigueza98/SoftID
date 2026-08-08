@@ -31,6 +31,11 @@ export class TercerosController {
     return this.tercerosService.findAll({ empresaId, tipo, search });
   }
 
+  @Get('buscar-ruc')
+  buscarEnDnit(@Query('q') q: string) {
+    return this.tercerosService.buscarEnDnit(q);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.tercerosService.findOne(id);
