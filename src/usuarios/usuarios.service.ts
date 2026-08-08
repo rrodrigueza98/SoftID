@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 const SALT_ROUNDS = 10;
 
@@ -64,6 +65,16 @@ export class UsuariosService {
   async update(id: string, dto: UpdateUsuarioDto) {
     await this.findOne(id);
     return this.prisma.usuario.update({ where: { id }, data: dto, select: USUARIO_SELECT });
+  }
+
+  // A diferencia de changePassword, no valida la clave actual -- la usa un
+  // ADMIN/superadmin para restablecerle la contraseña a otro usuario que la
+  // olvidó (ver ResetPasswordDto).
+  async resetPassword(id: string, dto: ResetPasswordDto) {
+    await this.findOne(id);
+    const passwordHash = await bcrypt.hash(dto.passwordNueva, SALT_ROUNDS);
+    await this.prisma.usuario.update({ where: { id }, data: { passwordHash } });
+    return { ok: true };
   }
 
   async changePassword(id: string, dto: ChangePasswordDto) {

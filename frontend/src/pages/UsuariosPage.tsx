@@ -50,6 +50,10 @@ export default function UsuariosPage() {
   const [editForm, setEditForm] = useState(emptyEditForm);
   const [editError, setEditError] = useState<string | null>(null);
 
+  const [reseteandoId, setReseteandoId] = useState<string | null>(null);
+  const [resetPasswordValue, setResetPasswordValue] = useState('');
+  const [resetError, setResetError] = useState<string | null>(null);
+
   const { data: usuarios, isLoading } = useQuery({
     queryKey: ['usuarios', empresaId],
     queryFn: async () => (await api.get<Usuario[]>('/usuarios', { params: { empresaId } })).data,
@@ -104,6 +108,16 @@ export default function UsuariosPage() {
       setEditError(null);
     },
     onError: (err) => setEditError(apiErrorMessage(err)),
+  });
+
+  const resetMutation = useMutation({
+    mutationFn: () => api.patch(`/usuarios/${reseteandoId}/resetear-password`, { passwordNueva: resetPasswordValue }),
+    onSuccess: () => {
+      setReseteandoId(null);
+      setResetPasswordValue('');
+      setResetError(null);
+    },
+    onError: (err) => setResetError(apiErrorMessage(err)),
   });
 
   function abrirEdicion(u: Usuario) {
@@ -171,6 +185,16 @@ export default function UsuariosPage() {
                         className="text-xs font-medium text-ink-500 underline decoration-dotted hover:text-ink-700"
                       >
                         Editar
+                      </button>
+                      <button
+                        onClick={() => {
+                          setReseteandoId(u.id);
+                          setResetPasswordValue('');
+                          setResetError(null);
+                        }}
+                        className="text-xs font-medium text-ink-500 underline decoration-dotted hover:text-ink-700"
+                      >
+                        Restablecer contraseña
                       </button>
                       {u.id !== yo?.id && (
                         <button
@@ -331,6 +355,47 @@ export default function UsuariosPage() {
             </Button>
             <Button type="submit" disabled={!puedeGuardarEdicion || editMutation.isPending}>
               {editMutation.isPending ? 'Guardando…' : 'Guardar cambios'}
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(reseteandoId)}
+        onClose={() => setReseteandoId(null)}
+        title="Restablecer contraseña"
+        width="sm"
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            resetMutation.mutate();
+          }}
+          className="flex flex-col gap-4"
+        >
+          {resetError && <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{resetError}</div>}
+
+          <p className="text-sm text-ink-500">
+            Elegí una contraseña temporal y comunicásela al usuario por el medio que prefieras.
+          </p>
+
+          <FormField label="Nueva contraseña (mínimo 8 caracteres)" required>
+            <Input
+              type="password"
+              value={resetPasswordValue}
+              onChange={(e) => setResetPasswordValue(e.target.value)}
+              minLength={8}
+              required
+              autoFocus
+            />
+          </FormField>
+
+          <div className="flex justify-end gap-2 border-t border-ink-100 pt-3">
+            <Button type="button" variant="secondary" onClick={() => setReseteandoId(null)}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={resetPasswordValue.length < 8 || resetMutation.isPending}>
+              {resetMutation.isPending ? 'Restableciendo…' : 'Restablecer'}
             </Button>
           </div>
         </form>
