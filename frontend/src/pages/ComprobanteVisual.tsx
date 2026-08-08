@@ -3,12 +3,19 @@ import {
   MODALIDAD_TRANSPORTE_LABEL,
   MOTIVO_REMISION_LABEL,
   NATURALEZA_TRANSPORTISTA_LABEL,
+  NATURALEZA_VENDEDOR_AUTOFACTURA_LABEL,
   RESPONSABLE_EMISION_REMISION_LABEL,
   RESPONSABLE_FLETE_LABEL,
+  TIPO_DOCUMENTO_IDENTIDAD_LABEL,
   TIPO_DOCUMENTO_LABEL,
   TIPO_TRANSPORTE_LABEL,
 } from './comprobante-labels';
-import type { CondicionVenta, DatosTransporteRemision, TipoDocumentoElectronico } from '../lib/types';
+import type {
+  CondicionVenta,
+  DatosTransporteRemision,
+  DatosVendedorAutofactura,
+  TipoDocumentoElectronico,
+} from '../lib/types';
 
 export interface ComprobanteVisualItem {
   key: string;
@@ -53,6 +60,7 @@ export interface ComprobanteVisualData {
   estadoBadge?: { label: string; className: string } | null;
   esPreview?: boolean;
   datosTransporteRemision?: DatosTransporteRemision | null;
+  datosVendedorAutofactura?: DatosVendedorAutofactura | null;
 }
 
 // Componente presentacional puro -- lo usan tanto la pagina de impresion
@@ -191,6 +199,34 @@ export function ComprobanteVisual({ data }: { data: ComprobanteVisualData }) {
           </div>
         </div>
       </div>
+
+      {data.datosVendedorAutofactura && (
+        <div className="mt-4 border border-ink-300 p-3 text-xs">
+          <p className="mb-2 text-xs font-bold uppercase">Datos del vendedor</p>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+            <p>
+              <span className="font-semibold">Vendedor: </span>
+              {data.datosVendedorAutofactura.nombreVendedor} (
+              {NATURALEZA_VENDEDOR_AUTOFACTURA_LABEL[data.datosVendedorAutofactura.naturalezaVendedor]})
+            </p>
+            <p>
+              <span className="font-semibold">Documento: </span>
+              {TIPO_DOCUMENTO_IDENTIDAD_LABEL[data.datosVendedorAutofactura.tipoDocIdentidadVendedor]}{' '}
+              {data.datosVendedorAutofactura.numeroDocIdentidadVendedor}
+            </p>
+            <p className="col-span-2">
+              <span className="font-semibold">Domicilio del vendedor: </span>
+              {data.datosVendedorAutofactura.direccionVendedor} Nº {data.datosVendedorAutofactura.numeroCasaVendedor},{' '}
+              {data.datosVendedorAutofactura.ciudadVendedor}, {data.datosVendedorAutofactura.departamentoVendedor}
+            </p>
+            <p className="col-span-2">
+              <span className="font-semibold">Lugar de la transacción: </span>
+              {data.datosVendedorAutofactura.direccionTransaccion}, {data.datosVendedorAutofactura.ciudadTransaccion},{' '}
+              {data.datosVendedorAutofactura.departamentoTransaccion}
+            </p>
+          </div>
+        </div>
+      )}
 
       {data.datosTransporteRemision && (
         <div className="mt-4 border border-ink-300 p-3 text-xs">

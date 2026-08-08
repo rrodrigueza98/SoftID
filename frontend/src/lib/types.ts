@@ -143,6 +143,22 @@ export interface DatosTransporteRemision {
   nombreChofer: string;
 }
 
+export type NaturalezaVendedorAutofactura = 'NO_CONTRIBUYENTE' | 'EXTRANJERO';
+
+export interface DatosVendedorAutofactura {
+  naturalezaVendedor: NaturalezaVendedorAutofactura;
+  tipoDocIdentidadVendedor: TipoDocumentoIdentidad;
+  numeroDocIdentidadVendedor: string;
+  nombreVendedor: string;
+  direccionVendedor: string;
+  numeroCasaVendedor: string;
+  ciudadVendedor: string;
+  departamentoVendedor: string;
+  direccionTransaccion: string;
+  ciudadTransaccion: string;
+  departamentoTransaccion: string;
+}
+
 export interface CuentaCorriente {
   id: string;
   terceroId: string;
@@ -351,6 +367,7 @@ export interface Comprobante {
   empresa?: Empresa;
   timbrado?: Timbrado;
   datosTransporteRemision?: DatosTransporteRemision | null;
+  datosVendedorAutofactura?: DatosVendedorAutofactura | null;
 }
 
 export interface ComprobantePago {

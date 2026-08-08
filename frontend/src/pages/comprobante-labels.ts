@@ -2,9 +2,11 @@ import type {
   ModalidadTransporte,
   MotivoEmisionNotaRemision,
   NaturalezaTransportista,
+  NaturalezaVendedorAutofactura,
   ResponsableEmisionNotaRemision,
   ResponsableFlete,
   TipoDocumentoElectronico,
+  TipoDocumentoIdentidad,
   TipoTransporte,
 } from '../lib/types';
 
@@ -78,4 +80,22 @@ export const TIPO_TRANSPORTE_LABEL: Record<TipoTransporte, string> = {
 export const NATURALEZA_TRANSPORTISTA_LABEL: Record<NaturalezaTransportista, string> = {
   CONTRIBUYENTE: 'Contribuyente',
   NO_CONTRIBUYENTE: 'No contribuyente',
+};
+
+export const TIPO_DOCUMENTO_IDENTIDAD_LABEL: Record<TipoDocumentoIdentidad, string> = {
+  RUC: 'RUC',
+  CEDULA_PARAGUAYA: 'Cédula paraguaya',
+  PASAPORTE: 'Pasaporte',
+  CEDULA_EXTRANJERA: 'Cédula extranjera',
+  CARNET_RESIDENCIA: 'Carnet de residencia',
+  INNOMINADO: 'Consumidor final',
+  TARJETA_DIPLOMATICA: 'Tarjeta diplomática',
+  OTRO: 'Otro',
+};
+
+// Etiquetas del bloque de vendedor/lugar de la transaccion de la
+// Autofactura Electronica (grupo E4 del Manual Tecnico SIFEN v150).
+export const NATURALEZA_VENDEDOR_AUTOFACTURA_LABEL: Record<NaturalezaVendedorAutofactura, string> = {
+  NO_CONTRIBUYENTE: 'No contribuyente',
+  EXTRANJERO: 'Extranjero',
 };

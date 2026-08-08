@@ -31,6 +31,7 @@ import type {
   MotivoEmisionNotaCD,
   MotivoEmisionNotaRemision,
   NaturalezaTransportista,
+  NaturalezaVendedorAutofactura,
   PuntoExpedicion,
   Producto,
   ResponsableEmisionNotaRemision,
@@ -85,6 +86,10 @@ const TIPO_DOC_TRANSPORTISTA: { value: TipoDocumentoIdentidad; label: string }[]
   { value: 'CEDULA_EXTRANJERA', label: 'Cédula extranjera' },
   { value: 'CARNET_RESIDENCIA', label: 'Carnet de residencia' },
 ];
+
+// SIFEN (E304 iTipIDVen) solo admite estos 4 tipos de documento para el
+// vendedor de una Autofactura.
+const TIPO_DOC_VENDEDOR = TIPO_DOC_TRANSPORTISTA;
 
 interface DatosRemisionForm {
   motivoEmision: MotivoEmisionNotaRemision;
@@ -156,6 +161,36 @@ function emptyDatosRemision(): DatosRemisionForm {
   };
 }
 
+interface DatosVendedorForm {
+  naturalezaVendedor: NaturalezaVendedorAutofactura;
+  tipoDocIdentidadVendedor: TipoDocumentoIdentidad | '';
+  numeroDocIdentidadVendedor: string;
+  nombreVendedor: string;
+  direccionVendedor: string;
+  numeroCasaVendedor: string;
+  ciudadVendedor: string;
+  departamentoVendedor: string;
+  direccionTransaccion: string;
+  ciudadTransaccion: string;
+  departamentoTransaccion: string;
+}
+
+function emptyDatosVendedor(): DatosVendedorForm {
+  return {
+    naturalezaVendedor: 'NO_CONTRIBUYENTE',
+    tipoDocIdentidadVendedor: '',
+    numeroDocIdentidadVendedor: '',
+    nombreVendedor: '',
+    direccionVendedor: '',
+    numeroCasaVendedor: '',
+    ciudadVendedor: '',
+    departamentoVendedor: '',
+    direccionTransaccion: '',
+    ciudadTransaccion: '',
+    departamentoTransaccion: '',
+  };
+}
+
 interface ItemRow {
   key: string;
   productoId: string;
@@ -207,6 +242,7 @@ export default function EmitirComprobantePage() {
   const [observacion, setObservacion] = useState('');
   const [items, setItems] = useState<ItemRow[]>([emptyRow()]);
   const [datosRemision, setDatosRemision] = useState<DatosRemisionForm>(emptyDatosRemision());
+  const [datosVendedor, setDatosVendedor] = useState<DatosVendedorForm>(emptyDatosVendedor());
 
   const esAutofactura = tipoDocumento === 'AUTOFACTURA_ELECTRONICA';
   const esNota = tipoDocumento === 'NOTA_CREDITO_ELECTRONICA' || tipoDocumento === 'NOTA_DEBITO_ELECTRONICA';
@@ -234,6 +270,7 @@ export default function EmitirComprobantePage() {
     setObservacion('');
     setItems([emptyRow()]);
     setDatosRemision(emptyDatosRemision());
+    setDatosVendedor(emptyDatosVendedor());
   }
 
   // --- catalogos de soporte ---
@@ -342,6 +379,10 @@ export default function EmitirComprobantePage() {
     setDatosRemision((d) => ({ ...d, ...patch }));
   }
 
+  function patchVendedor(patch: Partial<DatosVendedorForm>) {
+    setDatosVendedor((d) => ({ ...d, ...patch }));
+  }
+
   function updateRow(key: string, patch: Partial<ItemRow>) {
     setItems((rows) => rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
   }
@@ -416,6 +457,24 @@ export default function EmitirComprobantePage() {
     };
   }
 
+  function datosVendedorAutofacturaPayload() {
+    if (!esAutofactura) return undefined;
+    const d = datosVendedor;
+    return {
+      naturalezaVendedor: d.naturalezaVendedor,
+      tipoDocIdentidadVendedor: d.tipoDocIdentidadVendedor || undefined,
+      numeroDocIdentidadVendedor: d.numeroDocIdentidadVendedor,
+      nombreVendedor: d.nombreVendedor,
+      direccionVendedor: d.direccionVendedor,
+      numeroCasaVendedor: d.numeroCasaVendedor,
+      ciudadVendedor: d.ciudadVendedor,
+      departamentoVendedor: d.departamentoVendedor,
+      direccionTransaccion: d.direccionTransaccion,
+      ciudadTransaccion: d.ciudadTransaccion,
+      departamentoTransaccion: d.departamentoTransaccion,
+    };
+  }
+
   const mutation = useMutation({
     mutationFn: async () =>
       (
@@ -441,6 +500,7 @@ export default function EmitirComprobantePage() {
           comprobanteAsociadoId: esNota ? comprobanteAsociadoId || undefined : undefined,
           motivoEmision: esNota ? motivoEmision : undefined,
           datosTransporteRemision: datosTransporteRemisionPayload(),
+          datosVendedorAutofactura: datosVendedorAutofacturaPayload(),
           observacion: observacion || undefined,
           items: items.map((row) => ({
             productoId: row.productoId || undefined,
@@ -499,12 +559,26 @@ export default function EmitirComprobantePage() {
       Boolean(datosRemision.nombreChofer) &&
       (datosRemision.motivoEmision !== 'OTRO' || Boolean(datosRemision.motivoEmisionOtro)));
 
+  const datosVendedorCompletos =
+    !esAutofactura ||
+    (Boolean(datosVendedor.tipoDocIdentidadVendedor) &&
+      Boolean(datosVendedor.numeroDocIdentidadVendedor) &&
+      Boolean(datosVendedor.nombreVendedor) &&
+      Boolean(datosVendedor.direccionVendedor) &&
+      Boolean(datosVendedor.numeroCasaVendedor) &&
+      Boolean(datosVendedor.ciudadVendedor) &&
+      Boolean(datosVendedor.departamentoVendedor) &&
+      Boolean(datosVendedor.direccionTransaccion) &&
+      Boolean(datosVendedor.ciudadTransaccion) &&
+      Boolean(datosVendedor.departamentoTransaccion));
+
   const puedeEmitir =
     Boolean(puntoExpedicion) &&
     Boolean(timbradoId) &&
     (esAutofactura ? Boolean(proveedorId) : Boolean(clienteId)) &&
     condicionOperacionCompleta &&
     datosRemisionCompletos &&
+    datosVendedorCompletos &&
     items.every((r) => r.descripcion && r.cantidad && r.precioUnitario && r.unidadMedidaId);
 
   const timbradoSeleccionado = timbradosDisponibles.find((t) => t.id === timbradoId);
@@ -556,6 +630,12 @@ export default function EmitirComprobantePage() {
           dvRucTransportista: datosRemision.dvRucTransportista || null,
           tipoDocIdentidadTransportista: datosRemision.tipoDocIdentidadTransportista || null,
           numeroDocIdentidadTransportista: datosRemision.numeroDocIdentidadTransportista || null,
+        }
+      : undefined,
+    datosVendedorAutofactura: esAutofactura
+      ? {
+          ...datosVendedor,
+          tipoDocIdentidadVendedor: datosVendedor.tipoDocIdentidadVendedor || 'CEDULA_PARAGUAYA',
         }
       : undefined,
   };
@@ -764,6 +844,107 @@ export default function EmitirComprobantePage() {
                     ))}
                   </Select>
                 </FormField>
+              </div>
+            )}
+
+            {esAutofactura && (
+              <div className="flex flex-col gap-4 rounded-md border border-ink-200 p-4">
+                <h3 className="text-sm font-semibold text-ink-800">Datos del vendedor (Autofactura)</h3>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField label="Naturaleza del vendedor" required>
+                    <Select
+                      value={datosVendedor.naturalezaVendedor}
+                      onChange={(e) => patchVendedor({ naturalezaVendedor: e.target.value as NaturalezaVendedorAutofactura })}
+                    >
+                      <option value="NO_CONTRIBUYENTE">No contribuyente</option>
+                      <option value="EXTRANJERO">Extranjero</option>
+                    </Select>
+                  </FormField>
+                  <FormField label="Nombre y apellido del vendedor" required>
+                    <Input value={datosVendedor.nombreVendedor} onChange={(e) => patchVendedor({ nombreVendedor: e.target.value })} />
+                  </FormField>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField label="Tipo de documento" required>
+                    <Select
+                      value={datosVendedor.tipoDocIdentidadVendedor}
+                      onChange={(e) => patchVendedor({ tipoDocIdentidadVendedor: e.target.value as TipoDocumentoIdentidad })}
+                    >
+                      <option value="">Elegir…</option>
+                      {TIPO_DOC_VENDEDOR.map((t) => (
+                        <option key={t.value} value={t.value}>
+                          {t.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </FormField>
+                  <FormField label="Número de documento" required>
+                    <Input
+                      value={datosVendedor.numeroDocIdentidadVendedor}
+                      onChange={(e) => patchVendedor({ numeroDocIdentidadVendedor: e.target.value })}
+                    />
+                  </FormField>
+                </div>
+
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase text-ink-500">Domicilio del vendedor</p>
+                  <div className="grid grid-cols-4 gap-4">
+                    <div className="col-span-2">
+                      <FormField label="Dirección" required>
+                        <Input
+                          value={datosVendedor.direccionVendedor}
+                          onChange={(e) => patchVendedor({ direccionVendedor: e.target.value })}
+                        />
+                      </FormField>
+                    </div>
+                    <FormField label="Nº casa" required>
+                      <Input
+                        value={datosVendedor.numeroCasaVendedor}
+                        onChange={(e) => patchVendedor({ numeroCasaVendedor: e.target.value })}
+                      />
+                    </FormField>
+                    <FormField label="Ciudad" required>
+                      <Input value={datosVendedor.ciudadVendedor} onChange={(e) => patchVendedor({ ciudadVendedor: e.target.value })} />
+                    </FormField>
+                  </div>
+                  <div className="mt-4">
+                    <FormField label="Departamento" required>
+                      <Input
+                        value={datosVendedor.departamentoVendedor}
+                        onChange={(e) => patchVendedor({ departamentoVendedor: e.target.value })}
+                      />
+                    </FormField>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase text-ink-500">
+                    Lugar de la transacción
+                    {datosVendedor.naturalezaVendedor === 'EXTRANJERO' ? ' (donde se realizó la operación en Paraguay)' : ''}
+                  </p>
+                  <div className="grid grid-cols-3 gap-4">
+                    <FormField label="Dirección" required>
+                      <Input
+                        value={datosVendedor.direccionTransaccion}
+                        onChange={(e) => patchVendedor({ direccionTransaccion: e.target.value })}
+                      />
+                    </FormField>
+                    <FormField label="Ciudad" required>
+                      <Input
+                        value={datosVendedor.ciudadTransaccion}
+                        onChange={(e) => patchVendedor({ ciudadTransaccion: e.target.value })}
+                      />
+                    </FormField>
+                    <FormField label="Departamento" required>
+                      <Input
+                        value={datosVendedor.departamentoTransaccion}
+                        onChange={(e) => patchVendedor({ departamentoTransaccion: e.target.value })}
+                      />
+                    </FormField>
+                  </div>
+                </div>
               </div>
             )}
 

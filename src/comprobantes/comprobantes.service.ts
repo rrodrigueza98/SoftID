@@ -50,6 +50,11 @@ export class ComprobantesService {
         'NOTA_REMISION_ELECTRONICA requiere datosTransporteRemision (grupos E6/E10 del Manual Tecnico SIFEN)',
       );
     }
+    if (dto.tipoDocumento === TipoDocumentoElectronico.AUTOFACTURA_ELECTRONICA && !dto.datosVendedorAutofactura) {
+      throw new BadRequestException(
+        'AUTOFACTURA_ELECTRONICA requiere datosVendedorAutofactura (grupo E4 del Manual Tecnico SIFEN)',
+      );
+    }
 
     const itemsCalculados = dto.items.map((item) => ({ ...item, ...calcularItem(item) }));
     const subtotales = calcularSubtotales(itemsCalculados);
@@ -145,6 +150,9 @@ export class ComprobantesService {
                   fechaFinTraslado: new Date(dto.datosTransporteRemision.fechaFinTraslado),
                 },
               }
+            : undefined,
+          datosVendedorAutofactura: dto.datosVendedorAutofactura
+            ? { create: dto.datosVendedorAutofactura }
             : undefined,
         },
         include: { items: true },
@@ -257,6 +265,7 @@ export class ComprobantesService {
         empresa: true,
         timbrado: { include: { puntoExpedicion: { include: { establecimiento: true } } } },
         datosTransporteRemision: true,
+        datosVendedorAutofactura: true,
       },
     });
     if (!comprobante) throw new NotFoundException(`Comprobante ${id} no encontrado`);

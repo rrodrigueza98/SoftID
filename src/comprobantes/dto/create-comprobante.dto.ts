@@ -22,6 +22,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { DatosTransporteRemisionDto } from './datos-transporte-remision.dto';
+import { DatosVendedorAutofacturaDto } from './datos-vendedor-autofactura.dto';
 
 class ComprobanteItemDto {
   @IsOptional()
@@ -160,6 +161,13 @@ export class CreateComprobanteDto {
   @ValidateNested()
   @Type(() => DatosTransporteRemisionDto)
   datosTransporteRemision?: DatosTransporteRemisionDto;
+
+  // Obligatorio si tipoDocumento es AUTOFACTURA_ELECTRONICA (grupo E4 del
+  // Manual Tecnico SIFEN v150: datos del vendedor y lugar de la transaccion).
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => DatosVendedorAutofacturaDto)
+  datosVendedorAutofactura?: DatosVendedorAutofacturaDto;
 
   @IsArray()
   @ArrayMinSize(1)

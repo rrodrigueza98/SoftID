@@ -720,6 +720,7 @@ model Comprobante {
   reciboAplicaciones          ReciboAplicacion[]
   asientosContables           AsientoContable[]
   datosTransporteRemision     DatosTransporteRemision?
+  datosVendedorAutofactura    DatosVendedorAutofactura?
 
   @@unique([puntoExpedicionId, tipoDocumento, numero])
   @@index([empresaId, fechaEmision])
@@ -877,6 +878,37 @@ model DatosTransporteRemision {
   comprobante Comprobante @relation(fields: [comprobanteId], references: [id])
 
   @@map("datos_transporte_remision")
+}
+
+/// E301 iNatVen
+enum NaturalezaVendedorAutofactura {
+  NO_CONTRIBUYENTE
+  EXTRANJERO
+}
+
+model DatosVendedorAutofactura {
+  id            String @id @default(cuid())
+  comprobanteId String @unique
+
+  // E4 -- datos del vendedor (E300-E315)
+  naturalezaVendedor       NaturalezaVendedorAutofactura
+  tipoDocIdentidadVendedor TipoDocumentoIdentidad
+  numeroDocIdentidadVendedor String
+  nombreVendedor           String
+  direccionVendedor        String
+  numeroCasaVendedor       String
+  ciudadVendedor           String
+  departamentoVendedor     String
+
+  // E4 -- lugar donde se realizo la transaccion (E316-E322), relevante
+  // sobre todo cuando el vendedor es extranjero
+  direccionTransaccion    String
+  ciudadTransaccion       String
+  departamentoTransaccion String
+
+  comprobante Comprobante @relation(fields: [comprobanteId], references: [id])
+
+  @@map("datos_vendedor_autofactura")
 }
 
 model ComprobantePago {

@@ -54,6 +54,7 @@ function toVisualData(comprobante: Comprobante): ComprobanteVisualData {
     iva10: comprobante.iva10,
     total: comprobante.total,
     datosTransporteRemision: comprobante.datosTransporteRemision,
+    datosVendedorAutofactura: comprobante.datosVendedorAutofactura,
   };
 }
 
