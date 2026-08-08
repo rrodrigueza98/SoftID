@@ -7,7 +7,9 @@ import { formatGs } from '../lib/format';
 import { calcularItem, calcularSubtotales } from '../lib/comprobante-calc';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { Dialog } from '../components/ui/Dialog';
 import { Input, Select, FormField } from '../components/ui/Field';
+import { RucSearchBox, type ResultadoBusquedaRuc } from '../components/RucSearch';
 import { FiscalSetupDialog } from './FiscalSetupDialog';
 import { TIPO_DOCUMENTO_LABEL } from './comprobante-labels';
 import { ComprobanteVisual, type ComprobanteVisualData } from './ComprobanteVisual';
@@ -152,6 +154,46 @@ export default function EmitirComprobantePage() {
     queryFn: async () =>
       (await api.get<Tercero[]>('/terceros', { params: { empresaId, tipo: esAutofactura ? 'PROVEEDOR' : 'CLIENTE' } })).data,
   });
+
+  const [rucDialogOpen, setRucDialogOpen] = useState(false);
+  const [creandoTercero, setCreandoTercero] = useState(false);
+  const [rucDialogError, setRucDialogError] = useState<string | null>(null);
+
+  // Al elegir un resultado de DNIT: si ya existe un tercero con ese RUC lo
+  // seleccionamos directo, si no lo damos de alta en el momento (con lo
+  // minimo indispensable) para no cortar el flujo de facturacion -- despues
+  // se puede completar el resto de sus datos desde Clientes/Proveedores.
+  const elegirClienteDnit = async (r: ResultadoBusquedaRuc) => {
+    const existente = terceros?.find((t) => t.numeroDocumento === r.ruc);
+    if (existente) {
+      esAutofactura ? setProveedorId(existente.id) : setClienteId(existente.id);
+      setRucDialogOpen(false);
+      return;
+    }
+
+    setCreandoTercero(true);
+    setRucDialogError(null);
+    try {
+      const nuevo = (
+        await api.post<Tercero>('/terceros', {
+          empresaId,
+          tipo: esAutofactura ? 'PROVEEDOR' : 'CLIENTE',
+          tipoDocumento: 'RUC',
+          numeroDocumento: r.ruc,
+          dvRuc: r.dv,
+          razonSocial: r.razonSocial,
+          activo: true,
+        })
+      ).data;
+      await queryClient.invalidateQueries({ queryKey: ['terceros-select', empresaId] });
+      esAutofactura ? setProveedorId(nuevo.id) : setClienteId(nuevo.id);
+      setRucDialogOpen(false);
+    } catch (err) {
+      setRucDialogError(apiErrorMessage(err));
+    } finally {
+      setCreandoTercero(false);
+    }
+  };
 
   const { data: productos } = useQuery({
     queryKey: ['productos-select', empresaId],
@@ -391,20 +433,33 @@ export default function EmitirComprobantePage() {
 
             <div className="grid grid-cols-2 gap-4">
               <FormField label={esAutofactura ? 'Proveedor' : 'Cliente'} required>
-                <Select
-                  value={esAutofactura ? proveedorId : clienteId}
-                  onChange={(e) => (esAutofactura ? setProveedorId(e.target.value) : setClienteId(e.target.value))}
-                  required
-                >
-                  <option value="" disabled>
-                    Elegir…
-                  </option>
-                  {terceros?.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.razonSocial}
+                <div className="flex gap-2">
+                  <Select
+                    value={esAutofactura ? proveedorId : clienteId}
+                    onChange={(e) => (esAutofactura ? setProveedorId(e.target.value) : setClienteId(e.target.value))}
+                    required
+                    className="flex-1"
+                  >
+                    <option value="" disabled>
+                      Elegir…
                     </option>
-                  ))}
-                </Select>
+                    {terceros?.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.razonSocial}
+                      </option>
+                    ))}
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => {
+                      setRucDialogError(null);
+                      setRucDialogOpen(true);
+                    }}
+                  >
+                    Buscar en DNIT
+                  </Button>
+                </div>
               </FormField>
               <FormField label="Condición de venta">
                 <Select value={condicionVenta} onChange={(e) => setCondicionVenta(e.target.value as CondicionVenta)}>
@@ -627,6 +682,15 @@ export default function EmitirComprobantePage() {
         }}
         tipoDocumentoSugerido={tipoDocumento}
       />
+
+      <Dialog open={rucDialogOpen} onClose={() => setRucDialogOpen(false)} title="Buscar en DNIT">
+        {rucDialogError && <div className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{rucDialogError}</div>}
+        {creandoTercero ? (
+          <p className="py-4 text-center text-sm text-ink-500">Guardando cliente…</p>
+        ) : (
+          <RucSearchBox onSelect={elegirClienteDnit} />
+        )}
+      </Dialog>
     </div>
   );
 }
