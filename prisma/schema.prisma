@@ -326,11 +326,20 @@ model Timbrado {
   @@map("timbrados")
 }
 
+// Nivel de acceso del rol: ADMIN entra a configuracion (Empresa,
+// Establecimientos, Timbrados, Usuarios); OPERADOR solo a las pantallas
+// operativas del dia a dia (Facturacion, Compras, Stock, etc.).
+enum RolTipo {
+  ADMIN
+  OPERADOR
+}
+
 model Rol {
   id        String   @id @default(cuid())
   empresaId String
   nombre    String
-  permisos  Json // lista de permisos/acciones habilitadas
+  tipo      RolTipo  @default(OPERADOR)
+  permisos  Json // lista de permisos/acciones habilitadas (sin uso todavia)
   createdAt DateTime @default(now())
 
   empresa  Empresa   @relation(fields: [empresaId], references: [id])

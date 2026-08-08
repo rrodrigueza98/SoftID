@@ -1,5 +1,7 @@
 // Forma del usuario autenticado adjuntado a `request.user` por JwtStrategy,
 // y del payload que viaja dentro del propio JWT.
+import { RolTipo } from '@prisma/client';
+
 export interface AuthUser {
   id: string;
   email: string;
@@ -7,6 +9,7 @@ export interface AuthUser {
   empresaId: string;
   rolId: string;
   rolNombre: string;
+  rolTipo: RolTipo;
 }
 
 export interface JwtPayload {

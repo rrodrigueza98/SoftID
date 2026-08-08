@@ -13,46 +13,56 @@ import { UpdateUsuarioDto } from './dto/update-usuario.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthUser } from '../auth/auth.types';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 @Controller('usuarios')
 export class UsuariosController {
   constructor(private readonly usuariosService: UsuariosService) {}
 
+  // Sin @Roles(): cualquier usuario autenticado necesita poder leer su
+  // propio perfil, sin importar su rol.
   @Get('me')
   me(@CurrentUser() usuario: AuthUser) {
     return this.usuariosService.findOne(usuario.id);
   }
 
-  @Post()
-  create(@Body() dto: CreateUsuarioDto) {
-    return this.usuariosService.create(dto);
-  }
-
-  @Get()
-  findAll(@Query('empresaId') empresaId: string) {
-    return this.usuariosService.findAll(empresaId);
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.usuariosService.findOne(id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateUsuarioDto) {
-    return this.usuariosService.update(id, dto);
-  }
-
+  @Roles('ADMIN')
   @Patch(':id/cambiar-password')
   changePassword(@Param('id') id: string, @Body() dto: ChangePasswordDto) {
     return this.usuariosService.changePassword(id, dto);
   }
 
+  @Roles('ADMIN')
+  @Post()
+  create(@Body() dto: CreateUsuarioDto) {
+    return this.usuariosService.create(dto);
+  }
+
+  @Roles('ADMIN')
+  @Get()
+  findAll(@Query('empresaId') empresaId: string) {
+    return this.usuariosService.findAll(empresaId);
+  }
+
+  @Roles('ADMIN')
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.usuariosService.findOne(id);
+  }
+
+  @Roles('ADMIN')
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() dto: UpdateUsuarioDto) {
+    return this.usuariosService.update(id, dto);
+  }
+
+  @Roles('ADMIN')
   @Patch(':id/desactivar')
   desactivar(@Param('id') id: string) {
     return this.usuariosService.desactivar(id);
   }
 
+  @Roles('ADMIN')
   @Patch(':id/activar')
   activar(@Param('id') id: string) {
     return this.usuariosService.activar(id);

@@ -1,6 +1,25 @@
 // Tipos que reflejan los enums y formas de datos del backend (prisma/schema.prisma).
 // No se importan directo del backend porque son proyectos npm separados.
 
+export type RolTipo = 'ADMIN' | 'OPERADOR';
+
+export interface Rol {
+  id: string;
+  empresaId: string;
+  nombre: string;
+  tipo: RolTipo;
+}
+
+export interface Usuario {
+  id: string;
+  empresaId: string;
+  rolId: string;
+  nombre: string;
+  email: string;
+  activo: boolean;
+  rol: Rol;
+}
+
 export type TipoTercero = 'CLIENTE' | 'PROVEEDOR' | 'AMBOS';
 
 export type TipoContribuyente = 'FISICA' | 'JURIDICA';

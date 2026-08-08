@@ -1,16 +1,10 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { api, tokenStorage } from './api-client';
-
-interface Usuario {
-  id: string;
-  empresaId: string;
-  nombre: string;
-  email: string;
-  rol: { id: string; nombre: string };
-}
+import type { Usuario } from './types';
 
 interface AuthContextValue {
   usuario: Usuario | null;
+  esAdmin: boolean;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
@@ -47,7 +41,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUsuario(null);
   }
 
-  return <AuthContext.Provider value={{ usuario, loading, login, logout }}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ usuario, esAdmin: usuario?.rol.tipo === 'ADMIN', loading, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

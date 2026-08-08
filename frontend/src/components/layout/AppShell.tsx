@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../../lib/auth-context';
 import { cn } from '../../lib/cn';
 
-const NAV_SECTIONS: { title?: string; items: { to: string; label: string; end?: boolean }[] }[] = [
+type NavItem = { to: string; label: string; end?: boolean; soloAdmin?: boolean };
+
+const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
   { items: [{ to: '/', label: 'Inicio', end: true }] },
   {
     title: 'Ventas',
@@ -30,6 +32,7 @@ const NAV_SECTIONS: { title?: string; items: { to: string; label: string; end?: 
     ],
   },
   { title: 'Contabilidad', items: [{ to: '/contabilidad', label: 'Contabilidad' }] },
+  { title: 'Configuración', items: [{ to: '/usuarios', label: 'Usuarios', soloAdmin: true }] },
 ];
 
 // Secciones abiertas por default -- asi el menu no arranca todo colapsado
@@ -37,10 +40,21 @@ const NAV_SECTIONS: { title?: string; items: { to: string; label: string; end?: 
 const SECCIONES_ABIERTAS_POR_DEFECTO = new Set(NAV_SECTIONS.filter((s) => s.title).map((s) => s.title!));
 
 export function AppShell() {
-  const { usuario, logout } = useAuth();
+  const { usuario, esAdmin, logout } = useAuth();
   const [navOpen, setNavOpen] = useState(false);
   const [abiertas, setAbiertas] = useState(SECCIONES_ABIERTAS_POR_DEFECTO);
   const location = useLocation();
+
+  // Los items marcados soloAdmin no existen para un Operador -- se filtran
+  // aca en vez de ocultarlos con CSS, para que ni siquiera aparezcan un
+  // instante en el DOM. Las secciones que quedan sin items no se muestran.
+  const seccionesVisibles = useMemo(
+    () =>
+      NAV_SECTIONS.map((s) => ({ ...s, items: s.items.filter((i) => !i.soloAdmin || esAdmin) })).filter(
+        (s) => s.items.length > 0,
+      ),
+    [esAdmin],
+  );
 
   // Al navegar (click en un link del menu) cerramos el drawer mobile --
   // si no, queda tapando la pantalla despues de elegir una seccion.
@@ -107,7 +121,7 @@ export function AppShell() {
           <span className="text-sm font-semibold text-white">SoftID</span>
         </div>
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 pt-16 md:pt-3">
-          {NAV_SECTIONS.map((section, i) => {
+          {seccionesVisibles.map((section, i) => {
             if (!section.title) {
               return (
                 <div key={i} className="space-y-0.5 pb-3">

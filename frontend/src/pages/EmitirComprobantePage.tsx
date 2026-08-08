@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api, apiErrorMessage } from '../lib/api-client';
 import { useEmpresaId } from '../lib/hooks';
+import { useAuth } from '../lib/auth-context';
 import { formatGs } from '../lib/format';
 import { calcularItem, calcularSubtotales } from '../lib/comprobante-calc';
 import { Card } from '../components/ui/Card';
@@ -221,6 +222,7 @@ function emptyRow(unidadMedidaId = ''): ItemRow {
 
 export default function EmitirComprobantePage() {
   const empresaId = useEmpresaId();
+  const { esAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [fiscalSetupOpen, setFiscalSetupOpen] = useState(false);
@@ -718,9 +720,13 @@ export default function EmitirComprobantePage() {
                       No hay timbrado vigente para {TIPO_DOCUMENTO_LABEL[tipoDocumento]}. Cada tipo de documento necesita el
                       suyo propio.
                     </p>
-                    <Button type="button" variant="secondary" size="sm" onClick={() => setFiscalSetupOpen(true)}>
-                      Configurar timbrado…
-                    </Button>
+                    {esAdmin ? (
+                      <Button type="button" variant="secondary" size="sm" onClick={() => setFiscalSetupOpen(true)}>
+                        Configurar timbrado…
+                      </Button>
+                    ) : (
+                      <p className="text-xs text-ink-500">Pedile a un administrador que lo configure.</p>
+                    )}
                   </div>
                 ) : (
                   <Select value={timbradoId} onChange={(e) => setTimbradoId(e.target.value)}>
