@@ -98,6 +98,13 @@ enum CondicionVenta {
   CREDITO
 }
 
+/// E641 iCondCred (Manual Tecnico SIFEN v150, pag. 84) -- obligatorio
+/// cuando la condicion de venta es CREDITO.
+enum CondicionCredito {
+  PLAZO
+  CUOTA
+}
+
 /// Catalogo oficial de formas de pago (campo E606 iTiPago, Manual Tecnico SIFEN
 /// v150, pag. 81). Numeracion 1-21 + 99=Otro; se conserva el orden oficial.
 enum FormaPago {
@@ -665,6 +672,12 @@ model Comprobante {
 
   condicionVenta      CondicionVenta           @default(CONTADO)
   condicionPagoId     String?
+  // E641/E643/E644 (Manual Tecnico SIFEN v150, pag. 84) -- obligatorios
+  // cuando condicionVenta = CREDITO: si es a Plazo se informa plazoCredito
+  // ("30 dias", "12 meses"), si es a Cuota se informa cantidadCuotas.
+  condicionCredito    CondicionCredito?
+  plazoCredito        String?
+  cantidadCuotas      Int?
   moneda              String                   @default("PYG")
   tipoCambio          Decimal?                 @db.Decimal(15, 4)
 

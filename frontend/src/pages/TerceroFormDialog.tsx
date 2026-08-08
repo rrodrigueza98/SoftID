@@ -6,7 +6,7 @@ import { Dialog } from '../components/ui/Dialog';
 import { Button } from '../components/ui/Button';
 import { Input, Select, FormField } from '../components/ui/Field';
 import { RucSearchBox, type ResultadoBusquedaRuc } from '../components/RucSearch';
-import type { Tercero, TipoDocumentoIdentidad, TipoTercero } from '../lib/types';
+import type { Tercero, TipoContribuyente, TipoDocumentoIdentidad, TipoTercero } from '../lib/types';
 
 const TIPOS_DOCUMENTO: { value: TipoDocumentoIdentidad; label: string }[] = [
   { value: 'RUC', label: 'RUC' },
@@ -25,6 +25,7 @@ interface FormState {
   dvRuc: string;
   razonSocial: string;
   nombreFantasia: string;
+  tipoContribuyente: TipoContribuyente | '';
   direccion: string;
   ciudad: string;
   telefono: string;
@@ -41,6 +42,7 @@ function emptyForm(tipo: TipoTercero): FormState {
     dvRuc: '',
     razonSocial: '',
     nombreFantasia: '',
+    tipoContribuyente: '',
     direccion: '',
     ciudad: '',
     telefono: '',
@@ -82,6 +84,7 @@ export function TerceroFormDialog({
         dvRuc: tercero.dvRuc ?? '',
         razonSocial: tercero.razonSocial,
         nombreFantasia: tercero.nombreFantasia ?? '',
+        tipoContribuyente: tercero.tipoContribuyente ?? '',
         direccion: tercero.direccion ?? '',
         ciudad: tercero.ciudad ?? '',
         telefono: tercero.telefono ?? '',
@@ -104,6 +107,7 @@ export function TerceroFormDialog({
         dvRuc: form.tipoDocumento === 'RUC' ? form.dvRuc : undefined,
         razonSocial: form.razonSocial,
         nombreFantasia: form.nombreFantasia || undefined,
+        tipoContribuyente: form.tipoDocumento === 'RUC' ? form.tipoContribuyente || undefined : undefined,
         direccion: form.direccion || undefined,
         ciudad: form.ciudad || undefined,
         telefono: form.telefono || undefined,
@@ -170,6 +174,22 @@ export function TerceroFormDialog({
             </FormField>
           )}
         </div>
+
+        {form.tipoDocumento === 'RUC' && (
+          <FormField label="Tipo de contribuyente" required>
+            <Select
+              value={form.tipoContribuyente}
+              onChange={(e) => setForm({ ...form, tipoContribuyente: e.target.value as TipoContribuyente })}
+              required
+            >
+              <option value="" disabled>
+                Elegir…
+              </option>
+              <option value="FISICA">Persona física</option>
+              <option value="JURIDICA">Persona jurídica</option>
+            </Select>
+          </FormField>
+        )}
 
         <FormField label="Razón social / Nombre" required>
           <Input value={form.razonSocial} onChange={(e) => setForm({ ...form, razonSocial: e.target.value })} required />

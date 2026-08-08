@@ -15,11 +15,13 @@ import { TIPO_DOCUMENTO_LABEL } from './comprobante-labels';
 import { ComprobanteVisual, type ComprobanteVisualData } from './ComprobanteVisual';
 import type {
   AfectacionIVA,
+  CondicionCredito,
   CondicionVenta,
   Comprobante,
   Deposito,
   Empresa,
   Establecimiento,
+  FormaPago,
   MotivoEmisionNotaCD,
   PuntoExpedicion,
   Producto,
@@ -52,6 +54,16 @@ const MOTIVOS: { value: MotivoEmisionNotaCD; label: string }[] = [
   { value: 'RECUPERO_DE_COSTO', label: 'Recupero de costo' },
   { value: 'RECUPERO_DE_GASTO', label: 'Recupero de gasto' },
   { value: 'AJUSTE_DE_PRECIO', label: 'Ajuste de precio' },
+];
+
+const FORMAS_PAGO: { value: FormaPago; label: string }[] = [
+  { value: 'EFECTIVO', label: 'Efectivo' },
+  { value: 'TRANSFERENCIA', label: 'Transferencia' },
+  { value: 'CHEQUE', label: 'Cheque' },
+  { value: 'TARJETA_CREDITO', label: 'Tarjeta de crédito' },
+  { value: 'TARJETA_DEBITO', label: 'Tarjeta de débito' },
+  { value: 'BILLETERA_ELECTRONICA', label: 'Billetera electrónica' },
+  { value: 'OTRO', label: 'Otro' },
 ];
 
 interface ItemRow {
@@ -95,6 +107,10 @@ export default function EmitirComprobantePage() {
   const [clienteId, setClienteId] = useState('');
   const [proveedorId, setProveedorId] = useState('');
   const [condicionVenta, setCondicionVenta] = useState<CondicionVenta>('CONTADO');
+  const [formaPago, setFormaPago] = useState<FormaPago>('EFECTIVO');
+  const [condicionCredito, setCondicionCredito] = useState<CondicionCredito>('PLAZO');
+  const [plazoCredito, setPlazoCredito] = useState('');
+  const [cantidadCuotas, setCantidadCuotas] = useState('');
   const [depositoId, setDepositoId] = useState('');
   const [comprobanteAsociadoId, setComprobanteAsociadoId] = useState('');
   const [motivoEmision, setMotivoEmision] = useState<MotivoEmisionNotaCD>('DESCUENTO');
@@ -104,6 +120,9 @@ export default function EmitirComprobantePage() {
   const esAutofactura = tipoDocumento === 'AUTOFACTURA_ELECTRONICA';
   const esNota = tipoDocumento === 'NOTA_CREDITO_ELECTRONICA' || tipoDocumento === 'NOTA_DEBITO_ELECTRONICA';
   const esFactura = tipoDocumento === 'FACTURA_ELECTRONICA';
+  // SIFEN (E600) solo exige "condicion de la operacion" -- y por lo tanto
+  // forma de pago o plazo/cuota -- para Factura y Autofactura.
+  const requiereCondicionOperacion = esFactura || esAutofactura;
 
   function reiniciarFormulario() {
     setError(null);
@@ -114,6 +133,10 @@ export default function EmitirComprobantePage() {
     setClienteId('');
     setProveedorId('');
     setCondicionVenta('CONTADO');
+    setFormaPago('EFECTIVO');
+    setCondicionCredito('PLAZO');
+    setPlazoCredito('');
+    setCantidadCuotas('');
     setDepositoId('');
     setComprobanteAsociadoId('');
     setObservacion('');
@@ -266,6 +289,16 @@ export default function EmitirComprobantePage() {
           clienteId: esAutofactura ? undefined : clienteId || undefined,
           proveedorId: esAutofactura ? proveedorId || undefined : undefined,
           condicionVenta,
+          formaPago: requiereCondicionOperacion && condicionVenta === 'CONTADO' ? formaPago : undefined,
+          condicionCredito: requiereCondicionOperacion && condicionVenta === 'CREDITO' ? condicionCredito : undefined,
+          plazoCredito:
+            requiereCondicionOperacion && condicionVenta === 'CREDITO' && condicionCredito === 'PLAZO'
+              ? plazoCredito || undefined
+              : undefined,
+          cantidadCuotas:
+            requiereCondicionOperacion && condicionVenta === 'CREDITO' && condicionCredito === 'CUOTA'
+              ? Number(cantidadCuotas)
+              : undefined,
           depositoId: esFactura ? depositoId || undefined : undefined,
           comprobanteAsociadoId: esNota ? comprobanteAsociadoId || undefined : undefined,
           motivoEmision: esNota ? motivoEmision : undefined,
@@ -293,10 +326,19 @@ export default function EmitirComprobantePage() {
     onError: (err) => setError(apiErrorMessage(err)),
   });
 
+  const condicionOperacionCompleta =
+    !requiereCondicionOperacion ||
+    (condicionVenta === 'CONTADO'
+      ? Boolean(formaPago)
+      : condicionCredito === 'PLAZO'
+        ? Boolean(plazoCredito)
+        : Boolean(cantidadCuotas) && Number(cantidadCuotas) > 0);
+
   const puedeEmitir =
     Boolean(puntoExpedicion) &&
     Boolean(timbradoId) &&
     (esAutofactura ? Boolean(proveedorId) : Boolean(clienteId)) &&
+    condicionOperacionCompleta &&
     items.every((r) => r.descripcion && r.cantidad && r.precioUnitario && r.unidadMedidaId);
 
   const timbradoSeleccionado = timbradosDisponibles.find((t) => t.id === timbradoId);
@@ -468,6 +510,44 @@ export default function EmitirComprobantePage() {
                 </Select>
               </FormField>
             </div>
+
+            {requiereCondicionOperacion && condicionVenta === 'CONTADO' && (
+              <FormField label="Forma de pago" required>
+                <Select value={formaPago} onChange={(e) => setFormaPago(e.target.value as FormaPago)}>
+                  {FORMAS_PAGO.map((f) => (
+                    <option key={f.value} value={f.value}>
+                      {f.label}
+                    </option>
+                  ))}
+                </Select>
+              </FormField>
+            )}
+
+            {requiereCondicionOperacion && condicionVenta === 'CREDITO' && (
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label="Condición del crédito" required>
+                  <Select value={condicionCredito} onChange={(e) => setCondicionCredito(e.target.value as CondicionCredito)}>
+                    <option value="PLAZO">Plazo</option>
+                    <option value="CUOTA">Cuota</option>
+                  </Select>
+                </FormField>
+                {condicionCredito === 'PLAZO' ? (
+                  <FormField label="Plazo (ej. 30 días)" required>
+                    <Input value={plazoCredito} onChange={(e) => setPlazoCredito(e.target.value)} placeholder="30 días" />
+                  </FormField>
+                ) : (
+                  <FormField label="Cantidad de cuotas" required>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={cantidadCuotas}
+                      onChange={(e) => setCantidadCuotas(e.target.value)}
+                      placeholder="12"
+                    />
+                  </FormField>
+                )}
+              </div>
+            )}
 
             {esFactura && (
               <FormField label="Depósito (para descontar stock)">

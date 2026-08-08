@@ -1,5 +1,6 @@
 import {
   AfectacionIVA,
+  CondicionCredito,
   CondicionVenta,
   FormaPago,
   MotivoEmisionNotaCD,
@@ -96,6 +97,21 @@ export class CreateComprobanteDto {
   @IsString()
   condicionPagoId?: string;
 
+  // Obligatorios (E641/E643/E644) si condicionVenta = CREDITO: si es a Plazo
+  // se informa plazoCredito, si es a Cuota se informa cantidadCuotas.
+  @IsOptional()
+  @IsEnum(CondicionCredito)
+  condicionCredito?: CondicionCredito;
+
+  @IsOptional()
+  @IsString()
+  plazoCredito?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  cantidadCuotas?: number;
+
   @IsOptional()
   @IsString()
   moneda?: string;
@@ -129,10 +145,10 @@ export class CreateComprobanteDto {
   @IsString()
   sesionCajaId?: string;
 
-  // Solo para el asiento contable automatico de una venta al contado (ver
-  // ComprobantesService.create): decide si la contrapartida es Caja o Banco.
-  // No se persiste en el Comprobante -- el detalle real de cobro sigue
-  // viviendo en ComprobantePago (POST /comprobante-pagos).
+  // Obligatorio (E606) cuando condicionVenta = CONTADO: ademas de decidir
+  // Caja vs Banco en el asiento contable automatico, genera un
+  // ComprobantePago por el total al momento de emitir (ver
+  // ComprobantesService.create). No se persiste en el Comprobante en si.
   @IsOptional()
   @IsEnum(FormaPago)
   formaPago?: FormaPago;

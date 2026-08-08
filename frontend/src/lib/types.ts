@@ -3,6 +3,8 @@
 
 export type TipoTercero = 'CLIENTE' | 'PROVEEDOR' | 'AMBOS';
 
+export type TipoContribuyente = 'FISICA' | 'JURIDICA';
+
 export type TipoDocumentoIdentidad =
   | 'RUC'
   | 'CEDULA_PARAGUAYA'
@@ -70,6 +72,8 @@ export type MotivoEmisionNotaCD =
 
 export type CondicionVenta = 'CONTADO' | 'CREDITO';
 
+export type CondicionCredito = 'PLAZO' | 'CUOTA';
+
 export interface CuentaCorriente {
   id: string;
   terceroId: string;
@@ -86,6 +90,7 @@ export interface Tercero {
   dvRuc?: string | null;
   razonSocial: string;
   nombreFantasia?: string | null;
+  tipoContribuyente?: TipoContribuyente | null;
   direccion?: string | null;
   ciudad?: string | null;
   telefono?: string | null;
@@ -259,6 +264,9 @@ export interface Comprobante {
   proveedorId?: string | null;
   proveedor?: Tercero | null;
   condicionVenta: CondicionVenta;
+  condicionCredito?: CondicionCredito | null;
+  plazoCredito?: string | null;
+  cantidadCuotas?: number | null;
   comprobanteAsociadoId?: string | null;
   motivoEmision?: MotivoEmisionNotaCD | null;
   observacion?: string | null;

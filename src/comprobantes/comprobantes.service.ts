@@ -100,6 +100,9 @@ export class ComprobantesService {
           proveedorId: dto.proveedorId,
           condicionVenta: dto.condicionVenta ?? CondicionVenta.CONTADO,
           condicionPagoId: dto.condicionPagoId,
+          condicionCredito: dto.condicionCredito,
+          plazoCredito: dto.plazoCredito,
+          cantidadCuotas: dto.cantidadCuotas,
           moneda: dto.moneda ?? 'PYG',
           tipoCambio: dto.tipoCambio,
           comprobanteAsociadoId: dto.comprobanteAsociadoId,
@@ -164,6 +167,25 @@ export class ComprobantesService {
       // depositoId -- la contabilidad no depende de si se controla stock.
       if (dto.tipoDocumento === TipoDocumentoElectronico.FACTURA_ELECTRONICA) {
         await this.asientosContablesService.generarAsientoVenta(tx, comprobante, dto.formaPago);
+      }
+
+      // SIFEN exige informar la forma de pago (E606) cuando la operacion es
+      // al contado (E601=1, grupo obligatorio para Factura y Autofactura).
+      // Se registra de una el pago por el total, en vez de dejarlo como un
+      // paso aparte que se pueda omitir -- si no, quedaria una factura
+      // "contado" sin ningun ComprobantePago asociado.
+      const esFacturaOAutofactura =
+        dto.tipoDocumento === TipoDocumentoElectronico.FACTURA_ELECTRONICA ||
+        dto.tipoDocumento === TipoDocumentoElectronico.AUTOFACTURA_ELECTRONICA;
+      if (esFacturaOAutofactura && comprobante.condicionVenta === CondicionVenta.CONTADO && dto.formaPago) {
+        await tx.comprobantePago.create({
+          data: {
+            comprobanteId: comprobante.id,
+            formaPago: dto.formaPago,
+            monto: subtotales.total,
+            fecha: comprobante.fechaEmision,
+          },
+        });
       }
 
       if (dto.clienteId && dto.condicionVenta === CondicionVenta.CREDITO) {
