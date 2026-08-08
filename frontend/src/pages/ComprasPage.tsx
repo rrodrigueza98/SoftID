@@ -10,6 +10,7 @@ import { Input, Select, FormField } from '../components/ui/Field';
 import { Badge } from '../components/ui/Badge';
 import { PageSpinner } from '../components/ui/Spinner';
 import { EmptyState, Table, Thead, Th, Tr, Td } from '../components/ui/Table';
+import { RucSearchBox, type ResultadoBusquedaRuc } from '../components/RucSearch';
 import type { Compra, CondicionVenta, CuentaContable, FormaPago, Tercero } from '../lib/types';
 
 const FORMAS_PAGO: { value: FormaPago; label: string }[] = [
@@ -53,6 +54,45 @@ export default function ComprasPage() {
     queryFn: async () => (await api.get<Tercero[]>('/terceros', { params: { empresaId, tipo: 'PROVEEDOR' } })).data,
     enabled: open,
   });
+
+  const [rucDialogOpen, setRucDialogOpen] = useState(false);
+  const [creandoTercero, setCreandoTercero] = useState(false);
+  const [rucDialogError, setRucDialogError] = useState<string | null>(null);
+
+  // Al elegir un resultado de DNIT: si ya existe un proveedor con ese RUC lo
+  // seleccionamos directo, si no lo damos de alta en el momento (con lo
+  // minimo indispensable) para no cortar el flujo de carga de la compra.
+  const elegirProveedorDnit = async (r: ResultadoBusquedaRuc) => {
+    const existente = proveedores?.find((p) => p.numeroDocumento === r.ruc);
+    if (existente) {
+      setForm((f) => ({ ...f, proveedorId: existente.id }));
+      setRucDialogOpen(false);
+      return;
+    }
+
+    setCreandoTercero(true);
+    setRucDialogError(null);
+    try {
+      const nuevo = (
+        await api.post<Tercero>('/terceros', {
+          empresaId,
+          tipo: 'PROVEEDOR',
+          tipoDocumento: 'RUC',
+          numeroDocumento: r.ruc,
+          dvRuc: r.dv,
+          razonSocial: r.razonSocial,
+          activo: true,
+        })
+      ).data;
+      await queryClient.invalidateQueries({ queryKey: ['terceros', { empresaId, tipo: 'PROVEEDOR' }] });
+      setForm((f) => ({ ...f, proveedorId: nuevo.id }));
+      setRucDialogOpen(false);
+    } catch (err) {
+      setRucDialogError(apiErrorMessage(err));
+    } finally {
+      setCreandoTercero(false);
+    }
+  };
 
   const { data: cuentas } = useQuery({
     queryKey: ['cuentas-contables', empresaId],
@@ -180,14 +220,26 @@ export default function ComprasPage() {
 
           <div className="grid grid-cols-2 gap-4">
             <FormField label="Proveedor" required>
-              <Select value={form.proveedorId} onChange={(e) => setForm({ ...form, proveedorId: e.target.value })} required>
-                <option value="">Elegir…</option>
-                {proveedores?.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.razonSocial}
-                  </option>
-                ))}
-              </Select>
+              <div className="flex gap-2">
+                <Select value={form.proveedorId} onChange={(e) => setForm({ ...form, proveedorId: e.target.value })} required>
+                  <option value="">Elegir…</option>
+                  {proveedores?.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.razonSocial}
+                    </option>
+                  ))}
+                </Select>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    setRucDialogError(null);
+                    setRucDialogOpen(true);
+                  }}
+                >
+                  Buscar en DNIT
+                </Button>
+              </div>
             </FormField>
             <FormField label="Fecha" required>
               <Input type="date" value={form.fechaEmision} onChange={(e) => setForm({ ...form, fechaEmision: e.target.value })} required />
@@ -276,6 +328,15 @@ export default function ComprasPage() {
             </div>
           </div>
         </form>
+      </Dialog>
+
+      <Dialog open={rucDialogOpen} onClose={() => setRucDialogOpen(false)} title="Buscar en DNIT">
+        {rucDialogError && <div className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{rucDialogError}</div>}
+        {creandoTercero ? (
+          <p className="py-4 text-center text-sm text-ink-500">Guardando proveedor…</p>
+        ) : (
+          <RucSearchBox onSelect={elegirProveedorDnit} />
+        )}
       </Dialog>
     </div>
   );
