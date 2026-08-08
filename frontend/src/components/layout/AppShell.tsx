@@ -41,14 +41,12 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
   },
 ];
 
-// Secciones abiertas por default -- asi el menu no arranca todo colapsado
-// la primera vez que alguien entra.
-const SECCIONES_ABIERTAS_POR_DEFECTO = new Set(NAV_SECTIONS.filter((s) => s.title).map((s) => s.title!));
-
 export function AppShell() {
   const { usuario, esAdmin, logout } = useAuth();
   const [navOpen, setNavOpen] = useState(false);
-  const [abiertas, setAbiertas] = useState(SECCIONES_ABIERTAS_POR_DEFECTO);
+  // Arrancan todas cerradas -- el efecto de abajo reabre solo la seccion de
+  // la pantalla activa, asi el usuario despliega el resto a demanda.
+  const [abiertas, setAbiertas] = useState<Set<string>>(new Set());
   const location = useLocation();
 
   // Los items marcados soloAdmin no existen para un Operador -- se filtran
