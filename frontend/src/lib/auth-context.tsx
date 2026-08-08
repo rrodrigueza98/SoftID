@@ -5,6 +5,7 @@ import type { Usuario } from './types';
 interface AuthContextValue {
   usuario: Usuario | null;
   esAdmin: boolean;
+  esSuperAdmin: boolean;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
@@ -41,8 +42,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUsuario(null);
   }
 
+  const esSuperAdmin = usuario?.esSuperAdmin ?? false;
+
   return (
-    <AuthContext.Provider value={{ usuario, esAdmin: usuario?.rol.tipo === 'ADMIN', loading, login, logout }}>
+    <AuthContext.Provider
+      value={{ usuario, esAdmin: usuario?.rol.tipo === 'ADMIN' || esSuperAdmin, esSuperAdmin, loading, login, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );

@@ -18,6 +18,7 @@ export class TenantGuard implements CanActivate {
       .getRequest<{ user?: AuthUser; query: Record<string, unknown>; body: Record<string, unknown> }>();
 
     if (!user) return true; // rutas @Public() (login) no llegan con user
+    if (user.esSuperAdmin) return true; // administra cualquier empresa, no solo la propia
 
     if (query?.empresaId && query.empresaId !== user.empresaId) {
       throw new ForbiddenException('No tenés acceso a los datos de esa empresa');

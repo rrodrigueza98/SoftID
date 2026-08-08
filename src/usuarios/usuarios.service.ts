@@ -17,6 +17,7 @@ const USUARIO_SELECT = {
   nombre: true,
   email: true,
   activo: true,
+  esSuperAdmin: true,
   createdAt: true,
   updatedAt: true,
   rol: true,

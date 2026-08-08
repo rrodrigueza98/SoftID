@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../lib/auth-context';
+import { useEmpresaActiva } from '../../lib/empresa-activa-context';
+import { api } from '../../lib/api-client';
 import { cn } from '../../lib/cn';
+import type { Empresa } from '../../lib/types';
 
 type NavItem = { to: string; label: string; end?: boolean; soloAdmin?: boolean };
 
@@ -42,8 +46,15 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
 ];
 
 export function AppShell() {
-  const { usuario, esAdmin, logout } = useAuth();
+  const { usuario, esAdmin, esSuperAdmin, logout } = useAuth();
+  const { empresaActivaId, setEmpresaActivaId } = useEmpresaActiva();
   const [navOpen, setNavOpen] = useState(false);
+
+  const { data: empresas } = useQuery({
+    queryKey: ['empresas-todas'],
+    queryFn: async () => (await api.get<Empresa[]>('/empresas')).data,
+    enabled: esSuperAdmin,
+  });
   // Arrancan todas cerradas -- el efecto de abajo reabre solo la seccion de
   // la pantalla activa, asi el usuario despliega el resto a demanda.
   const [abiertas, setAbiertas] = useState<Set<string>>(new Set());
@@ -124,7 +135,29 @@ export function AppShell() {
           </div>
           <span className="text-sm font-semibold text-white">SoftID</span>
         </div>
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3 pt-16 md:pt-3">
+
+        <div className="pt-16 md:pt-0">
+          {esSuperAdmin && (
+            <div className="px-3 pb-3 md:px-4">
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-ink-500">
+                Empresa activa
+              </label>
+              <select
+                value={empresaActivaId}
+                onChange={(e) => setEmpresaActivaId(e.target.value)}
+                className="w-full rounded-md border border-ink-700 bg-ink-800 px-2.5 py-1.5 text-sm text-white"
+              >
+                {empresas?.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.razonSocial}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+
+        <nav className="flex-1 space-y-1 overflow-y-auto px-3 pt-3">
           {seccionesVisibles.map((section, i) => {
             if (!section.title) {
               return (

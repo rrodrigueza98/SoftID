@@ -30,7 +30,7 @@ export class EmpresasController {
 
   @Get()
   findAll(@CurrentUser() usuario: AuthUser) {
-    return this.empresasService.findAll(usuario.empresaId);
+    return this.empresasService.findAll(usuario.esSuperAdmin ? undefined : usuario.empresaId);
   }
 
   @Get(':id')
@@ -52,7 +52,7 @@ export class EmpresasController {
   }
 
   private verificarPertenencia(empresaId: string, usuario: AuthUser) {
-    if (empresaId !== usuario.empresaId) {
+    if (!usuario.esSuperAdmin && empresaId !== usuario.empresaId) {
       throw new ForbiddenException('No tenés acceso a esta empresa');
     }
   }

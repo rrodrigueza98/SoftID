@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, apiErrorMessage } from '../lib/api-client';
 import { useAuth } from '../lib/auth-context';
+import { useEmpresaActiva } from '../lib/empresa-activa-context';
 import { Card, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Dialog } from '../components/ui/Dialog';
@@ -24,7 +25,7 @@ const emptyEmpresaForm = {
   email: '',
 };
 
-const emptyAdminForm = {
+const emptyOperadorForm = {
   nombre: '',
   email: '',
   password: '',
@@ -32,17 +33,20 @@ const emptyAdminForm = {
 
 // Alta de un tenant nuevo y completamente separado -- para ofrecer el
 // sistema a un cliente. Crea la Empresa, sus dos roles fijos (Administrador
-// y Operador) y el primer usuario Administrador del cliente. El timbrado se
-// carga despues, ya logueado como ese usuario (mismo flujo guiado que usa
-// cualquier empresa nueva en Facturacion).
+// y Operador) y el primer usuario del cliente, con rol Operador -- el
+// cliente nunca recibe un login Admin. La configuracion de establecimiento,
+// punto de expedicion y timbrado la hace el superadmin eligiendo esta
+// empresa en el selector "Empresa activa" del menu.
 export default function NuevaEmpresaPage() {
   const { esAdmin } = useAuth();
+  const { setEmpresaActivaId } = useEmpresaActiva();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [paso, setPaso] = useState<1 | 2>(1);
   const [empresaForm, setEmpresaForm] = useState(emptyEmpresaForm);
-  const [adminForm, setAdminForm] = useState(emptyAdminForm);
+  const [operadorForm, setOperadorForm] = useState(emptyOperadorForm);
   const [empresaCreada, setEmpresaCreada] = useState<Empresa | null>(null);
-  const [rolAdminId, setRolAdminId] = useState('');
+  const [rolOperadorId, setRolOperadorId] = useState('');
   const [rucDialogOpen, setRucDialogOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [listo, setListo] = useState(false);
@@ -65,30 +69,32 @@ export default function NuevaEmpresaPage() {
         })
       ).data;
 
-      const [rolAdmin] = await Promise.all([
-        api.post<{ id: string }>('/roles', { empresaId: empresa.id, nombre: 'Administrador', tipo: 'ADMIN' }),
-        api.post('/roles', { empresaId: empresa.id, nombre: 'Operador', tipo: 'OPERADOR' }),
+      const [, rolOperador] = await Promise.all([
+        api.post('/roles', { empresaId: empresa.id, nombre: 'Administrador', tipo: 'ADMIN' }),
+        api.post<{ id: string }>('/roles', { empresaId: empresa.id, nombre: 'Operador', tipo: 'OPERADOR' }),
       ]);
 
-      return { empresa, rolAdminId: rolAdmin.data.id };
+      return { empresa, rolOperadorId: rolOperador.data.id };
     },
-    onSuccess: ({ empresa, rolAdminId }) => {
+    onSuccess: ({ empresa, rolOperadorId }) => {
       setEmpresaCreada(empresa);
-      setRolAdminId(rolAdminId);
+      setRolOperadorId(rolOperadorId);
+      setEmpresaActivaId(empresa.id);
+      queryClient.invalidateQueries({ queryKey: ['empresas-todas'] });
       setError(null);
       setPaso(2);
     },
     onError: (err) => setError(apiErrorMessage(err)),
   });
 
-  const crearAdminMutation = useMutation({
+  const crearOperadorMutation = useMutation({
     mutationFn: () =>
       api.post('/usuarios', {
         empresaId: empresaCreada!.id,
-        rolId: rolAdminId,
-        nombre: adminForm.nombre,
-        email: adminForm.email,
-        password: adminForm.password,
+        rolId: rolOperadorId,
+        nombre: operadorForm.nombre,
+        email: operadorForm.email,
+        password: operadorForm.password,
       }),
     onSuccess: () => {
       setError(null);
@@ -107,7 +113,7 @@ export default function NuevaEmpresaPage() {
 
   const puedeCrearEmpresa =
     empresaForm.ruc && empresaForm.dvRuc && empresaForm.razonSocial && empresaForm.direccion && empresaForm.ciudad && empresaForm.departamento;
-  const puedeCrearAdmin = adminForm.nombre && adminForm.email && adminForm.password.length >= 8;
+  const puedeCrearOperador = operadorForm.nombre && operadorForm.email && operadorForm.password.length >= 8;
 
   if (listo) {
     return (
@@ -119,21 +125,21 @@ export default function NuevaEmpresaPage() {
           </div>
           <div>
             <p className="font-medium text-ink-900">{empresaCreada?.razonSocial} está lista</p>
-            <p className="mt-1 text-sm text-ink-500">
-              Pasale estas credenciales al cliente, o entrá vos mismo para cargar el timbrado antes de dárselas:
-            </p>
+            <p className="mt-1 text-sm text-ink-500">Pasale estas credenciales al cliente:</p>
           </div>
           <div className="rounded-md border border-ink-200 bg-ink-50 px-4 py-3 text-sm">
             <p>
-              <span className="text-ink-500">Email:</span> <span className="font-mono">{adminForm.email}</span>
+              <span className="text-ink-500">Email:</span> <span className="font-mono">{operadorForm.email}</span>
             </p>
             <p>
-              <span className="text-ink-500">Contraseña:</span> <span className="font-mono">{adminForm.password}</span>
+              <span className="text-ink-500">Contraseña:</span> <span className="font-mono">{operadorForm.password}</span>
             </p>
           </div>
           <p className="text-xs text-ink-400">
-            Con ese login entra como Administrador de {empresaCreada?.razonSocial} y puede configurar establecimiento,
-            punto de expedición y timbrado desde Facturación, igual que se hizo para RJRA.
+            Ese login entra como Operador de {empresaCreada?.razonSocial} -- solo a las pantallas del día a día, sin
+            acceso a configuración. "{empresaCreada?.razonSocial}" ya quedó como tu empresa activa (arriba en el menú):
+            desde ahí podés cargar su establecimiento, punto de expedición y timbrado en Facturación, o crearle más
+            usuarios Operador desde Usuarios.
           </p>
           <div className="flex gap-2">
             <Button
@@ -141,7 +147,7 @@ export default function NuevaEmpresaPage() {
               onClick={() => {
                 setPaso(1);
                 setEmpresaForm(emptyEmpresaForm);
-                setAdminForm(emptyAdminForm);
+                setOperadorForm(emptyOperadorForm);
                 setEmpresaCreada(null);
                 setListo(false);
               }}
@@ -165,7 +171,7 @@ export default function NuevaEmpresaPage() {
       </div>
 
       <Card>
-        <CardHeader title={paso === 1 ? '1. Datos de la empresa' : '2. Primer usuario (Administrador)'} />
+        <CardHeader title={paso === 1 ? '1. Datos de la empresa' : '2. Primer usuario (Operador)'} />
         <div className="p-5">
           {error && <div className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
@@ -281,39 +287,45 @@ export default function NuevaEmpresaPage() {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                crearAdminMutation.mutate();
+                crearOperadorMutation.mutate();
               }}
               className="flex flex-col gap-4"
             >
               <p className="text-sm text-ink-500">
                 Empresa <span className="font-medium text-ink-900">{empresaCreada?.razonSocial}</span> creada. Ahora cargá
-                el primer usuario, que va a tener el rol Administrador dentro de esa empresa.
+                el primer usuario para el cliente, que va a tener el rol Operador dentro de esa empresa (sin acceso a
+                configuración).
               </p>
 
               <FormField label="Nombre" required>
-                <Input value={adminForm.nombre} onChange={(e) => setAdminForm({ ...adminForm, nombre: e.target.value })} required autoFocus />
+                <Input
+                  value={operadorForm.nombre}
+                  onChange={(e) => setOperadorForm({ ...operadorForm, nombre: e.target.value })}
+                  required
+                  autoFocus
+                />
               </FormField>
               <FormField label="Email" required>
                 <Input
                   type="email"
-                  value={adminForm.email}
-                  onChange={(e) => setAdminForm({ ...adminForm, email: e.target.value })}
+                  value={operadorForm.email}
+                  onChange={(e) => setOperadorForm({ ...operadorForm, email: e.target.value })}
                   required
                 />
               </FormField>
               <FormField label="Contraseña (mínimo 8 caracteres)" required>
                 <Input
                   type="password"
-                  value={adminForm.password}
-                  onChange={(e) => setAdminForm({ ...adminForm, password: e.target.value })}
+                  value={operadorForm.password}
+                  onChange={(e) => setOperadorForm({ ...operadorForm, password: e.target.value })}
                   minLength={8}
                   required
                 />
               </FormField>
 
               <div className="flex justify-end gap-2 border-t border-ink-100 pt-3">
-                <Button type="submit" disabled={!puedeCrearAdmin || crearAdminMutation.isPending}>
-                  {crearAdminMutation.isPending ? 'Creando…' : 'Crear usuario Administrador'}
+                <Button type="submit" disabled={!puedeCrearOperador || crearOperadorMutation.isPending}>
+                  {crearOperadorMutation.isPending ? 'Creando…' : 'Crear usuario Operador'}
                 </Button>
               </div>
             </form>

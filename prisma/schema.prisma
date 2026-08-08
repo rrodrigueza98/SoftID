@@ -362,6 +362,11 @@ model Usuario {
   email        String   @unique
   passwordHash String
   activo       Boolean  @default(true)
+  // Administra CUALQUIER empresa, no solo la propia (empresaId/rolId siguen
+  // siendo su "casa" nominal, pero RolesGuard/TenantGuard lo dejan pasar en
+  // todas). Reservado al operador de la plataforma -- las empresas de
+  // clientes nunca deberian tener un usuario con esto en true.
+  esSuperAdmin Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

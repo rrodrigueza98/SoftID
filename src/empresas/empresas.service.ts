@@ -11,8 +11,8 @@ export class EmpresasService {
     return this.prisma.empresa.create({ data: dto });
   }
 
-  findAll(empresaId: string) {
-    return this.prisma.empresa.findMany({ where: { id: empresaId }, orderBy: { razonSocial: 'asc' } });
+  findAll(empresaId?: string) {
+    return this.prisma.empresa.findMany({ where: empresaId ? { id: empresaId } : undefined, orderBy: { razonSocial: 'asc' } });
   }
 
   async findOne(id: string) {

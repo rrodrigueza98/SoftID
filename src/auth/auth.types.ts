@@ -10,6 +10,7 @@ export interface AuthUser {
   rolId: string;
   rolNombre: string;
   rolTipo: RolTipo;
+  esSuperAdmin: boolean;
 }
 
 export interface JwtPayload {

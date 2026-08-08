@@ -17,6 +17,7 @@ export interface Usuario {
   nombre: string;
   email: string;
   activo: boolean;
+  esSuperAdmin: boolean;
   rol: Rol;
 }
 
