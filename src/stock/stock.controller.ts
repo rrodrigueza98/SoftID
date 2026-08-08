@@ -1,7 +1,9 @@
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { StockService } from './stock.service';
 import { CreateMovimientoStockDto } from './dto/create-movimiento-stock.dto';
+import { RequireModulo } from '../auth/decorators/modulo.decorator';
 
+@RequireModulo('INVENTARIO')
 @Controller()
 export class StockController {
   constructor(private readonly stockService: StockService) {}

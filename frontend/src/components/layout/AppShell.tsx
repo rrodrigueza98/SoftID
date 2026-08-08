@@ -5,14 +5,15 @@ import { useAuth } from '../../lib/auth-context';
 import { useEmpresaActiva } from '../../lib/empresa-activa-context';
 import { api } from '../../lib/api-client';
 import { cn } from '../../lib/cn';
-import type { Empresa } from '../../lib/types';
+import type { Empresa, Modulo } from '../../lib/types';
 
 type NavItem = { to: string; label: string; end?: boolean; soloAdmin?: boolean };
 
-const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
+const NAV_SECTIONS: { title?: string; modulo?: Modulo; items: NavItem[] }[] = [
   { items: [{ to: '/', label: 'Inicio', end: true }] },
   {
     title: 'Ventas',
+    modulo: 'VENTAS',
     items: [
       { to: '/pos', label: 'Punto de venta' },
       { to: '/facturacion/emitir', label: 'Facturación' },
@@ -23,6 +24,7 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
   },
   {
     title: 'Compras',
+    modulo: 'COMPRAS',
     items: [
       { to: '/proveedores', label: 'Proveedores' },
       { to: '/compras', label: 'Comprobantes de compra' },
@@ -30,12 +32,13 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
   },
   {
     title: 'Inventario',
+    modulo: 'INVENTARIO',
     items: [
       { to: '/productos', label: 'Productos' },
       { to: '/stock', label: 'Stock' },
     ],
   },
-  { title: 'Contabilidad', items: [{ to: '/contabilidad', label: 'Contabilidad' }] },
+  { title: 'Contabilidad', modulo: 'CONTABILIDAD', items: [{ to: '/contabilidad', label: 'Contabilidad' }] },
   {
     title: 'Configuración',
     items: [
@@ -63,13 +66,17 @@ export function AppShell() {
   // Los items marcados soloAdmin no existen para un Operador -- se filtran
   // aca en vez de ocultarlos con CSS, para que ni siquiera aparezcan un
   // instante en el DOM. Las secciones que quedan sin items no se muestran.
-  const seccionesVisibles = useMemo(
-    () =>
-      NAV_SECTIONS.map((s) => ({ ...s, items: s.items.filter((i) => !i.soloAdmin || esAdmin) })).filter(
-        (s) => s.items.length > 0,
-      ),
-    [esAdmin],
-  );
+  // Ademas, si el operador tiene modulosPermitidos configurado (no vacio),
+  // las secciones de modulos que no esten en esa lista tampoco se muestran
+  // -- el backend ya las rechaza (ModulosGuard), esto es solo para no
+  // ofrecer un link que va a tirar 403.
+  const seccionesVisibles = useMemo(() => {
+    const modulosPermitidos = usuario?.modulosPermitidos ?? [];
+    const restringido = !esAdmin && modulosPermitidos.length > 0;
+    return NAV_SECTIONS.filter((s) => !restringido || !s.modulo || modulosPermitidos.includes(s.modulo))
+      .map((s) => ({ ...s, items: s.items.filter((i) => !i.soloAdmin || esAdmin) }))
+      .filter((s) => s.items.length > 0);
+  }, [esAdmin, usuario]);
 
   // Al navegar (click en un link del menu) cerramos el drawer mobile --
   // si no, queda tapando la pantalla despues de elegir una seccion.

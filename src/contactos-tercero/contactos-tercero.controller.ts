@@ -11,7 +11,9 @@ import {
 import { ContactosTerceroService } from './contactos-tercero.service';
 import { CreateContactoTerceroDto } from './dto/create-contacto-tercero.dto';
 import { UpdateContactoTerceroDto } from './dto/update-contacto-tercero.dto';
+import { RequireModulo } from '../auth/decorators/modulo.decorator';
 
+@RequireModulo('VENTAS', 'COMPRAS')
 @Controller('contactos-tercero')
 export class ContactosTerceroController {
   constructor(private readonly contactosTerceroService: ContactosTerceroService) {}

@@ -3,7 +3,9 @@ import { CuentasContablesService } from './cuentas-contables.service';
 import { ActualizarMapeoContableDto } from './dto/actualizar-mapeo-contable.dto';
 import { CreateCuentaContableDto } from './dto/create-cuenta-contable.dto';
 import { ROL_LABEL } from './mapeo-contable';
+import { RequireModulo } from '../auth/decorators/modulo.decorator';
 
+@RequireModulo('CONTABILIDAD')
 @Controller('cuentas-contables')
 export class CuentasContablesController {
   constructor(private readonly cuentasContablesService: CuentasContablesService) {}

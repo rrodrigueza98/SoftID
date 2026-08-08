@@ -3,6 +3,9 @@
 
 export type RolTipo = 'ADMIN' | 'OPERADOR';
 
+// Secciones operativas restringibles por usuario (ver Usuario.modulosPermitidos).
+export type Modulo = 'VENTAS' | 'COMPRAS' | 'INVENTARIO' | 'CONTABILIDAD';
+
 export interface Rol {
   id: string;
   empresaId: string;
@@ -18,6 +21,9 @@ export interface Usuario {
   email: string;
   activo: boolean;
   esSuperAdmin: boolean;
+  // Vacio = sin restriccion (accede a todo lo que su rol permita). Solo
+  // tiene efecto para usuarios OPERADOR.
+  modulosPermitidos: Modulo[];
   rol: Rol;
 }
 

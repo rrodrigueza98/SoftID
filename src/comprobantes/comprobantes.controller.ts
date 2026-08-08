@@ -3,7 +3,9 @@ import { TipoDocumentoElectronico } from '@prisma/client';
 import type { Response } from 'express';
 import { ComprobantesService } from './comprobantes.service';
 import { CreateComprobanteDto } from './dto/create-comprobante.dto';
+import { RequireModulo } from '../auth/decorators/modulo.decorator';
 
+@RequireModulo('VENTAS')
 @Controller('comprobantes')
 export class ComprobantesController {
   constructor(private readonly comprobantesService: ComprobantesService) {}

@@ -1,7 +1,9 @@
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { CuentasCorrientesService } from './cuentas-corrientes.service';
 import { CreateMovimientoCCDto } from './dto/create-movimiento-cc.dto';
+import { RequireModulo } from '../auth/decorators/modulo.decorator';
 
+@RequireModulo('VENTAS')
 @Controller()
 export class CuentasCorrientesController {
   constructor(private readonly cuentasCorrientesService: CuentasCorrientesService) {}

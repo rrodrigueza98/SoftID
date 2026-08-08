@@ -1,7 +1,9 @@
 import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
 import { ComprobantePagosService } from './comprobante-pagos.service';
 import { CreateComprobantePagoDto } from './dto/create-comprobante-pago.dto';
+import { RequireModulo } from '../auth/decorators/modulo.decorator';
 
+@RequireModulo('VENTAS')
 @Controller('comprobante-pagos')
 export class ComprobantePagosController {
   constructor(private readonly comprobantePagosService: ComprobantePagosService) {}

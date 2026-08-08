@@ -11,7 +11,9 @@ import {
 import { CondicionesPagoService } from './condiciones-pago.service';
 import { CreateCondicionPagoDto } from './dto/create-condicion-pago.dto';
 import { UpdateCondicionPagoDto } from './dto/update-condicion-pago.dto';
+import { RequireModulo } from '../auth/decorators/modulo.decorator';
 
+@RequireModulo('VENTAS', 'COMPRAS')
 @Controller('condiciones-pago')
 export class CondicionesPagoController {
   constructor(private readonly condicionesPagoService: CondicionesPagoService) {}

@@ -1,4 +1,5 @@
-import { IsBoolean, IsEmail, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsArray, IsBoolean, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
+import { Modulo } from '@prisma/client';
 
 export class CreateUsuarioDto {
   @IsString()
@@ -23,4 +24,11 @@ export class CreateUsuarioDto {
   @IsOptional()
   @IsBoolean()
   activo?: boolean;
+
+  // Solo tiene efecto para usuarios OPERADOR (ver ModulosGuard). Vacio u
+  // omitido = sin restriccion, accede a todos los modulos operativos.
+  @IsOptional()
+  @IsArray()
+  @IsEnum(Modulo, { each: true })
+  modulosPermitidos?: Modulo[];
 }

@@ -11,7 +11,9 @@ import {
 import { DepositosService } from './depositos.service';
 import { CreateDepositoDto } from './dto/create-deposito.dto';
 import { UpdateDepositoDto } from './dto/update-deposito.dto';
+import { RequireModulo } from '../auth/decorators/modulo.decorator';
 
+@RequireModulo('INVENTARIO')
 @Controller('depositos')
 export class DepositosController {
   constructor(private readonly depositosService: DepositosService) {}

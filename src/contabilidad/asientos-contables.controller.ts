@@ -1,7 +1,9 @@
 import { Controller, Get, Param, Post, Body, Query } from '@nestjs/common';
 import { AsientosContablesService } from './asientos-contables.service';
 import { CreateAsientoContableDto } from './dto/create-asiento-contable.dto';
+import { RequireModulo } from '../auth/decorators/modulo.decorator';
 
+@RequireModulo('CONTABILIDAD')
 @Controller('asientos-contables')
 export class AsientosContablesController {
   constructor(private readonly asientosContablesService: AsientosContablesService) {}

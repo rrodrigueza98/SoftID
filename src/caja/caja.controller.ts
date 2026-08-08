@@ -4,7 +4,9 @@ import { AbrirSesionCajaDto } from './dto/abrir-sesion-caja.dto';
 import { CerrarSesionCajaDto } from './dto/cerrar-sesion-caja.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthUser } from '../auth/auth.types';
+import { RequireModulo } from '../auth/decorators/modulo.decorator';
 
+@RequireModulo('VENTAS')
 @Controller('caja/sesiones')
 export class CajaController {
   constructor(private readonly cajaService: CajaService) {}

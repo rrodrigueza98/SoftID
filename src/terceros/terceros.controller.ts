@@ -12,7 +12,11 @@ import { TipoTercero } from '@prisma/client';
 import { TercerosService } from './terceros.service';
 import { CreateTerceroDto } from './dto/create-tercero.dto';
 import { UpdateTerceroDto } from './dto/update-tercero.dto';
+import { RequireModulo } from '../auth/decorators/modulo.decorator';
 
+// Clientes y proveedores comparten esta tabla/controller (campo `tipo`) --
+// alcanza con acceso a Ventas O Compras para entrar.
+@RequireModulo('VENTAS', 'COMPRAS')
 @Controller('terceros')
 export class TercerosController {
   constructor(private readonly tercerosService: TercerosService) {}

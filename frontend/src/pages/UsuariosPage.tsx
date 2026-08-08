@@ -10,20 +10,33 @@ import { Input, Select, FormField } from '../components/ui/Field';
 import { Badge } from '../components/ui/Badge';
 import { PageSpinner } from '../components/ui/Spinner';
 import { EmptyState, Table, Thead, Th, Tr, Td } from '../components/ui/Table';
-import type { Rol, Usuario } from '../lib/types';
+import type { Modulo, Rol, Usuario } from '../lib/types';
+
+const MODULOS: { value: Modulo; label: string }[] = [
+  { value: 'VENTAS', label: 'Ventas' },
+  { value: 'COMPRAS', label: 'Compras' },
+  { value: 'INVENTARIO', label: 'Inventario' },
+  { value: 'CONTABILIDAD', label: 'Contabilidad' },
+];
 
 const emptyForm = {
   nombre: '',
   email: '',
   password: '',
   rolId: '',
+  modulosPermitidos: [] as Modulo[],
 };
 
 const emptyEditForm = {
   nombre: '',
   email: '',
   rolId: '',
+  modulosPermitidos: [] as Modulo[],
 };
+
+function toggleModulo(lista: Modulo[], m: Modulo): Modulo[] {
+  return lista.includes(m) ? lista.filter((x) => x !== m) : [...lista, m];
+}
 
 export default function UsuariosPage() {
   const { usuario: yo, esAdmin } = useAuth();
@@ -49,6 +62,9 @@ export default function UsuariosPage() {
     enabled: esAdmin && (open || Boolean(editandoId)),
   });
 
+  const rolSeleccionado = roles?.find((r) => r.id === form.rolId);
+  const rolSeleccionadoEdicion = roles?.find((r) => r.id === editForm.rolId);
+
   const mutation = useMutation({
     mutationFn: () =>
       api.post('/usuarios', {
@@ -57,6 +73,7 @@ export default function UsuariosPage() {
         email: form.email,
         password: form.password,
         rolId: form.rolId,
+        modulosPermitidos: form.modulosPermitidos,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['usuarios', empresaId] });
@@ -79,6 +96,7 @@ export default function UsuariosPage() {
         nombre: editForm.nombre,
         email: editForm.email,
         rolId: editForm.rolId,
+        modulosPermitidos: editForm.modulosPermitidos,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['usuarios', empresaId] });
@@ -90,7 +108,7 @@ export default function UsuariosPage() {
 
   function abrirEdicion(u: Usuario) {
     setEditandoId(u.id);
-    setEditForm({ nombre: u.nombre, email: u.email, rolId: u.rolId });
+    setEditForm({ nombre: u.nombre, email: u.email, rolId: u.rolId, modulosPermitidos: u.modulosPermitidos });
     setEditError(null);
   }
 
@@ -215,6 +233,26 @@ export default function UsuariosPage() {
             </Select>
           </FormField>
 
+          {rolSeleccionado?.tipo === 'OPERADOR' && (
+            <FormField label="Módulos permitidos">
+              <div className="flex flex-col gap-1.5">
+                {MODULOS.map((m) => (
+                  <label key={m.value} className="flex items-center gap-2 text-sm text-ink-700">
+                    <input
+                      type="checkbox"
+                      checked={form.modulosPermitidos.includes(m.value)}
+                      onChange={() => setForm({ ...form, modulosPermitidos: toggleModulo(form.modulosPermitidos, m.value) })}
+                    />
+                    {m.label}
+                  </label>
+                ))}
+              </div>
+              <p className="mt-1.5 text-xs text-ink-400">
+                Si no marcás ninguno, el usuario accede a todos los módulos operativos.
+              </p>
+            </FormField>
+          )}
+
           <div className="flex justify-end gap-2 border-t border-ink-100 pt-3">
             <Button type="button" variant="secondary" onClick={() => setOpen(false)}>
               Cancelar
@@ -264,6 +302,28 @@ export default function UsuariosPage() {
               ))}
             </Select>
           </FormField>
+
+          {rolSeleccionadoEdicion?.tipo === 'OPERADOR' && (
+            <FormField label="Módulos permitidos">
+              <div className="flex flex-col gap-1.5">
+                {MODULOS.map((m) => (
+                  <label key={m.value} className="flex items-center gap-2 text-sm text-ink-700">
+                    <input
+                      type="checkbox"
+                      checked={editForm.modulosPermitidos.includes(m.value)}
+                      onChange={() =>
+                        setEditForm({ ...editForm, modulosPermitidos: toggleModulo(editForm.modulosPermitidos, m.value) })
+                      }
+                    />
+                    {m.label}
+                  </label>
+                ))}
+              </div>
+              <p className="mt-1.5 text-xs text-ink-400">
+                Si no marcás ninguno, el usuario accede a todos los módulos operativos.
+              </p>
+            </FormField>
+          )}
 
           <div className="flex justify-end gap-2 border-t border-ink-100 pt-3">
             <Button type="button" variant="secondary" onClick={() => setEditandoId(null)}>

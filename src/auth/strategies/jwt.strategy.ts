@@ -40,6 +40,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       rolNombre: usuario.rol.nombre,
       rolTipo: usuario.rol.tipo,
       esSuperAdmin: usuario.esSuperAdmin,
+      modulosPermitidos: usuario.modulosPermitidos,
     };
   }
 }

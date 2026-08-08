@@ -339,6 +339,16 @@ enum RolTipo {
   OPERADOR
 }
 
+// Secciones operativas restringibles por usuario (ver Usuario.modulosPermitidos).
+// Configuracion (Usuarios, Empresas, Timbrados, etc.) no entra aca -- ya esta
+// cerrada a ADMIN/superadmin por @Roles('ADMIN').
+enum Modulo {
+  VENTAS
+  COMPRAS
+  INVENTARIO
+  CONTABILIDAD
+}
+
 model Rol {
   id        String   @id @default(cuid())
   empresaId String
@@ -367,6 +377,10 @@ model Usuario {
   // todas). Reservado al operador de la plataforma -- las empresas de
   // clientes nunca deberian tener un usuario con esto en true.
   esSuperAdmin Boolean  @default(false)
+  // Vacio (default) = sin restriccion, ve todos los modulos que su RolTipo
+  // permita -- asi ningun operador existente pierde acceso al agregar esto.
+  // Solo se evalua para OPERADOR; ADMIN y superadmin siempre ven todo.
+  modulosPermitidos Modulo[] @default([])
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

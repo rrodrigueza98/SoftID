@@ -1,7 +1,9 @@
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { RecibosService } from './recibos.service';
 import { CreateReciboDto } from './dto/create-recibo.dto';
+import { RequireModulo } from '../auth/decorators/modulo.decorator';
 
+@RequireModulo('VENTAS')
 @Controller('recibos')
 export class RecibosController {
   constructor(private readonly recibosService: RecibosService) {}
