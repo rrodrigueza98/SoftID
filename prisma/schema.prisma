@@ -395,7 +395,10 @@ model Tercero {
   recibos                 Recibo[]
   compras                 Compra[]
 
-  @@unique([empresaId, tipoDocumento, numeroDocumento])
+  // El mismo RUC puede existir como Cliente y como Proveedor a la vez (son
+  // roles distintos en el sistema) -- por eso "tipo" entra en la clave unica,
+  // no solo empresaId+tipoDocumento+numeroDocumento.
+  @@unique([empresaId, tipo, tipoDocumento, numeroDocumento])
   @@index([empresaId, razonSocial])
   @@map("terceros")
 }
