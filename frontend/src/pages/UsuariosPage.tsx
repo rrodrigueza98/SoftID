@@ -19,6 +19,12 @@ const emptyForm = {
   rolId: '',
 };
 
+const emptyEditForm = {
+  nombre: '',
+  email: '',
+  rolId: '',
+};
+
 export default function UsuariosPage() {
   const { usuario: yo, esAdmin } = useAuth();
   const empresaId = useEmpresaId();
@@ -26,6 +32,10 @@ export default function UsuariosPage() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState<string | null>(null);
+
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState(emptyEditForm);
+  const [editError, setEditError] = useState<string | null>(null);
 
   const { data: usuarios, isLoading } = useQuery({
     queryKey: ['usuarios', empresaId],
@@ -36,7 +46,7 @@ export default function UsuariosPage() {
   const { data: roles } = useQuery({
     queryKey: ['roles', empresaId],
     queryFn: async () => (await api.get<Rol[]>('/roles', { params: { empresaId } })).data,
-    enabled: esAdmin && open,
+    enabled: esAdmin && (open || Boolean(editandoId)),
   });
 
   const mutation = useMutation({
@@ -63,7 +73,29 @@ export default function UsuariosPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['usuarios', empresaId] }),
   });
 
+  const editMutation = useMutation({
+    mutationFn: () =>
+      api.patch(`/usuarios/${editandoId}`, {
+        nombre: editForm.nombre,
+        email: editForm.email,
+        rolId: editForm.rolId,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['usuarios', empresaId] });
+      setEditandoId(null);
+      setEditError(null);
+    },
+    onError: (err) => setEditError(apiErrorMessage(err)),
+  });
+
+  function abrirEdicion(u: Usuario) {
+    setEditandoId(u.id);
+    setEditForm({ nombre: u.nombre, email: u.email, rolId: u.rolId });
+    setEditError(null);
+  }
+
   const puedeCrear = form.nombre && form.email && form.password.length >= 8 && form.rolId;
+  const puedeGuardarEdicion = editForm.nombre && editForm.email && editForm.rolId;
 
   if (!esAdmin) {
     return (
@@ -115,14 +147,22 @@ export default function UsuariosPage() {
                     <Badge tone={u.activo ? 'success' : 'neutral'}>{u.activo ? 'Activo' : 'Inactivo'}</Badge>
                   </Td>
                   <Td>
-                    {u.id !== yo?.id && (
+                    <div className="flex gap-3">
                       <button
-                        onClick={() => toggleActivoMutation.mutate({ id: u.id, activo: u.activo })}
+                        onClick={() => abrirEdicion(u)}
                         className="text-xs font-medium text-ink-500 underline decoration-dotted hover:text-ink-700"
                       >
-                        {u.activo ? 'Desactivar' : 'Activar'}
+                        Editar
                       </button>
-                    )}
+                      {u.id !== yo?.id && (
+                        <button
+                          onClick={() => toggleActivoMutation.mutate({ id: u.id, activo: u.activo })}
+                          className="text-xs font-medium text-ink-500 underline decoration-dotted hover:text-ink-700"
+                        >
+                          {u.activo ? 'Desactivar' : 'Activar'}
+                        </button>
+                      )}
+                    </div>
                   </Td>
                 </Tr>
               ))}
@@ -181,6 +221,56 @@ export default function UsuariosPage() {
             </Button>
             <Button type="submit" disabled={!puedeCrear || mutation.isPending}>
               {mutation.isPending ? 'Creando…' : 'Crear usuario'}
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+
+      <Dialog open={Boolean(editandoId)} onClose={() => setEditandoId(null)} title="Editar usuario" width="sm">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            editMutation.mutate();
+          }}
+          className="flex flex-col gap-4"
+        >
+          {editError && <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{editError}</div>}
+
+          <FormField label="Nombre" required>
+            <Input
+              value={editForm.nombre}
+              onChange={(e) => setEditForm({ ...editForm, nombre: e.target.value })}
+              required
+              autoFocus
+            />
+          </FormField>
+
+          <FormField label="Email" required>
+            <Input
+              type="email"
+              value={editForm.email}
+              onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+              required
+            />
+          </FormField>
+
+          <FormField label="Rol" required>
+            <Select value={editForm.rolId} onChange={(e) => setEditForm({ ...editForm, rolId: e.target.value })} required>
+              <option value="">Elegir…</option>
+              {roles?.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.nombre}
+                </option>
+              ))}
+            </Select>
+          </FormField>
+
+          <div className="flex justify-end gap-2 border-t border-ink-100 pt-3">
+            <Button type="button" variant="secondary" onClick={() => setEditandoId(null)}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={!puedeGuardarEdicion || editMutation.isPending}>
+              {editMutation.isPending ? 'Guardando…' : 'Guardar cambios'}
             </Button>
           </div>
         </form>
