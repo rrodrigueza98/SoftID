@@ -11,6 +11,8 @@ const SECTIONS = [
   { to: '/facturacion/emitir', label: 'Facturación', hint: 'Cargar y emitir un nuevo documento' },
   { to: '/facturacion', label: 'Comprobantes emitidos', hint: 'Consultar historial de facturación' },
   { to: '/clientes', label: 'Clientes', hint: 'Base de datos de clientes' },
+  { to: '/proveedores', label: 'Proveedores', hint: 'Base de datos de proveedores' },
+  { to: '/compras', label: 'Compras', hint: 'Registrar comprobantes de compra' },
   { to: '/productos', label: 'Productos', hint: 'Catálogo y precios' },
   { to: '/stock', label: 'Stock', hint: 'Saldos y movimientos' },
   { to: '/cuentas-corrientes', label: 'Cuentas corrientes', hint: 'Saldos y cobros' },

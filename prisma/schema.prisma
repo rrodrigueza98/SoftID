@@ -251,6 +251,7 @@ model Empresa {
   roles             Rol[]
   recibos           Recibo[]
   sesionesCaja      SesionCaja[]
+  compras           Compra[]
   cuentasContables  CuentaContable[]  @relation("EmpresaCuentas")
   asientosContables AsientoContable[] @relation("EmpresaAsientos")
 
@@ -385,6 +386,7 @@ model Tercero {
   comprobantesComoCliente Comprobante[]          @relation("ComprobanteCliente")
   comprobantesComoProveedor Comprobante[]        @relation("ComprobanteProveedor")
   recibos                 Recibo[]
+  compras                 Compra[]
 
   @@unique([empresaId, tipoDocumento, numeroDocumento])
   @@index([empresaId, razonSocial])
@@ -796,6 +798,44 @@ model EventoDocumentoElectronico {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+// Compras: registro manual de comprobantes que emiten los proveedores (no
+// son documentos electronicos nuestros -- no usan Timbrado/numeracion
+// propia, el numero de comprobante lo tipea el usuario tal como figura en
+// la factura del proveedor). Existen principalmente para poder contabilizar
+// gastos/compras (asiento automatico con IVA Credito Fiscal) y, si son a
+// credito, sumar la deuda en la cuenta corriente del proveedor.
+// ─────────────────────────────────────────────────────────────────────────
+
+model Compra {
+  id                String            @id @default(cuid())
+  empresaId         String
+  proveedorId       String
+  numeroComprobante String // tal cual figura en la factura del proveedor
+  timbradoProveedor String?
+  fechaEmision      DateTime          @default(now())
+  concepto          String
+  cuentaContableId  String // cuenta de gasto/activo que corresponde (elegida del Plan de Cuentas)
+  condicionCompra   CondicionVenta    @default(CONTADO)
+  formaPago         FormaPago?
+  montoExenta       Decimal           @default(0) @db.Decimal(15, 2)
+  montoGravada10    Decimal           @default(0) @db.Decimal(15, 2)
+  montoGravada5     Decimal           @default(0) @db.Decimal(15, 2)
+  iva10             Decimal           @default(0) @db.Decimal(15, 2)
+  iva5              Decimal           @default(0) @db.Decimal(15, 2)
+  total             Decimal           @db.Decimal(15, 2)
+  observacion       String?
+  estado            EstadoComprobante @default(EMITIDO)
+  createdAt         DateTime          @default(now())
+
+  empresa           Empresa           @relation(fields: [empresaId], references: [id])
+  proveedor         Tercero           @relation(fields: [proveedorId], references: [id])
+  cuentaContable    CuentaContable    @relation(fields: [cuentaContableId], references: [id])
+  asientosContables AsientoContable[]
+
+  @@map("compras")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // Contabilidad general (partida doble) -- Plan de Cuentas + Libro Diario.
 // El Plan de Cuentas por defecto que se siembra por empresa sigue textual la
 // codificacion del modelo oficial de Estados Financieros de la DNIT
@@ -822,6 +862,7 @@ enum OrigenAsiento {
   MANUAL
   VENTA
   COBRO
+  COMPRA
 }
 
 model CuentaContable {
@@ -843,6 +884,7 @@ model CuentaContable {
   cuentaPadre CuentaContable?           @relation("JerarquiaCuentas", fields: [cuentaPadreId], references: [id])
   subcuentas  CuentaContable[]          @relation("JerarquiaCuentas")
   detalles    AsientoContableDetalle[]
+  compras     Compra[]
 
   @@unique([empresaId, codigo])
   @@map("cuentas_contables")
@@ -857,11 +899,13 @@ model AsientoContable {
   origen        OrigenAsiento @default(MANUAL)
   comprobanteId String? // presente si el asiento salio automatico de una venta
   reciboId      String? // presente si el asiento salio automatico de un cobro
+  compraId      String? // presente si el asiento salio automatico de una compra
   createdAt     DateTime      @default(now())
 
   empresa     Empresa                  @relation("EmpresaAsientos", fields: [empresaId], references: [id])
   comprobante Comprobante?             @relation(fields: [comprobanteId], references: [id])
   recibo      Recibo?                  @relation(fields: [reciboId], references: [id])
+  compra      Compra?                  @relation(fields: [compraId], references: [id])
   detalles    AsientoContableDetalle[]
 
   @@unique([empresaId, numero])

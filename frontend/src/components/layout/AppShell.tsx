@@ -3,17 +3,33 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../../lib/auth-context';
 import { cn } from '../../lib/cn';
 
-const NAV_ITEMS = [
-  { to: '/', label: 'Inicio', end: true },
-  { to: '/pos', label: 'Punto de venta' },
-  { to: '/facturacion/emitir', label: 'Facturación' },
-  { to: '/facturacion', label: 'Comprobantes emitidos', end: true },
-  { to: '/clientes', label: 'Clientes' },
-  { to: '/proveedores', label: 'Proveedores' },
-  { to: '/productos', label: 'Productos' },
-  { to: '/stock', label: 'Stock' },
-  { to: '/cuentas-corrientes', label: 'Cuentas corrientes' },
-  { to: '/contabilidad', label: 'Contabilidad' },
+const NAV_SECTIONS: { title?: string; items: { to: string; label: string; end?: boolean }[] }[] = [
+  { items: [{ to: '/', label: 'Inicio', end: true }] },
+  {
+    title: 'Ventas',
+    items: [
+      { to: '/pos', label: 'Punto de venta' },
+      { to: '/facturacion/emitir', label: 'Facturación' },
+      { to: '/facturacion', label: 'Comprobantes emitidos', end: true },
+      { to: '/clientes', label: 'Clientes' },
+      { to: '/cuentas-corrientes', label: 'Cuentas corrientes' },
+    ],
+  },
+  {
+    title: 'Compras',
+    items: [
+      { to: '/proveedores', label: 'Proveedores' },
+      { to: '/compras', label: 'Comprobantes de compra' },
+    ],
+  },
+  {
+    title: 'Inventario',
+    items: [
+      { to: '/productos', label: 'Productos' },
+      { to: '/stock', label: 'Stock' },
+    ],
+  },
+  { title: 'Contabilidad', items: [{ to: '/contabilidad', label: 'Contabilidad' }] },
 ];
 
 export function AppShell() {
@@ -66,21 +82,28 @@ export function AppShell() {
           </div>
           <span className="text-sm font-semibold text-white">SoftID</span>
         </div>
-        <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 pt-16 md:pt-3">
-          {NAV_ITEMS.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) =>
-                cn(
-                  'block rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                  isActive ? 'bg-brand-700 text-white' : 'text-ink-300 hover:bg-ink-800 hover:text-white',
-                )
-              }
-            >
-              {item.label}
-            </NavLink>
+        <nav className="flex-1 space-y-4 overflow-y-auto px-3 pt-16 md:pt-3">
+          {NAV_SECTIONS.map((section, i) => (
+            <div key={section.title ?? i} className="space-y-0.5">
+              {section.title && (
+                <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-ink-500">{section.title}</p>
+              )}
+              {section.items.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.end}
+                  className={({ isActive }) =>
+                    cn(
+                      'block rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                      isActive ? 'bg-brand-700 text-white' : 'text-ink-300 hover:bg-ink-800 hover:text-white',
+                    )
+                  }
+                >
+                  {item.label}
+                </NavLink>
+              ))}
+            </div>
           ))}
         </nav>
         <div className="border-t border-ink-800 px-4 py-4">

@@ -9,18 +9,22 @@ export const CUENTA_ROL = {
   IVA_DEBITO: 'IVA_DEBITO',
   COSTO_VENTA: 'COSTO_VENTA',
   INVENTARIO: 'INVENTARIO',
+  PROVEEDORES: 'PROVEEDORES',
+  IVA_CREDITO: 'IVA_CREDITO',
 } as const;
 
 export type RolCuenta = keyof typeof CUENTA_ROL;
 
 export const ROL_LABEL: Record<RolCuenta, string> = {
-  CAJA: 'Caja (ventas al contado en efectivo)',
-  BANCO: 'Banco (ventas al contado por transferencia/tarjeta/etc.)',
+  CAJA: 'Caja (ventas/compras al contado en efectivo)',
+  BANCO: 'Banco (ventas/compras al contado por transferencia/tarjeta/etc.)',
   CLIENTES: 'Clientes (ventas a crédito, cuentas por cobrar)',
   VENTAS: 'Ventas (ingreso neto de IVA)',
   IVA_DEBITO: 'IVA Débito Fiscal (IVA a pagar por ventas)',
   COSTO_VENTA: 'Costo de Mercadería Vendida',
   INVENTARIO: 'Inventario / Mercaderías',
+  PROVEEDORES: 'Proveedores (compras a crédito, cuentas por pagar)',
+  IVA_CREDITO: 'IVA Crédito Fiscal (IVA a favor por compras)',
 };
 
 // Sugerencia por defecto una vez sembrado el Plan de Cuentas estandar --
@@ -33,6 +37,8 @@ export const CODIGO_SUGERIDO_POR_ROL: Record<RolCuenta, string> = {
   IVA_DEBITO: '2-01-10-02',
   COSTO_VENTA: '4-01-',
   INVENTARIO: '1-01-10-01',
+  PROVEEDORES: '2-01-01-01',
+  IVA_CREDITO: '1-01-20-02',
 };
 
 export type MapeoContable = Partial<Record<RolCuenta, string>>;

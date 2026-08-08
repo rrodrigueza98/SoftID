@@ -46,6 +46,9 @@ export const PLAN_CUENTAS_DEFAULT: CuentaDefault[] = [
   { codigo: '1-01-15-02', nombre: 'PROVEEDORES (ANTICIPOS)', tipo: 'ACTIVO', naturaleza: 'DEUDORA', imputable: true },
   { codigo: '1-01-20-', nombre: 'OTROS ACTIVOS', tipo: 'ACTIVO', naturaleza: 'DEUDORA', imputable: false },
   { codigo: '1-01-20-01', nombre: 'GASTOS NO DEVENGADOS', tipo: 'ACTIVO', naturaleza: 'DEUDORA', imputable: true },
+  // No forma parte de la transcripcion oficial (el modelo no lo desglosa),
+  // se agrega para el asiento automatico de Compras (ver mapeo-contable.ts).
+  { codigo: '1-01-20-02', nombre: 'IVA CREDITO FISCAL', tipo: 'ACTIVO', naturaleza: 'DEUDORA', imputable: true },
   { codigo: '1-02-', nombre: 'ACTIVO NO CORRIENTE', tipo: 'ACTIVO', naturaleza: 'DEUDORA', imputable: false },
   { codigo: '1-02-01-', nombre: 'CREDITOS (NO CORRIENTE)', tipo: 'ACTIVO', naturaleza: 'DEUDORA', imputable: false },
   { codigo: '1-02-01-01', nombre: 'FONDOS CON DESTINO ESPECIAL', tipo: 'ACTIVO', naturaleza: 'DEUDORA', imputable: true },

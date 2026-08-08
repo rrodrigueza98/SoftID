@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { Comprobante, ComprobanteItem, OrigenAsiento, Prisma, Recibo } from '@prisma/client';
+import { Comprobante, ComprobanteItem, Compra, OrigenAsiento, Prisma, Recibo } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAsientoContableDto } from './dto/create-asiento-contable.dto';
 import { esFormaPagoBancaria, MapeoContable } from './mapeo-contable';
@@ -239,6 +239,51 @@ export class AsientosContablesService {
             { cuentaId: mapeo.CLIENTES, debe: 0, haber: monto },
           ],
         },
+      },
+    });
+  }
+
+  // Asiento automatico de una compra (comprobante de proveedor registrado
+  // manualmente):
+  //   Debe  [cuenta de gasto/activo elegida en la compra]  = neto (exenta+gravada)
+  //   Debe  IVA Credito Fiscal                               = iva
+  //   Haber Proveedores (credito) o Caja/Banco (contado)     = total
+  async generarAsientoCompra(tx: TxClient, compra: Compra) {
+    const empresa = await tx.empresa.findUniqueOrThrow({ where: { id: compra.empresaId } });
+    const mapeo = (empresa.mapeoContable as MapeoContable | null) ?? {};
+
+    const total = Number(compra.total);
+    const neto = round2(Number(compra.montoExenta) + Number(compra.montoGravada10) + Number(compra.montoGravada5));
+    const iva = round2(Number(compra.iva10) + Number(compra.iva5));
+
+    const cuentaContrapartidaId =
+      compra.condicionCompra === 'CREDITO'
+        ? mapeo.PROVEEDORES
+        : esFormaPagoBancaria(compra.formaPago ?? undefined)
+          ? mapeo.BANCO
+          : mapeo.CAJA;
+
+    const detalles: { cuentaId: string; debe: number; haber: number }[] = [];
+    if (neto > 0) detalles.push({ cuentaId: compra.cuentaContableId, debe: neto, haber: 0 });
+    if (mapeo.IVA_CREDITO && iva > 0) detalles.push({ cuentaId: mapeo.IVA_CREDITO, debe: iva, haber: 0 });
+    if (cuentaContrapartidaId) detalles.push({ cuentaId: cuentaContrapartidaId, debe: 0, haber: total });
+
+    // Mismo criterio que en generarAsientoVenta: si falta algun mapeo clave
+    // y el asiento queda desbalanceado, mejor no generarlo.
+    const totalDebe = round2(detalles.reduce((s, d) => s + d.debe, 0));
+    const totalHaber = round2(detalles.reduce((s, d) => s + d.haber, 0));
+    if (detalles.length === 0 || totalDebe !== totalHaber) return null;
+
+    const numero = await this.siguienteNumero(tx, compra.empresaId);
+    return tx.asientoContable.create({
+      data: {
+        empresaId: compra.empresaId,
+        numero,
+        fecha: compra.fechaEmision,
+        concepto: `Compra Nº ${compra.numeroComprobante} — ${compra.concepto}`,
+        origen: OrigenAsiento.COMPRA,
+        compraId: compra.id,
+        detalles: { create: detalles },
       },
     });
   }

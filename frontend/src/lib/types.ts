@@ -352,7 +352,7 @@ export interface Empresa {
 
 export type TipoCuentaContable = 'ACTIVO' | 'PASIVO' | 'PATRIMONIO' | 'INGRESO' | 'EGRESO';
 export type NaturalezaCuenta = 'DEUDORA' | 'ACREEDORA';
-export type OrigenAsiento = 'MANUAL' | 'VENTA' | 'COBRO';
+export type OrigenAsiento = 'MANUAL' | 'VENTA' | 'COBRO' | 'COMPRA';
 
 export interface CuentaContable {
   id: string;
@@ -366,7 +366,16 @@ export interface CuentaContable {
   activo: boolean;
 }
 
-export type RolCuenta = 'CAJA' | 'BANCO' | 'CLIENTES' | 'VENTAS' | 'IVA_DEBITO' | 'COSTO_VENTA' | 'INVENTARIO';
+export type RolCuenta =
+  | 'CAJA'
+  | 'BANCO'
+  | 'CLIENTES'
+  | 'VENTAS'
+  | 'IVA_DEBITO'
+  | 'COSTO_VENTA'
+  | 'INVENTARIO'
+  | 'PROVEEDORES'
+  | 'IVA_CREDITO';
 export type MapeoContable = Partial<Record<RolCuenta, string>>;
 
 export interface AsientoContableDetalle {
@@ -420,4 +429,27 @@ export interface BalanceSumasSaldosFila {
 export interface BalanceSumasSaldos {
   filas: BalanceSumasSaldosFila[];
   totales: { debe: number; haber: number };
+}
+
+export interface Compra {
+  id: string;
+  empresaId: string;
+  proveedorId: string;
+  proveedor?: Tercero;
+  numeroComprobante: string;
+  timbradoProveedor?: string | null;
+  fechaEmision: string;
+  concepto: string;
+  cuentaContableId: string;
+  cuentaContable?: CuentaContable;
+  condicionCompra: CondicionVenta;
+  formaPago?: FormaPago | null;
+  montoExenta: string;
+  montoGravada10: string;
+  montoGravada5: string;
+  iva10: string;
+  iva5: string;
+  total: string;
+  observacion?: string | null;
+  estado: 'BORRADOR' | 'EMITIDO' | 'ANULADO';
 }

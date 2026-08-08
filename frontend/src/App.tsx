@@ -11,6 +11,7 @@ import TercerosPage from './pages/TercerosPage';
 import ProductosPage from './pages/ProductosPage';
 import StockPage from './pages/StockPage';
 import CuentasCorrientesPage from './pages/CuentasCorrientesPage';
+import ComprasPage from './pages/ComprasPage';
 import ContabilidadPage from './pages/ContabilidadPage';
 import ComprobantePrintPage from './pages/ComprobantePrintPage';
 import ReciboPrintPage from './pages/ReciboPrintPage';
@@ -41,6 +42,7 @@ export default function App() {
         <Route path="/productos" element={<ProductosPage />} />
         <Route path="/stock" element={<StockPage />} />
         <Route path="/cuentas-corrientes" element={<CuentasCorrientesPage />} />
+        <Route path="/compras" element={<ComprasPage />} />
         <Route path="/contabilidad" element={<ContabilidadPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
