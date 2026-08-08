@@ -32,9 +32,14 @@ const NAV_SECTIONS: { title?: string; items: { to: string; label: string; end?: 
   { title: 'Contabilidad', items: [{ to: '/contabilidad', label: 'Contabilidad' }] },
 ];
 
+// Secciones abiertas por default -- asi el menu no arranca todo colapsado
+// la primera vez que alguien entra.
+const SECCIONES_ABIERTAS_POR_DEFECTO = new Set(NAV_SECTIONS.filter((s) => s.title).map((s) => s.title!));
+
 export function AppShell() {
   const { usuario, logout } = useAuth();
   const [navOpen, setNavOpen] = useState(false);
+  const [abiertas, setAbiertas] = useState(SECCIONES_ABIERTAS_POR_DEFECTO);
   const location = useLocation();
 
   // Al navegar (click en un link del menu) cerramos el drawer mobile --
@@ -42,6 +47,25 @@ export function AppShell() {
   useEffect(() => {
     setNavOpen(false);
   }, [location.pathname]);
+
+  // Si la navegacion (ej. un link del Dashboard) lleva a una pantalla cuya
+  // seccion esta colapsada, la reabrimos -- si no, el item activo queda
+  // resaltado pero invisible dentro de un acordeon cerrado.
+  useEffect(() => {
+    const seccion = NAV_SECTIONS.find((s) => s.items.some((item) => item.to === location.pathname));
+    if (seccion?.title && !abiertas.has(seccion.title)) {
+      setAbiertas((prev) => new Set(prev).add(seccion.title!));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
+
+  const toggleSeccion = (title: string) => {
+    setAbiertas((prev) => {
+      const next = new Set(prev);
+      next.has(title) ? next.delete(title) : next.add(title);
+      return next;
+    });
+  };
 
   return (
     <div className="flex min-h-screen bg-ink-50">
@@ -82,29 +106,64 @@ export function AppShell() {
           </div>
           <span className="text-sm font-semibold text-white">SoftID</span>
         </div>
-        <nav className="flex-1 space-y-4 overflow-y-auto px-3 pt-16 md:pt-3">
-          {NAV_SECTIONS.map((section, i) => (
-            <div key={section.title ?? i} className="space-y-0.5">
-              {section.title && (
-                <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-ink-500">{section.title}</p>
-              )}
-              {section.items.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.end}
-                  className={({ isActive }) =>
-                    cn(
-                      'block rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                      isActive ? 'bg-brand-700 text-white' : 'text-ink-300 hover:bg-ink-800 hover:text-white',
-                    )
-                  }
+        <nav className="flex-1 space-y-1 overflow-y-auto px-3 pt-16 md:pt-3">
+          {NAV_SECTIONS.map((section, i) => {
+            if (!section.title) {
+              return (
+                <div key={i} className="space-y-0.5 pb-3">
+                  {section.items.map((item) => (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      end={item.end}
+                      className={({ isActive }) =>
+                        cn(
+                          'block rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                          isActive ? 'bg-brand-700 text-white' : 'text-ink-300 hover:bg-ink-800 hover:text-white',
+                        )
+                      }
+                    >
+                      {item.label}
+                    </NavLink>
+                  ))}
+                </div>
+              );
+            }
+
+            const abierta = abiertas.has(section.title);
+            return (
+              <div key={section.title} className="space-y-0.5">
+                <button
+                  type="button"
+                  onClick={() => toggleSeccion(section.title!)}
+                  className="flex w-full items-center justify-between rounded-md px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-500 hover:text-ink-300"
+                  aria-expanded={abierta}
                 >
-                  {item.label}
-                </NavLink>
-              ))}
-            </div>
-          ))}
+                  {section.title}
+                  <span className={cn('transition-transform', abierta ? 'rotate-90' : '')}>›</span>
+                </button>
+                {abierta && (
+                  <div className="space-y-0.5">
+                    {section.items.map((item) => (
+                      <NavLink
+                        key={item.to}
+                        to={item.to}
+                        end={item.end}
+                        className={({ isActive }) =>
+                          cn(
+                            'block rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                            isActive ? 'bg-brand-700 text-white' : 'text-ink-300 hover:bg-ink-800 hover:text-white',
+                          )
+                        }
+                      >
+                        {item.label}
+                      </NavLink>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </nav>
         <div className="border-t border-ink-800 px-4 py-4">
           <p className="truncate text-sm font-medium text-white">{usuario?.nombre}</p>
