@@ -45,6 +45,11 @@ export class ComprobantesService {
         `${dto.tipoDocumento} requiere motivoEmision (catalogo SIFEN de Nota de Credito/Debito)`,
       );
     }
+    if (dto.tipoDocumento === TipoDocumentoElectronico.NOTA_REMISION_ELECTRONICA && !dto.datosTransporteRemision) {
+      throw new BadRequestException(
+        'NOTA_REMISION_ELECTRONICA requiere datosTransporteRemision (grupos E6/E10 del Manual Tecnico SIFEN)',
+      );
+    }
 
     const itemsCalculados = dto.items.map((item) => ({ ...item, ...calcularItem(item) }));
     const subtotales = calcularSubtotales(itemsCalculados);
@@ -129,6 +134,18 @@ export class ComprobantesService {
               costoUnitario: item.productoId ? costoPorProducto.get(item.productoId) : undefined,
             })),
           },
+          datosTransporteRemision: dto.datosTransporteRemision
+            ? {
+                create: {
+                  ...dto.datosTransporteRemision,
+                  fechaEmisionFacturaFutura: dto.datosTransporteRemision.fechaEmisionFacturaFutura
+                    ? new Date(dto.datosTransporteRemision.fechaEmisionFacturaFutura)
+                    : undefined,
+                  fechaInicioTraslado: new Date(dto.datosTransporteRemision.fechaInicioTraslado),
+                  fechaFinTraslado: new Date(dto.datosTransporteRemision.fechaFinTraslado),
+                },
+              }
+            : undefined,
         },
         include: { items: true },
       });
@@ -239,6 +256,7 @@ export class ComprobantesService {
         documentoElectronico: true,
         empresa: true,
         timbrado: { include: { puntoExpedicion: { include: { establecimiento: true } } } },
+        datosTransporteRemision: true,
       },
     });
     if (!comprobante) throw new NotFoundException(`Comprobante ${id} no encontrado`);

@@ -719,6 +719,7 @@ model Comprobante {
   pagos                       ComprobantePago[]
   reciboAplicaciones          ReciboAplicacion[]
   asientosContables           AsientoContable[]
+  datosTransporteRemision     DatosTransporteRemision?
 
   @@unique([puntoExpedicionId, tipoDocumento, numero])
   @@index([empresaId, fechaEmision])
@@ -752,6 +753,130 @@ model ComprobanteItem {
   unidadMedida UnidadMedida  @relation(fields: [unidadMedidaId], references: [id])
 
   @@map("comprobante_items")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Datos de transporte de la Nota de Remision Electronica -- grupos E6/E10
+// del Manual Tecnico SIFEN v150 (obligatorios cuando C002=7). Se modela
+// aparte del Comprobante (en vez de columnas sueltas ahi) porque son ~20
+// campos que solo aplican a este unico tipo de documento.
+// ─────────────────────────────────────────────────────────────────────────
+
+/// E501 iMotEmiNR (Manual Tecnico SIFEN v150, pag. 78)
+enum MotivoEmisionNotaRemision {
+  TRASLADO_POR_VENTA
+  TRASLADO_POR_CONSIGNACION
+  EXPORTACION
+  TRASLADO_POR_COMPRA
+  IMPORTACION
+  TRASLADO_POR_DEVOLUCION
+  TRASLADO_ENTRE_LOCALES
+  TRASLADO_POR_TRANSFORMACION
+  TRASLADO_POR_REPARACION
+  TRASLADO_POR_EMISOR_MOVIL
+  EXHIBICION_O_DEMOSTRACION
+  PARTICIPACION_EN_FERIAS
+  TRASLADO_DE_ENCOMIENDA
+  DECOMISO
+  OTRO
+}
+
+/// E503 iRespEmiNR
+enum ResponsableEmisionNotaRemision {
+  EMISOR_FACTURA
+  POSEEDOR_FACTURA_Y_BIENES
+  EMPRESA_TRANSPORTISTA
+  DESPACHANTE_ADUANAS
+  AGENTE_TRANSPORTE
+}
+
+/// E901 iTipTrans
+enum TipoTransporte {
+  PROPIO
+  TERCERO
+}
+
+/// E903 iModTrans
+enum ModalidadTransporte {
+  TERRESTRE
+  FLUVIAL
+  AEREO
+  MULTIMODAL
+}
+
+/// E905 iRespFlete
+enum ResponsableFlete {
+  EMISOR_FACTURA
+  RECEPTOR_FACTURA
+  TERCERO
+  AGENTE_INTERMEDIARIO
+  TRANSPORTE_PROPIO
+}
+
+/// E967 dTipIdenVeh
+enum TipoIdentificacionVehiculo {
+  NUMERO_IDENTIFICACION
+  MATRICULA
+}
+
+/// E981 iNatTrans
+enum NaturalezaTransportista {
+  CONTRIBUYENTE
+  NO_CONTRIBUYENTE
+}
+
+model DatosTransporteRemision {
+  id            String @id @default(cuid())
+  comprobanteId String @unique
+
+  // E6 -- motivo y responsable de la emision de la remision
+  motivoEmision             MotivoEmisionNotaRemision
+  motivoEmisionOtro         String? // obligatorio si motivoEmision = OTRO (E501=99)
+  responsableEmision        ResponsableEmisionNotaRemision
+  kmEstimados               Int?
+  fechaEmisionFacturaFutura DateTime? // E506, cuando la factura todavia no se emitio
+
+  // E10 -- transporte
+  tipoTransporte      TipoTransporte
+  modalidadTransporte ModalidadTransporte
+  responsableFlete    ResponsableFlete
+  fechaInicioTraslado DateTime
+  fechaFinTraslado    DateTime
+
+  // E10.1 -- local de salida
+  direccionSalida     String
+  numeroCasaSalida     String
+  ciudadSalida        String
+  departamentoSalida  String
+
+  // E10.2 -- local de entrega
+  direccionEntrega    String
+  numeroCasaEntrega    String
+  ciudadEntrega       String
+  departamentoEntrega String
+
+  // E10.3 -- vehiculo (el manual permite hasta 4, se soporta uno solo por
+  // simplicidad -- cubre el caso de uso real de una PyME)
+  tipoVehiculo                 String
+  marcaVehiculo                String
+  tipoIdentificacionVehiculo   TipoIdentificacionVehiculo
+  numeroIdentificacionVehiculo String? // obligatorio si tipoIdentificacionVehiculo = NUMERO_IDENTIFICACION
+  numeroMatriculaVehiculo      String? // obligatorio si tipoIdentificacionVehiculo = MATRICULA
+  numeroVuelo                  String? // obligatorio si modalidadTransporte = AEREO
+
+  // E10.4 -- transportista y chofer
+  naturalezaTransportista         NaturalezaTransportista
+  nombreTransportista             String
+  rucTransportista                String? // obligatorio si naturalezaTransportista = CONTRIBUYENTE
+  dvRucTransportista              String?
+  tipoDocIdentidadTransportista   TipoDocumentoIdentidad? // obligatorio si naturalezaTransportista = NO_CONTRIBUYENTE
+  numeroDocIdentidadTransportista String?
+  numeroDocIdentidadChofer        String
+  nombreChofer                    String
+
+  comprobante Comprobante @relation(fields: [comprobanteId], references: [id])
+
+  @@map("datos_transporte_remision")
 }
 
 model ComprobantePago {

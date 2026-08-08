@@ -11,7 +11,12 @@ import { Dialog } from '../components/ui/Dialog';
 import { Input, Select, FormField } from '../components/ui/Field';
 import { RucSearchBox, type ResultadoBusquedaRuc } from '../components/RucSearch';
 import { FiscalSetupDialog } from './FiscalSetupDialog';
-import { TIPO_DOCUMENTO_LABEL } from './comprobante-labels';
+import {
+  MOTIVO_REMISION_LABEL,
+  RESPONSABLE_EMISION_REMISION_LABEL,
+  RESPONSABLE_FLETE_LABEL,
+  TIPO_DOCUMENTO_LABEL,
+} from './comprobante-labels';
 import { ComprobanteVisual, type ComprobanteVisualData } from './ComprobanteVisual';
 import type {
   AfectacionIVA,
@@ -22,11 +27,19 @@ import type {
   Empresa,
   Establecimiento,
   FormaPago,
+  ModalidadTransporte,
   MotivoEmisionNotaCD,
+  MotivoEmisionNotaRemision,
+  NaturalezaTransportista,
   PuntoExpedicion,
   Producto,
+  ResponsableEmisionNotaRemision,
+  ResponsableFlete,
   Tercero,
   TipoDocumentoElectronico,
+  TipoDocumentoIdentidad,
+  TipoIdentificacionVehiculo,
+  TipoTransporte,
   UnidadMedida,
 } from '../lib/types';
 
@@ -65,6 +78,83 @@ const FORMAS_PAGO: { value: FormaPago; label: string }[] = [
   { value: 'BILLETERA_ELECTRONICA', label: 'Billetera electrónica' },
   { value: 'OTRO', label: 'Otro' },
 ];
+
+const TIPO_DOC_TRANSPORTISTA: { value: TipoDocumentoIdentidad; label: string }[] = [
+  { value: 'CEDULA_PARAGUAYA', label: 'Cédula paraguaya' },
+  { value: 'PASAPORTE', label: 'Pasaporte' },
+  { value: 'CEDULA_EXTRANJERA', label: 'Cédula extranjera' },
+  { value: 'CARNET_RESIDENCIA', label: 'Carnet de residencia' },
+];
+
+interface DatosRemisionForm {
+  motivoEmision: MotivoEmisionNotaRemision;
+  motivoEmisionOtro: string;
+  responsableEmision: ResponsableEmisionNotaRemision;
+  kmEstimados: string;
+  tipoTransporte: TipoTransporte;
+  modalidadTransporte: ModalidadTransporte;
+  responsableFlete: ResponsableFlete;
+  fechaInicioTraslado: string;
+  fechaFinTraslado: string;
+  direccionSalida: string;
+  numeroCasaSalida: string;
+  ciudadSalida: string;
+  departamentoSalida: string;
+  direccionEntrega: string;
+  numeroCasaEntrega: string;
+  ciudadEntrega: string;
+  departamentoEntrega: string;
+  tipoVehiculo: string;
+  marcaVehiculo: string;
+  tipoIdentificacionVehiculo: TipoIdentificacionVehiculo;
+  numeroIdentificacionVehiculo: string;
+  numeroMatriculaVehiculo: string;
+  numeroVuelo: string;
+  naturalezaTransportista: NaturalezaTransportista;
+  nombreTransportista: string;
+  rucTransportista: string;
+  dvRucTransportista: string;
+  tipoDocIdentidadTransportista: TipoDocumentoIdentidad | '';
+  numeroDocIdentidadTransportista: string;
+  numeroDocIdentidadChofer: string;
+  nombreChofer: string;
+}
+
+function emptyDatosRemision(): DatosRemisionForm {
+  return {
+    motivoEmision: 'TRASLADO_POR_VENTA',
+    motivoEmisionOtro: '',
+    responsableEmision: 'EMISOR_FACTURA',
+    kmEstimados: '',
+    tipoTransporte: 'PROPIO',
+    modalidadTransporte: 'TERRESTRE',
+    responsableFlete: 'EMISOR_FACTURA',
+    fechaInicioTraslado: '',
+    fechaFinTraslado: '',
+    direccionSalida: '',
+    numeroCasaSalida: '',
+    ciudadSalida: '',
+    departamentoSalida: '',
+    direccionEntrega: '',
+    numeroCasaEntrega: '',
+    ciudadEntrega: '',
+    departamentoEntrega: '',
+    tipoVehiculo: '',
+    marcaVehiculo: '',
+    tipoIdentificacionVehiculo: 'MATRICULA',
+    numeroIdentificacionVehiculo: '',
+    numeroMatriculaVehiculo: '',
+    numeroVuelo: '',
+    naturalezaTransportista: 'CONTRIBUYENTE',
+    nombreTransportista: '',
+    rucTransportista: '',
+    dvRucTransportista: '',
+    tipoDocIdentidadTransportista: '',
+    numeroDocIdentidadTransportista: '',
+    numeroDocIdentidadChofer: '',
+    nombreChofer: '',
+  };
+}
 
 interface ItemRow {
   key: string;
@@ -116,10 +206,12 @@ export default function EmitirComprobantePage() {
   const [motivoEmision, setMotivoEmision] = useState<MotivoEmisionNotaCD>('DESCUENTO');
   const [observacion, setObservacion] = useState('');
   const [items, setItems] = useState<ItemRow[]>([emptyRow()]);
+  const [datosRemision, setDatosRemision] = useState<DatosRemisionForm>(emptyDatosRemision());
 
   const esAutofactura = tipoDocumento === 'AUTOFACTURA_ELECTRONICA';
   const esNota = tipoDocumento === 'NOTA_CREDITO_ELECTRONICA' || tipoDocumento === 'NOTA_DEBITO_ELECTRONICA';
   const esFactura = tipoDocumento === 'FACTURA_ELECTRONICA';
+  const esRemision = tipoDocumento === 'NOTA_REMISION_ELECTRONICA';
   // SIFEN (E600) solo exige "condicion de la operacion" -- y por lo tanto
   // forma de pago o plazo/cuota -- para Factura y Autofactura.
   const requiereCondicionOperacion = esFactura || esAutofactura;
@@ -141,6 +233,7 @@ export default function EmitirComprobantePage() {
     setComprobanteAsociadoId('');
     setObservacion('');
     setItems([emptyRow()]);
+    setDatosRemision(emptyDatosRemision());
   }
 
   // --- catalogos de soporte ---
@@ -245,6 +338,10 @@ export default function EmitirComprobantePage() {
     enabled: esNota && Boolean(clienteId),
   });
 
+  function patchRemision(patch: Partial<DatosRemisionForm>) {
+    setDatosRemision((d) => ({ ...d, ...patch }));
+  }
+
   function updateRow(key: string, patch: Partial<ItemRow>) {
     setItems((rows) => rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
   }
@@ -278,6 +375,47 @@ export default function EmitirComprobantePage() {
   }));
   const subtotales = calcularSubtotales(itemsCalculados.map((i) => i.calc));
 
+  function datosTransporteRemisionPayload() {
+    if (!esRemision) return undefined;
+    const d = datosRemision;
+    return {
+      motivoEmision: d.motivoEmision,
+      motivoEmisionOtro: d.motivoEmision === 'OTRO' ? d.motivoEmisionOtro || undefined : undefined,
+      responsableEmision: d.responsableEmision,
+      kmEstimados: d.kmEstimados ? Number(d.kmEstimados) : undefined,
+      tipoTransporte: d.tipoTransporte,
+      modalidadTransporte: d.modalidadTransporte,
+      responsableFlete: d.responsableFlete,
+      fechaInicioTraslado: d.fechaInicioTraslado,
+      fechaFinTraslado: d.fechaFinTraslado,
+      direccionSalida: d.direccionSalida,
+      numeroCasaSalida: d.numeroCasaSalida,
+      ciudadSalida: d.ciudadSalida,
+      departamentoSalida: d.departamentoSalida,
+      direccionEntrega: d.direccionEntrega,
+      numeroCasaEntrega: d.numeroCasaEntrega,
+      ciudadEntrega: d.ciudadEntrega,
+      departamentoEntrega: d.departamentoEntrega,
+      tipoVehiculo: d.tipoVehiculo,
+      marcaVehiculo: d.marcaVehiculo,
+      tipoIdentificacionVehiculo: d.tipoIdentificacionVehiculo,
+      numeroIdentificacionVehiculo:
+        d.tipoIdentificacionVehiculo === 'NUMERO_IDENTIFICACION' ? d.numeroIdentificacionVehiculo || undefined : undefined,
+      numeroMatriculaVehiculo: d.tipoIdentificacionVehiculo === 'MATRICULA' ? d.numeroMatriculaVehiculo || undefined : undefined,
+      numeroVuelo: d.modalidadTransporte === 'AEREO' ? d.numeroVuelo || undefined : undefined,
+      naturalezaTransportista: d.naturalezaTransportista,
+      nombreTransportista: d.nombreTransportista,
+      rucTransportista: d.naturalezaTransportista === 'CONTRIBUYENTE' ? d.rucTransportista || undefined : undefined,
+      dvRucTransportista: d.naturalezaTransportista === 'CONTRIBUYENTE' ? d.dvRucTransportista || undefined : undefined,
+      tipoDocIdentidadTransportista:
+        d.naturalezaTransportista === 'NO_CONTRIBUYENTE' ? d.tipoDocIdentidadTransportista || undefined : undefined,
+      numeroDocIdentidadTransportista:
+        d.naturalezaTransportista === 'NO_CONTRIBUYENTE' ? d.numeroDocIdentidadTransportista || undefined : undefined,
+      numeroDocIdentidadChofer: d.numeroDocIdentidadChofer,
+      nombreChofer: d.nombreChofer,
+    };
+  }
+
   const mutation = useMutation({
     mutationFn: async () =>
       (
@@ -302,6 +440,7 @@ export default function EmitirComprobantePage() {
           depositoId: esFactura ? depositoId || undefined : undefined,
           comprobanteAsociadoId: esNota ? comprobanteAsociadoId || undefined : undefined,
           motivoEmision: esNota ? motivoEmision : undefined,
+          datosTransporteRemision: datosTransporteRemisionPayload(),
           observacion: observacion || undefined,
           items: items.map((row) => ({
             productoId: row.productoId || undefined,
@@ -334,11 +473,38 @@ export default function EmitirComprobantePage() {
         ? Boolean(plazoCredito)
         : Boolean(cantidadCuotas) && Number(cantidadCuotas) > 0);
 
+  const datosRemisionCompletos =
+    !esRemision ||
+    (Boolean(datosRemision.fechaInicioTraslado) &&
+      Boolean(datosRemision.fechaFinTraslado) &&
+      Boolean(datosRemision.direccionSalida) &&
+      Boolean(datosRemision.numeroCasaSalida) &&
+      Boolean(datosRemision.ciudadSalida) &&
+      Boolean(datosRemision.departamentoSalida) &&
+      Boolean(datosRemision.direccionEntrega) &&
+      Boolean(datosRemision.numeroCasaEntrega) &&
+      Boolean(datosRemision.ciudadEntrega) &&
+      Boolean(datosRemision.departamentoEntrega) &&
+      Boolean(datosRemision.tipoVehiculo) &&
+      Boolean(datosRemision.marcaVehiculo) &&
+      (datosRemision.tipoIdentificacionVehiculo === 'MATRICULA'
+        ? Boolean(datosRemision.numeroMatriculaVehiculo)
+        : Boolean(datosRemision.numeroIdentificacionVehiculo)) &&
+      (datosRemision.modalidadTransporte !== 'AEREO' || Boolean(datosRemision.numeroVuelo)) &&
+      Boolean(datosRemision.nombreTransportista) &&
+      (datosRemision.naturalezaTransportista === 'CONTRIBUYENTE'
+        ? Boolean(datosRemision.rucTransportista)
+        : Boolean(datosRemision.tipoDocIdentidadTransportista) && Boolean(datosRemision.numeroDocIdentidadTransportista)) &&
+      Boolean(datosRemision.numeroDocIdentidadChofer) &&
+      Boolean(datosRemision.nombreChofer) &&
+      (datosRemision.motivoEmision !== 'OTRO' || Boolean(datosRemision.motivoEmisionOtro)));
+
   const puedeEmitir =
     Boolean(puntoExpedicion) &&
     Boolean(timbradoId) &&
     (esAutofactura ? Boolean(proveedorId) : Boolean(clienteId)) &&
     condicionOperacionCompleta &&
+    datosRemisionCompletos &&
     items.every((r) => r.descripcion && r.cantidad && r.precioUnitario && r.unidadMedidaId);
 
   const timbradoSeleccionado = timbradosDisponibles.find((t) => t.id === timbradoId);
@@ -377,6 +543,21 @@ export default function EmitirComprobantePage() {
     iva10: subtotales.iva10,
     total: subtotales.total,
     esPreview: true,
+    datosTransporteRemision: esRemision
+      ? {
+          ...datosRemision,
+          motivoEmisionOtro: datosRemision.motivoEmisionOtro || null,
+          kmEstimados: datosRemision.kmEstimados ? Number(datosRemision.kmEstimados) : null,
+          fechaEmisionFacturaFutura: null,
+          numeroIdentificacionVehiculo: datosRemision.numeroIdentificacionVehiculo || null,
+          numeroMatriculaVehiculo: datosRemision.numeroMatriculaVehiculo || null,
+          numeroVuelo: datosRemision.numeroVuelo || null,
+          rucTransportista: datosRemision.rucTransportista || null,
+          dvRucTransportista: datosRemision.dvRucTransportista || null,
+          tipoDocIdentidadTransportista: datosRemision.tipoDocIdentidadTransportista || null,
+          numeroDocIdentidadTransportista: datosRemision.numeroDocIdentidadTransportista || null,
+        }
+      : undefined,
   };
 
   return (
@@ -583,6 +764,282 @@ export default function EmitirComprobantePage() {
                     ))}
                   </Select>
                 </FormField>
+              </div>
+            )}
+
+            {esRemision && (
+              <div className="flex flex-col gap-4 rounded-md border border-ink-200 p-4">
+                <h3 className="text-sm font-semibold text-ink-800">Datos de la Nota de Remisión</h3>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField label="Motivo de emisión" required>
+                    <Select
+                      value={datosRemision.motivoEmision}
+                      onChange={(e) => patchRemision({ motivoEmision: e.target.value as MotivoEmisionNotaRemision })}
+                    >
+                      {(Object.keys(MOTIVO_REMISION_LABEL) as MotivoEmisionNotaRemision[]).map((v) => (
+                        <option key={v} value={v}>
+                          {MOTIVO_REMISION_LABEL[v]}
+                        </option>
+                      ))}
+                    </Select>
+                  </FormField>
+                  <FormField label="Responsable de la emisión" required>
+                    <Select
+                      value={datosRemision.responsableEmision}
+                      onChange={(e) => patchRemision({ responsableEmision: e.target.value as ResponsableEmisionNotaRemision })}
+                    >
+                      {(Object.keys(RESPONSABLE_EMISION_REMISION_LABEL) as ResponsableEmisionNotaRemision[]).map((v) => (
+                        <option key={v} value={v}>
+                          {RESPONSABLE_EMISION_REMISION_LABEL[v]}
+                        </option>
+                      ))}
+                    </Select>
+                  </FormField>
+                </div>
+                {datosRemision.motivoEmision === 'OTRO' && (
+                  <FormField label="Describir motivo" required>
+                    <Input
+                      value={datosRemision.motivoEmisionOtro}
+                      onChange={(e) => patchRemision({ motivoEmisionOtro: e.target.value })}
+                    />
+                  </FormField>
+                )}
+
+                <div className="grid grid-cols-3 gap-4">
+                  <FormField label="Tipo de transporte" required>
+                    <Select
+                      value={datosRemision.tipoTransporte}
+                      onChange={(e) => patchRemision({ tipoTransporte: e.target.value as TipoTransporte })}
+                    >
+                      <option value="PROPIO">Propio</option>
+                      <option value="TERCERO">Tercero</option>
+                    </Select>
+                  </FormField>
+                  <FormField label="Modalidad" required>
+                    <Select
+                      value={datosRemision.modalidadTransporte}
+                      onChange={(e) => patchRemision({ modalidadTransporte: e.target.value as ModalidadTransporte })}
+                    >
+                      <option value="TERRESTRE">Terrestre</option>
+                      <option value="FLUVIAL">Fluvial</option>
+                      <option value="AEREO">Aéreo</option>
+                      <option value="MULTIMODAL">Multimodal</option>
+                    </Select>
+                  </FormField>
+                  <FormField label="Responsable del flete" required>
+                    <Select
+                      value={datosRemision.responsableFlete}
+                      onChange={(e) => patchRemision({ responsableFlete: e.target.value as ResponsableFlete })}
+                    >
+                      {(Object.keys(RESPONSABLE_FLETE_LABEL) as ResponsableFlete[]).map((v) => (
+                        <option key={v} value={v}>
+                          {RESPONSABLE_FLETE_LABEL[v]}
+                        </option>
+                      ))}
+                    </Select>
+                  </FormField>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField label="Fecha estimada de inicio de traslado" required>
+                    <Input
+                      type="date"
+                      value={datosRemision.fechaInicioTraslado}
+                      onChange={(e) => patchRemision({ fechaInicioTraslado: e.target.value })}
+                    />
+                  </FormField>
+                  <FormField label="Fecha estimada de fin de traslado" required>
+                    <Input
+                      type="date"
+                      value={datosRemision.fechaFinTraslado}
+                      onChange={(e) => patchRemision({ fechaFinTraslado: e.target.value })}
+                    />
+                  </FormField>
+                </div>
+
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-500">Local de salida</p>
+                  <div className="grid grid-cols-4 gap-4">
+                    <div className="col-span-2">
+                      <FormField label="Dirección" required>
+                        <Input
+                          value={datosRemision.direccionSalida}
+                          onChange={(e) => patchRemision({ direccionSalida: e.target.value })}
+                        />
+                      </FormField>
+                    </div>
+                    <FormField label="Nº casa" required>
+                      <Input
+                        value={datosRemision.numeroCasaSalida}
+                        onChange={(e) => patchRemision({ numeroCasaSalida: e.target.value })}
+                      />
+                    </FormField>
+                    <FormField label="Ciudad" required>
+                      <Input value={datosRemision.ciudadSalida} onChange={(e) => patchRemision({ ciudadSalida: e.target.value })} />
+                    </FormField>
+                  </div>
+                  <div className="mt-2 grid grid-cols-4 gap-4">
+                    <FormField label="Departamento" required>
+                      <Input
+                        value={datosRemision.departamentoSalida}
+                        onChange={(e) => patchRemision({ departamentoSalida: e.target.value })}
+                      />
+                    </FormField>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-500">Local de entrega</p>
+                  <div className="grid grid-cols-4 gap-4">
+                    <div className="col-span-2">
+                      <FormField label="Dirección" required>
+                        <Input
+                          value={datosRemision.direccionEntrega}
+                          onChange={(e) => patchRemision({ direccionEntrega: e.target.value })}
+                        />
+                      </FormField>
+                    </div>
+                    <FormField label="Nº casa" required>
+                      <Input
+                        value={datosRemision.numeroCasaEntrega}
+                        onChange={(e) => patchRemision({ numeroCasaEntrega: e.target.value })}
+                      />
+                    </FormField>
+                    <FormField label="Ciudad" required>
+                      <Input
+                        value={datosRemision.ciudadEntrega}
+                        onChange={(e) => patchRemision({ ciudadEntrega: e.target.value })}
+                      />
+                    </FormField>
+                  </div>
+                  <div className="mt-2 grid grid-cols-4 gap-4">
+                    <FormField label="Departamento" required>
+                      <Input
+                        value={datosRemision.departamentoEntrega}
+                        onChange={(e) => patchRemision({ departamentoEntrega: e.target.value })}
+                      />
+                    </FormField>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-500">Vehículo</p>
+                  <div className="grid grid-cols-4 gap-4">
+                    <FormField label="Tipo (ej. Camión)" required>
+                      <Input value={datosRemision.tipoVehiculo} onChange={(e) => patchRemision({ tipoVehiculo: e.target.value })} />
+                    </FormField>
+                    <FormField label="Marca" required>
+                      <Input value={datosRemision.marcaVehiculo} onChange={(e) => patchRemision({ marcaVehiculo: e.target.value })} />
+                    </FormField>
+                    <FormField label="Se identifica por" required>
+                      <Select
+                        value={datosRemision.tipoIdentificacionVehiculo}
+                        onChange={(e) =>
+                          patchRemision({ tipoIdentificacionVehiculo: e.target.value as TipoIdentificacionVehiculo })
+                        }
+                      >
+                        <option value="MATRICULA">Matrícula</option>
+                        <option value="NUMERO_IDENTIFICACION">Número de identificación</option>
+                      </Select>
+                    </FormField>
+                    {datosRemision.tipoIdentificacionVehiculo === 'MATRICULA' ? (
+                      <FormField label="Matrícula" required>
+                        <Input
+                          value={datosRemision.numeroMatriculaVehiculo}
+                          onChange={(e) => patchRemision({ numeroMatriculaVehiculo: e.target.value })}
+                        />
+                      </FormField>
+                    ) : (
+                      <FormField label="Número de identificación" required>
+                        <Input
+                          value={datosRemision.numeroIdentificacionVehiculo}
+                          onChange={(e) => patchRemision({ numeroIdentificacionVehiculo: e.target.value })}
+                        />
+                      </FormField>
+                    )}
+                  </div>
+                  {datosRemision.modalidadTransporte === 'AEREO' && (
+                    <div className="mt-2 grid grid-cols-4 gap-4">
+                      <FormField label="Número de vuelo" required>
+                        <Input value={datosRemision.numeroVuelo} onChange={(e) => patchRemision({ numeroVuelo: e.target.value })} />
+                      </FormField>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-500">Transportista y chofer</p>
+                  <div className="grid grid-cols-4 gap-4">
+                    <FormField label="Naturaleza" required>
+                      <Select
+                        value={datosRemision.naturalezaTransportista}
+                        onChange={(e) => patchRemision({ naturalezaTransportista: e.target.value as NaturalezaTransportista })}
+                      >
+                        <option value="CONTRIBUYENTE">Contribuyente</option>
+                        <option value="NO_CONTRIBUYENTE">No contribuyente</option>
+                      </Select>
+                    </FormField>
+                    <div className="col-span-2">
+                      <FormField label="Nombre o razón social" required>
+                        <Input
+                          value={datosRemision.nombreTransportista}
+                          onChange={(e) => patchRemision({ nombreTransportista: e.target.value })}
+                        />
+                      </FormField>
+                    </div>
+                    {datosRemision.naturalezaTransportista === 'CONTRIBUYENTE' ? (
+                      <FormField label="RUC" required>
+                        <Input
+                          value={datosRemision.rucTransportista}
+                          onChange={(e) => patchRemision({ rucTransportista: e.target.value })}
+                        />
+                      </FormField>
+                    ) : (
+                      <FormField label="Tipo de documento" required>
+                        <Select
+                          value={datosRemision.tipoDocIdentidadTransportista}
+                          onChange={(e) => patchRemision({ tipoDocIdentidadTransportista: e.target.value as TipoDocumentoIdentidad })}
+                        >
+                          <option value="" disabled>
+                            Elegir…
+                          </option>
+                          {TIPO_DOC_TRANSPORTISTA.map((t) => (
+                            <option key={t.value} value={t.value}>
+                              {t.label}
+                            </option>
+                          ))}
+                        </Select>
+                      </FormField>
+                    )}
+                  </div>
+                  {datosRemision.naturalezaTransportista === 'NO_CONTRIBUYENTE' && (
+                    <div className="mt-2 grid grid-cols-4 gap-4">
+                      <FormField label="Número de documento" required>
+                        <Input
+                          value={datosRemision.numeroDocIdentidadTransportista}
+                          onChange={(e) => patchRemision({ numeroDocIdentidadTransportista: e.target.value })}
+                        />
+                      </FormField>
+                    </div>
+                  )}
+                  <div className="mt-2 grid grid-cols-4 gap-4">
+                    <FormField label="Documento del chofer" required>
+                      <Input
+                        value={datosRemision.numeroDocIdentidadChofer}
+                        onChange={(e) => patchRemision({ numeroDocIdentidadChofer: e.target.value })}
+                      />
+                    </FormField>
+                    <div className="col-span-2">
+                      <FormField label="Nombre del chofer" required>
+                        <Input
+                          value={datosRemision.nombreChofer}
+                          onChange={(e) => patchRemision({ nombreChofer: e.target.value })}
+                        />
+                      </FormField>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 

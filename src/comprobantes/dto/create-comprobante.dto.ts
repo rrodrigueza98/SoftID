@@ -21,6 +21,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+import { DatosTransporteRemisionDto } from './datos-transporte-remision.dto';
 
 class ComprobanteItemDto {
   @IsOptional()
@@ -152,6 +153,13 @@ export class CreateComprobanteDto {
   @IsOptional()
   @IsEnum(FormaPago)
   formaPago?: FormaPago;
+
+  // Obligatorio si tipoDocumento es NOTA_REMISION_ELECTRONICA (grupos E6/E10
+  // del Manual Tecnico SIFEN v150).
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => DatosTransporteRemisionDto)
+  datosTransporteRemision?: DatosTransporteRemisionDto;
 
   @IsArray()
   @ArrayMinSize(1)

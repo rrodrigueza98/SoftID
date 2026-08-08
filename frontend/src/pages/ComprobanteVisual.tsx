@@ -1,6 +1,14 @@
 import { formatDate, formatGs } from '../lib/format';
-import { TIPO_DOCUMENTO_LABEL } from './comprobante-labels';
-import type { CondicionVenta, TipoDocumentoElectronico } from '../lib/types';
+import {
+  MODALIDAD_TRANSPORTE_LABEL,
+  MOTIVO_REMISION_LABEL,
+  NATURALEZA_TRANSPORTISTA_LABEL,
+  RESPONSABLE_EMISION_REMISION_LABEL,
+  RESPONSABLE_FLETE_LABEL,
+  TIPO_DOCUMENTO_LABEL,
+  TIPO_TRANSPORTE_LABEL,
+} from './comprobante-labels';
+import type { CondicionVenta, DatosTransporteRemision, TipoDocumentoElectronico } from '../lib/types';
 
 export interface ComprobanteVisualItem {
   key: string;
@@ -44,6 +52,7 @@ export interface ComprobanteVisualData {
   total: string | number;
   estadoBadge?: { label: string; className: string } | null;
   esPreview?: boolean;
+  datosTransporteRemision?: DatosTransporteRemision | null;
 }
 
 // Componente presentacional puro -- lo usan tanto la pagina de impresion
@@ -182,6 +191,71 @@ export function ComprobanteVisual({ data }: { data: ComprobanteVisualData }) {
           </div>
         </div>
       </div>
+
+      {data.datosTransporteRemision && (
+        <div className="mt-4 border border-ink-300 p-3 text-xs">
+          <p className="mb-2 text-xs font-bold uppercase">Datos del transporte</p>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+            <p>
+              <span className="font-semibold">Motivo: </span>
+              {MOTIVO_REMISION_LABEL[data.datosTransporteRemision.motivoEmision]}
+              {data.datosTransporteRemision.motivoEmision === 'OTRO' && data.datosTransporteRemision.motivoEmisionOtro
+                ? ` — ${data.datosTransporteRemision.motivoEmisionOtro}`
+                : ''}
+            </p>
+            <p>
+              <span className="font-semibold">Responsable de la emisión: </span>
+              {RESPONSABLE_EMISION_REMISION_LABEL[data.datosTransporteRemision.responsableEmision]}
+            </p>
+            <p>
+              <span className="font-semibold">Transporte: </span>
+              {TIPO_TRANSPORTE_LABEL[data.datosTransporteRemision.tipoTransporte]} —{' '}
+              {MODALIDAD_TRANSPORTE_LABEL[data.datosTransporteRemision.modalidadTransporte]}
+            </p>
+            <p>
+              <span className="font-semibold">Responsable del flete: </span>
+              {RESPONSABLE_FLETE_LABEL[data.datosTransporteRemision.responsableFlete]}
+            </p>
+            <p>
+              <span className="font-semibold">Traslado estimado: </span>
+              {formatDate(data.datosTransporteRemision.fechaInicioTraslado)} al{' '}
+              {formatDate(data.datosTransporteRemision.fechaFinTraslado)}
+            </p>
+            <p>
+              <span className="font-semibold">Salida: </span>
+              {data.datosTransporteRemision.direccionSalida} Nº {data.datosTransporteRemision.numeroCasaSalida},{' '}
+              {data.datosTransporteRemision.ciudadSalida}, {data.datosTransporteRemision.departamentoSalida}
+            </p>
+            <p>
+              <span className="font-semibold">Entrega: </span>
+              {data.datosTransporteRemision.direccionEntrega} Nº {data.datosTransporteRemision.numeroCasaEntrega},{' '}
+              {data.datosTransporteRemision.ciudadEntrega}, {data.datosTransporteRemision.departamentoEntrega}
+            </p>
+            <p>
+              <span className="font-semibold">Vehículo: </span>
+              {data.datosTransporteRemision.tipoVehiculo} {data.datosTransporteRemision.marcaVehiculo} —{' '}
+              {data.datosTransporteRemision.tipoIdentificacionVehiculo === 'MATRICULA'
+                ? `Matrícula ${data.datosTransporteRemision.numeroMatriculaVehiculo}`
+                : `Nº ident. ${data.datosTransporteRemision.numeroIdentificacionVehiculo}`}
+              {data.datosTransporteRemision.numeroVuelo ? ` — Vuelo ${data.datosTransporteRemision.numeroVuelo}` : ''}
+            </p>
+            <p>
+              <span className="font-semibold">Transportista: </span>
+              {data.datosTransporteRemision.nombreTransportista} (
+              {NATURALEZA_TRANSPORTISTA_LABEL[data.datosTransporteRemision.naturalezaTransportista]}
+              {data.datosTransporteRemision.rucTransportista ? ` — RUC ${data.datosTransporteRemision.rucTransportista}` : ''}
+              {data.datosTransporteRemision.numeroDocIdentidadTransportista
+                ? ` — Doc. ${data.datosTransporteRemision.numeroDocIdentidadTransportista}`
+                : ''}
+              )
+            </p>
+            <p>
+              <span className="font-semibold">Chofer: </span>
+              {data.datosTransporteRemision.nombreChofer} — Doc. {data.datosTransporteRemision.numeroDocIdentidadChofer}
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="mt-8 border border-dashed border-ink-400 p-3 text-center text-[10px] leading-snug text-ink-500">
         Documento interno generado por el sistema. No constituye Documento Tributario Electrónico válido ante la DNIT

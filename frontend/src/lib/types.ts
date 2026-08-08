@@ -74,6 +74,75 @@ export type CondicionVenta = 'CONTADO' | 'CREDITO';
 
 export type CondicionCredito = 'PLAZO' | 'CUOTA';
 
+export type MotivoEmisionNotaRemision =
+  | 'TRASLADO_POR_VENTA'
+  | 'TRASLADO_POR_CONSIGNACION'
+  | 'EXPORTACION'
+  | 'TRASLADO_POR_COMPRA'
+  | 'IMPORTACION'
+  | 'TRASLADO_POR_DEVOLUCION'
+  | 'TRASLADO_ENTRE_LOCALES'
+  | 'TRASLADO_POR_TRANSFORMACION'
+  | 'TRASLADO_POR_REPARACION'
+  | 'TRASLADO_POR_EMISOR_MOVIL'
+  | 'EXHIBICION_O_DEMOSTRACION'
+  | 'PARTICIPACION_EN_FERIAS'
+  | 'TRASLADO_DE_ENCOMIENDA'
+  | 'DECOMISO'
+  | 'OTRO';
+
+export type ResponsableEmisionNotaRemision =
+  | 'EMISOR_FACTURA'
+  | 'POSEEDOR_FACTURA_Y_BIENES'
+  | 'EMPRESA_TRANSPORTISTA'
+  | 'DESPACHANTE_ADUANAS'
+  | 'AGENTE_TRANSPORTE';
+
+export type TipoTransporte = 'PROPIO' | 'TERCERO';
+
+export type ModalidadTransporte = 'TERRESTRE' | 'FLUVIAL' | 'AEREO' | 'MULTIMODAL';
+
+export type ResponsableFlete = 'EMISOR_FACTURA' | 'RECEPTOR_FACTURA' | 'TERCERO' | 'AGENTE_INTERMEDIARIO' | 'TRANSPORTE_PROPIO';
+
+export type TipoIdentificacionVehiculo = 'NUMERO_IDENTIFICACION' | 'MATRICULA';
+
+export type NaturalezaTransportista = 'CONTRIBUYENTE' | 'NO_CONTRIBUYENTE';
+
+export interface DatosTransporteRemision {
+  motivoEmision: MotivoEmisionNotaRemision;
+  motivoEmisionOtro?: string | null;
+  responsableEmision: ResponsableEmisionNotaRemision;
+  kmEstimados?: number | null;
+  fechaEmisionFacturaFutura?: string | null;
+  tipoTransporte: TipoTransporte;
+  modalidadTransporte: ModalidadTransporte;
+  responsableFlete: ResponsableFlete;
+  fechaInicioTraslado: string;
+  fechaFinTraslado: string;
+  direccionSalida: string;
+  numeroCasaSalida: string;
+  ciudadSalida: string;
+  departamentoSalida: string;
+  direccionEntrega: string;
+  numeroCasaEntrega: string;
+  ciudadEntrega: string;
+  departamentoEntrega: string;
+  tipoVehiculo: string;
+  marcaVehiculo: string;
+  tipoIdentificacionVehiculo: TipoIdentificacionVehiculo;
+  numeroIdentificacionVehiculo?: string | null;
+  numeroMatriculaVehiculo?: string | null;
+  numeroVuelo?: string | null;
+  naturalezaTransportista: NaturalezaTransportista;
+  nombreTransportista: string;
+  rucTransportista?: string | null;
+  dvRucTransportista?: string | null;
+  tipoDocIdentidadTransportista?: TipoDocumentoIdentidad | null;
+  numeroDocIdentidadTransportista?: string | null;
+  numeroDocIdentidadChofer: string;
+  nombreChofer: string;
+}
+
 export interface CuentaCorriente {
   id: string;
   terceroId: string;
@@ -281,6 +350,7 @@ export interface Comprobante {
   items: ComprobanteItem[];
   empresa?: Empresa;
   timbrado?: Timbrado;
+  datosTransporteRemision?: DatosTransporteRemision | null;
 }
 
 export interface ComprobantePago {

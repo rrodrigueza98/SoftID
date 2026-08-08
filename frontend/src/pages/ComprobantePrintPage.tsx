@@ -53,6 +53,7 @@ function toVisualData(comprobante: Comprobante): ComprobanteVisualData {
     iva5: comprobante.iva5,
     iva10: comprobante.iva10,
     total: comprobante.total,
+    datosTransporteRemision: comprobante.datosTransporteRemision,
   };
 }
 
