@@ -451,6 +451,8 @@ export interface Recibo {
   aplicaciones?: ReciboAplicacion[];
 }
 
+export type RegimenTributario = 'IRE_GENERAL' | 'IRE_SIMPLE' | 'IRE_RESIT';
+
 export interface Empresa {
   id: string;
   ruc: string;

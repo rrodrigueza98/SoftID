@@ -32,7 +32,13 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
     ],
   },
   { title: 'Contabilidad', items: [{ to: '/contabilidad', label: 'Contabilidad' }] },
-  { title: 'Configuración', items: [{ to: '/usuarios', label: 'Usuarios', soloAdmin: true }] },
+  {
+    title: 'Configuración',
+    items: [
+      { to: '/usuarios', label: 'Usuarios', soloAdmin: true },
+      { to: '/empresas/nueva', label: 'Nueva empresa', soloAdmin: true },
+    ],
+  },
 ];
 
 // Secciones abiertas por default -- asi el menu no arranca todo colapsado
