@@ -4,37 +4,50 @@ import { api } from '../lib/api-client';
 import { useEmpresaId } from '../lib/hooks';
 import { useAuth } from '../lib/auth-context';
 import { Card } from '../components/ui/Card';
-import type { Producto, Stock, Tercero } from '../lib/types';
+import type { Modulo, Producto, Stock, Tercero } from '../lib/types';
 
-const SECTIONS = [
-  { to: '/pos', label: 'Punto de venta', hint: 'Venta rápida de mostrador' },
-  { to: '/facturacion/emitir', label: 'Facturación', hint: 'Cargar y emitir un nuevo documento' },
-  { to: '/facturacion', label: 'Comprobantes emitidos', hint: 'Consultar historial de facturación' },
-  { to: '/clientes', label: 'Clientes', hint: 'Base de datos de clientes' },
-  { to: '/proveedores', label: 'Proveedores', hint: 'Base de datos de proveedores' },
-  { to: '/compras', label: 'Compras', hint: 'Registrar comprobantes de compra' },
-  { to: '/productos', label: 'Productos', hint: 'Catálogo y precios' },
-  { to: '/stock', label: 'Stock', hint: 'Saldos y movimientos' },
-  { to: '/cuentas-corrientes', label: 'Cuentas corrientes', hint: 'Saldos y cobros' },
-  { to: '/contabilidad', label: 'Contabilidad', hint: 'Plan de Cuentas, Libro Diario y Mayor' },
+const SECTIONS: { to: string; label: string; hint: string; modulo: Modulo }[] = [
+  { to: '/pos', label: 'Punto de venta', hint: 'Venta rápida de mostrador', modulo: 'VENTAS' },
+  { to: '/facturacion/emitir', label: 'Facturación', hint: 'Cargar y emitir un nuevo documento', modulo: 'VENTAS' },
+  { to: '/facturacion', label: 'Comprobantes emitidos', hint: 'Consultar historial de facturación', modulo: 'VENTAS' },
+  { to: '/clientes', label: 'Clientes', hint: 'Base de datos de clientes', modulo: 'VENTAS' },
+  { to: '/proveedores', label: 'Proveedores', hint: 'Base de datos de proveedores', modulo: 'COMPRAS' },
+  { to: '/compras', label: 'Compras', hint: 'Registrar comprobantes de compra', modulo: 'COMPRAS' },
+  { to: '/productos', label: 'Productos', hint: 'Catálogo y precios', modulo: 'INVENTARIO' },
+  { to: '/stock', label: 'Stock', hint: 'Saldos y movimientos', modulo: 'INVENTARIO' },
+  { to: '/cuentas-corrientes', label: 'Cuentas corrientes', hint: 'Saldos y cobros', modulo: 'VENTAS' },
+  { to: '/contabilidad', label: 'Contabilidad', hint: 'Plan de Cuentas, Libro Diario y Mayor', modulo: 'CONTABILIDAD' },
 ];
 
-function useCount<T>(key: string, url: string, params: Record<string, string>) {
+function useCount<T>(key: string, url: string, params: Record<string, string>, enabled = true) {
   return useQuery({
     queryKey: [key, params],
     queryFn: async () => (await api.get<T[]>(url, { params })).data.length,
+    enabled,
   });
 }
 
 export default function DashboardPage() {
-  const { usuario } = useAuth();
+  const { usuario, esAdmin } = useAuth();
   const empresaId = useEmpresaId();
 
-  const clientes = useCount<Tercero>('terceros', '/terceros', { empresaId, tipo: 'CLIENTE' });
-  const productos = useCount<Producto>('productos', '/productos', { empresaId });
+  const modulosPermitidos = usuario?.modulosPermitidos ?? [];
+  const restringido = !esAdmin && modulosPermitidos.length > 0;
+  const puedeVer = (m: Modulo) => !restringido || modulosPermitidos.includes(m);
+
+  const seccionesVisibles = SECTIONS.filter((s) => puedeVer(s.modulo));
+
+  const clientes = useCount<Tercero>(
+    'terceros',
+    '/terceros',
+    { empresaId, tipo: 'CLIENTE' },
+    puedeVer('VENTAS') || puedeVer('COMPRAS'),
+  );
+  const productos = useCount<Producto>('productos', '/productos', { empresaId }, puedeVer('INVENTARIO'));
   const stockBajo = useQuery({
     queryKey: ['stock-bajo', empresaId],
     queryFn: async () => (await api.get<Stock[]>('/stock', { params: { empresaId } })).data,
+    enabled: puedeVer('INVENTARIO'),
   });
 
   const itemsBajoMinimo = (stockBajo.data ?? []).filter(
@@ -49,24 +62,30 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Card className="p-5">
-          <p className="text-xs font-medium uppercase tracking-wide text-ink-500">Clientes</p>
-          <p className="mt-2 text-2xl font-semibold tabular-nums text-ink-900">{clientes.data ?? '—'}</p>
-        </Card>
-        <Card className="p-5">
-          <p className="text-xs font-medium uppercase tracking-wide text-ink-500">Productos</p>
-          <p className="mt-2 text-2xl font-semibold tabular-nums text-ink-900">{productos.data ?? '—'}</p>
-        </Card>
-        <Card className={itemsBajoMinimo.length > 0 ? 'border-amber-300 bg-amber-50 p-5' : 'p-5'}>
-          <p className="text-xs font-medium uppercase tracking-wide text-ink-500">Bajo stock mínimo</p>
-          <p className="mt-2 text-2xl font-semibold tabular-nums text-ink-900">{itemsBajoMinimo.length}</p>
-        </Card>
+        {(puedeVer('VENTAS') || puedeVer('COMPRAS')) && (
+          <Card className="p-5">
+            <p className="text-xs font-medium uppercase tracking-wide text-ink-500">Clientes</p>
+            <p className="mt-2 text-2xl font-semibold tabular-nums text-ink-900">{clientes.data ?? '—'}</p>
+          </Card>
+        )}
+        {puedeVer('INVENTARIO') && (
+          <>
+            <Card className="p-5">
+              <p className="text-xs font-medium uppercase tracking-wide text-ink-500">Productos</p>
+              <p className="mt-2 text-2xl font-semibold tabular-nums text-ink-900">{productos.data ?? '—'}</p>
+            </Card>
+            <Card className={itemsBajoMinimo.length > 0 ? 'border-amber-300 bg-amber-50 p-5' : 'p-5'}>
+              <p className="text-xs font-medium uppercase tracking-wide text-ink-500">Bajo stock mínimo</p>
+              <p className="mt-2 text-2xl font-semibold tabular-nums text-ink-900">{itemsBajoMinimo.length}</p>
+            </Card>
+          </>
+        )}
       </div>
 
       <div>
         <h2 className="mb-3 text-sm font-semibold text-ink-700">Ir a…</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {SECTIONS.map((s) => (
+          {seccionesVisibles.map((s) => (
             <Link
               key={s.to}
               to={s.to}
