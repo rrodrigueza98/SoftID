@@ -13,6 +13,13 @@ export class CreateTimbradoDto {
   @IsEnum(TipoDocumentoElectronico)
   tipoDocumento: TipoDocumentoElectronico;
 
+  // false = timbrado tradicional (preimpreso/virtual, sin DTE): sin las
+  // exigencias de SIFEN. Por defecto true para no romper timbrados
+  // existentes, todos electronicos hasta ahora.
+  @IsOptional()
+  @IsBoolean()
+  esElectronico?: boolean;
+
   @IsInt()
   @Min(1)
   numeroDesde: number;

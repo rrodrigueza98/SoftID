@@ -55,6 +55,7 @@ function toVisualData(comprobante: Comprobante): ComprobanteVisualData {
     total: comprobante.total,
     datosTransporteRemision: comprobante.datosTransporteRemision,
     datosVendedorAutofactura: comprobante.datosVendedorAutofactura,
+    esElectronico: comprobante.timbrado?.esElectronico ?? true,
   };
 }
 

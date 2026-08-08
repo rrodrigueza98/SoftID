@@ -7,8 +7,8 @@ import {
   RESPONSABLE_EMISION_REMISION_LABEL,
   RESPONSABLE_FLETE_LABEL,
   TIPO_DOCUMENTO_IDENTIDAD_LABEL,
-  TIPO_DOCUMENTO_LABEL,
   TIPO_TRANSPORTE_LABEL,
+  tipoDocumentoLabel,
 } from './comprobante-labels';
 import type {
   CondicionVenta,
@@ -59,6 +59,9 @@ export interface ComprobanteVisualData {
   total: string | number;
   estadoBadge?: { label: string; className: string } | null;
   esPreview?: boolean;
+  // false = timbrado tradicional (preimpreso/virtual, sin DTE): se muestra
+  // como comprobante simple, sin la leyenda de CDC/firma digital/SIFEN.
+  esElectronico: boolean;
   datosTransporteRemision?: DatosTransporteRemision | null;
   datosVendedorAutofactura?: DatosVendedorAutofactura | null;
 }
@@ -93,7 +96,7 @@ export function ComprobanteVisual({ data }: { data: ComprobanteVisualData }) {
           {data.empresa?.telefono && <p className="text-xs">Tel: {data.empresa.telefono}</p>}
         </div>
         <div className="max-w-[40%] border-l-2 border-ink-900 pl-4 text-right">
-          <p className="text-sm font-bold uppercase">{TIPO_DOCUMENTO_LABEL[data.tipoDocumento]}</p>
+          <p className="text-sm font-bold uppercase">{tipoDocumentoLabel(data.tipoDocumento, data.esElectronico)}</p>
           <p className="mt-1 font-mono text-lg font-bold">{data.numeroCompleto}</p>
           {data.timbradoNumero && (
             <>
@@ -293,10 +296,12 @@ export function ComprobanteVisual({ data }: { data: ComprobanteVisualData }) {
         </div>
       )}
 
-      <div className="mt-8 border border-dashed border-ink-400 p-3 text-center text-[10px] leading-snug text-ink-500">
-        Documento interno generado por el sistema. No constituye Documento Tributario Electrónico válido ante la DNIT
-        hasta contar con Código de Control (CDC), firma digital y aprobación de SIFEN.
-      </div>
+      {data.esElectronico && (
+        <div className="mt-8 border border-dashed border-ink-400 p-3 text-center text-[10px] leading-snug text-ink-500">
+          Documento interno generado por el sistema. No constituye Documento Tributario Electrónico válido ante la DNIT
+          hasta contar con Código de Control (CDC), firma digital y aprobación de SIFEN.
+        </div>
+      )}
     </div>
   );
 }

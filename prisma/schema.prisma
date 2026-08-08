@@ -311,6 +311,11 @@ model Timbrado {
   puntoExpedicionId     String
   numeroTimbrado        String // 8 digitos otorgados por la SET
   tipoDocumento         TipoDocumentoElectronico
+  // false = timbrado tradicional (preimpreso/virtual, sin DTE): el
+  // comprobante es solo numerado, sin las exigencias de SIFEN (CDC, firma
+  // digital, bloques de transporte/vendedor, motivo de emision, etc).
+  // Conviven ambos regimenes dentro de una misma empresa segun el timbrado.
+  esElectronico         Boolean                  @default(true)
   numeroDesde           Int
   numeroHasta           Int
   proximoNumero         Int                      @default(1)
@@ -734,7 +739,11 @@ model Comprobante {
   datosTransporteRemision     DatosTransporteRemision?
   datosVendedorAutofactura    DatosVendedorAutofactura?
 
-  @@unique([puntoExpedicionId, tipoDocumento, numero])
+  // La numeracion es propia de cada timbrado, no del par puntoExpedicion+tipo
+  // -- dos timbrados del mismo tipo de documento (ej. uno electronico y otro
+  // tradicional, o uno vencido y su reemplazo) arrancan cada uno en su propio
+  // rango, y pueden perfectamente coincidir en el mismo numero visible.
+  @@unique([timbradoId, numero])
   @@index([empresaId, fechaEmision])
   @@map("comprobantes")
 }

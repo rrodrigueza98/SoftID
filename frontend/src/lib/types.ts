@@ -284,6 +284,7 @@ export interface Timbrado {
   puntoExpedicionId: string;
   numeroTimbrado: string;
   tipoDocumento: TipoDocumentoElectronico;
+  esElectronico: boolean;
   numeroDesde: number;
   numeroHasta: number;
   proximoNumero: number;

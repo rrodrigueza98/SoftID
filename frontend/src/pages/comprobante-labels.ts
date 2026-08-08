@@ -19,6 +19,22 @@ export const TIPO_DOCUMENTO_LABEL: Record<TipoDocumentoElectronico, string> = {
   COMPROBANTE_RETENCION_ELECTRONICO: 'Comprobante de Retención Electrónico',
 };
 
+// Version sin el sufijo "Electronica/o", para timbrados tradicionales
+// (esElectronico = false), donde el comprobante es solo numerado y no
+// tiene ninguna de las exigencias de SIFEN.
+export const TIPO_DOCUMENTO_LABEL_TRADICIONAL: Record<TipoDocumentoElectronico, string> = {
+  FACTURA_ELECTRONICA: 'Factura',
+  NOTA_CREDITO_ELECTRONICA: 'Nota de Crédito',
+  NOTA_DEBITO_ELECTRONICA: 'Nota de Débito',
+  AUTOFACTURA_ELECTRONICA: 'Autofactura',
+  NOTA_REMISION_ELECTRONICA: 'Nota de Remisión',
+  COMPROBANTE_RETENCION_ELECTRONICO: 'Comprobante de Retención',
+};
+
+export function tipoDocumentoLabel(tipo: TipoDocumentoElectronico, esElectronico: boolean): string {
+  return esElectronico ? TIPO_DOCUMENTO_LABEL[tipo] : TIPO_DOCUMENTO_LABEL_TRADICIONAL[tipo];
+}
+
 export const TIPO_DOCUMENTO_ABREVIADO: Record<TipoDocumentoElectronico, string> = {
   FACTURA_ELECTRONICA: 'FE',
   NOTA_CREDITO_ELECTRONICA: 'NCE',

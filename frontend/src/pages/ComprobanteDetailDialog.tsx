@@ -7,7 +7,7 @@ import { Badge } from '../components/ui/Badge';
 import { PageSpinner } from '../components/ui/Spinner';
 import { Table, Thead, Th, Tr, Td } from '../components/ui/Table';
 import type { Comprobante } from '../lib/types';
-import { TIPO_DOCUMENTO_LABEL } from './comprobante-labels';
+import { tipoDocumentoLabel } from './comprobante-labels';
 import { useState } from 'react';
 
 export function ComprobanteDetailDialog({
@@ -48,7 +48,7 @@ export function ComprobanteDetailDialog({
           <div className="flex items-start justify-between">
             <div>
               <p className="text-xs font-medium uppercase tracking-wide text-ink-500">
-                {TIPO_DOCUMENTO_LABEL[comprobante.tipoDocumento]}
+                {tipoDocumentoLabel(comprobante.tipoDocumento, comprobante.timbrado?.esElectronico ?? true)}
               </p>
               <p className="mt-0.5 font-mono text-lg font-semibold text-ink-900">Nº {comprobante.numero}</p>
               <p className="text-sm text-ink-500">{formatDateTime(comprobante.fechaEmision)}</p>

@@ -40,20 +40,27 @@ export class ComprobantesService {
   ) {}
 
   async create(dto: CreateComprobanteDto) {
-    if (NOTAS_QUE_REQUIEREN_MOTIVO.includes(dto.tipoDocumento) && !dto.motivoEmision) {
-      throw new BadRequestException(
-        `${dto.tipoDocumento} requiere motivoEmision (catalogo SIFEN de Nota de Credito/Debito)`,
-      );
-    }
-    if (dto.tipoDocumento === TipoDocumentoElectronico.NOTA_REMISION_ELECTRONICA && !dto.datosTransporteRemision) {
-      throw new BadRequestException(
-        'NOTA_REMISION_ELECTRONICA requiere datosTransporteRemision (grupos E6/E10 del Manual Tecnico SIFEN)',
-      );
-    }
-    if (dto.tipoDocumento === TipoDocumentoElectronico.AUTOFACTURA_ELECTRONICA && !dto.datosVendedorAutofactura) {
-      throw new BadRequestException(
-        'AUTOFACTURA_ELECTRONICA requiere datosVendedorAutofactura (grupo E4 del Manual Tecnico SIFEN)',
-      );
+    // Un timbrado tradicional (preimpreso/virtual, sin DTE) no tiene ninguna
+    // de las exigencias de SIFEN -- el comprobante es solo numerado. Ambos
+    // regimenes pueden convivir en la misma empresa segun el timbrado usado.
+    const timbrado = await this.prisma.timbrado.findUniqueOrThrow({ where: { id: dto.timbradoId } });
+
+    if (timbrado.esElectronico) {
+      if (NOTAS_QUE_REQUIEREN_MOTIVO.includes(dto.tipoDocumento) && !dto.motivoEmision) {
+        throw new BadRequestException(
+          `${dto.tipoDocumento} requiere motivoEmision (catalogo SIFEN de Nota de Credito/Debito)`,
+        );
+      }
+      if (dto.tipoDocumento === TipoDocumentoElectronico.NOTA_REMISION_ELECTRONICA && !dto.datosTransporteRemision) {
+        throw new BadRequestException(
+          'NOTA_REMISION_ELECTRONICA requiere datosTransporteRemision (grupos E6/E10 del Manual Tecnico SIFEN)',
+        );
+      }
+      if (dto.tipoDocumento === TipoDocumentoElectronico.AUTOFACTURA_ELECTRONICA && !dto.datosVendedorAutofactura) {
+        throw new BadRequestException(
+          'AUTOFACTURA_ELECTRONICA requiere datosVendedorAutofactura (grupo E4 del Manual Tecnico SIFEN)',
+        );
+      }
     }
 
     const itemsCalculados = dto.items.map((item) => ({ ...item, ...calcularItem(item) }));

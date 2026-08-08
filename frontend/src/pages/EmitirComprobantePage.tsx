@@ -304,6 +304,12 @@ export default function EmitirComprobantePage() {
     setTimbradoId(timbradosDisponibles[0]?.id ?? '');
   }, [timbradosDisponibles]);
 
+  const timbradoSeleccionado = timbradosDisponibles.find((t) => t.id === timbradoId);
+  // Un timbrado tradicional (preimpreso/virtual, sin DTE) no tiene ninguna
+  // de las exigencias de SIFEN -- por defecto true hasta elegir timbrado,
+  // asi el formulario no "relaja" campos antes de saber cual es el regimen.
+  const esElectronico = timbradoSeleccionado?.esElectronico ?? true;
+
   const { data: terceros } = useQuery({
     queryKey: ['terceros-select', empresaId, esAutofactura ? 'PROVEEDOR' : 'CLIENTE'],
     queryFn: async () =>
@@ -419,7 +425,7 @@ export default function EmitirComprobantePage() {
   const subtotales = calcularSubtotales(itemsCalculados.map((i) => i.calc));
 
   function datosTransporteRemisionPayload() {
-    if (!esRemision) return undefined;
+    if (!mostrarBloqueRemision) return undefined;
     const d = datosRemision;
     return {
       motivoEmision: d.motivoEmision,
@@ -460,7 +466,7 @@ export default function EmitirComprobantePage() {
   }
 
   function datosVendedorAutofacturaPayload() {
-    if (!esAutofactura) return undefined;
+    if (!mostrarBloqueVendedor) return undefined;
     const d = datosVendedor;
     return {
       naturalezaVendedor: d.naturalezaVendedor,
@@ -535,8 +541,14 @@ export default function EmitirComprobantePage() {
         ? Boolean(plazoCredito)
         : Boolean(cantidadCuotas) && Number(cantidadCuotas) > 0);
 
+  // Los bloques de transporte (Remision) y vendedor (Autofactura) son
+  // exigencias de SIFEN -- no aplican a un timbrado tradicional, donde el
+  // comprobante es solo numerado.
+  const mostrarBloqueRemision = esRemision && esElectronico;
+  const mostrarBloqueVendedor = esAutofactura && esElectronico;
+
   const datosRemisionCompletos =
-    !esRemision ||
+    !mostrarBloqueRemision ||
     (Boolean(datosRemision.fechaInicioTraslado) &&
       Boolean(datosRemision.fechaFinTraslado) &&
       Boolean(datosRemision.direccionSalida) &&
@@ -562,7 +574,7 @@ export default function EmitirComprobantePage() {
       (datosRemision.motivoEmision !== 'OTRO' || Boolean(datosRemision.motivoEmisionOtro)));
 
   const datosVendedorCompletos =
-    !esAutofactura ||
+    !mostrarBloqueVendedor ||
     (Boolean(datosVendedor.tipoDocIdentidadVendedor) &&
       Boolean(datosVendedor.numeroDocIdentidadVendedor) &&
       Boolean(datosVendedor.nombreVendedor) &&
@@ -583,7 +595,6 @@ export default function EmitirComprobantePage() {
     datosVendedorCompletos &&
     items.every((r) => r.descripcion && r.cantidad && r.precioUnitario && r.unidadMedidaId);
 
-  const timbradoSeleccionado = timbradosDisponibles.find((t) => t.id === timbradoId);
   const receptor = terceros?.find((t) => t.id === (esAutofactura ? proveedorId : clienteId));
 
   const previewData: ComprobanteVisualData = {
@@ -619,7 +630,8 @@ export default function EmitirComprobantePage() {
     iva10: subtotales.iva10,
     total: subtotales.total,
     esPreview: true,
-    datosTransporteRemision: esRemision
+    esElectronico,
+    datosTransporteRemision: mostrarBloqueRemision
       ? {
           ...datosRemision,
           motivoEmisionOtro: datosRemision.motivoEmisionOtro || null,
@@ -634,7 +646,7 @@ export default function EmitirComprobantePage() {
           numeroDocIdentidadTransportista: datosRemision.numeroDocIdentidadTransportista || null,
         }
       : undefined,
-    datosVendedorAutofactura: esAutofactura
+    datosVendedorAutofactura: mostrarBloqueVendedor
       ? {
           ...datosVendedor,
           tipoDocIdentidadVendedor: datosVendedor.tipoDocIdentidadVendedor || 'CEDULA_PARAGUAYA',
@@ -853,7 +865,7 @@ export default function EmitirComprobantePage() {
               </div>
             )}
 
-            {esAutofactura && (
+            {mostrarBloqueVendedor && (
               <div className="flex flex-col gap-4 rounded-md border border-ink-200 p-4">
                 <h3 className="text-sm font-semibold text-ink-800">Datos del vendedor (Autofactura)</h3>
 
@@ -954,7 +966,7 @@ export default function EmitirComprobantePage() {
               </div>
             )}
 
-            {esRemision && (
+            {mostrarBloqueRemision && (
               <div className="flex flex-col gap-4 rounded-md border border-ink-200 p-4">
                 <h3 className="text-sm font-semibold text-ink-800">Datos de la Nota de Remisión</h3>
 

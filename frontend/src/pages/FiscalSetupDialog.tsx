@@ -53,6 +53,7 @@ export function FiscalSetupDialog({
 
   const [numeroTimbrado, setNumeroTimbrado] = useState('');
   const [tipoDocumento, setTipoDocumento] = useState<TipoDocumentoElectronico>(tipoDocumentoSugerido);
+  const [esElectronico, setEsElectronico] = useState(true);
   const [numeroDesde, setNumeroDesde] = useState('1');
   const [numeroHasta, setNumeroHasta] = useState('9999999');
   const [fechaInicioVigencia, setFechaInicioVigencia] = useState(() => new Date().toISOString().slice(0, 10));
@@ -61,6 +62,7 @@ export function FiscalSetupDialog({
     if (open) {
       setError(null);
       setTipoDocumento(tipoDocumentoSugerido);
+      setEsElectronico(true);
     }
   }, [open, tipoDocumentoSugerido]);
 
@@ -96,6 +98,7 @@ export function FiscalSetupDialog({
         puntoExpedicionId: puntoExpedicionExistente!.id,
         numeroTimbrado,
         tipoDocumento,
+        esElectronico,
         numeroDesde: Number(numeroDesde),
         numeroHasta: Number(numeroHasta),
         fechaInicioVigencia: new Date(fechaInicioVigencia).toISOString(),
@@ -200,6 +203,12 @@ export function FiscalSetupDialog({
                 </Select>
               </FormField>
             </div>
+            <FormField label="Régimen">
+              <Select value={esElectronico ? '1' : '0'} onChange={(e) => setEsElectronico(e.target.value === '1')}>
+                <option value="1">Electrónico (SIFEN)</option>
+                <option value="0">Tradicional (preimpreso/virtual, sin exigencias SIFEN)</option>
+              </Select>
+            </FormField>
             <div className="grid grid-cols-2 gap-4">
               <FormField label="Numeración desde" required>
                 <Input type="number" min="1" value={numeroDesde} onChange={(e) => setNumeroDesde(e.target.value)} required />
