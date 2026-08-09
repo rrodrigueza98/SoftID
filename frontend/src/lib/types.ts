@@ -283,6 +283,10 @@ export interface Establecimiento {
   direccion?: string;
   ciudad?: string;
   departamento?: string;
+  telefono?: string | null;
+  email?: string | null;
+  esCasaMatriz: boolean;
+  activo: boolean;
   puntosExpedicion?: PuntoExpedicion[];
 }
 
