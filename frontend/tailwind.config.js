@@ -17,18 +17,21 @@ export default {
           900: '#1b2523',
           950: '#0f1615',
         },
+        // Azul estilo Fluent Design / Microsoft 365 (mismo tono que usa
+        // Dynamics 365, Teams, etc. -- brand-600 es el "Communication Blue"
+        // #0078D4 de Microsoft).
         brand: {
-          50: '#eefbfa',
-          100: '#d4f3f1',
-          200: '#ade7e3',
-          300: '#78d4cd',
-          400: '#43b6ae',
-          500: '#279b93',
-          600: '#1c7c76',
-          700: '#1a6360',
-          800: '#194f4d',
-          900: '#184240',
-          950: '#082524',
+          50: '#eff6fc',
+          100: '#deecf9',
+          200: '#c7e0f4',
+          300: '#71afe5',
+          400: '#4a9cdc',
+          500: '#2b88d8',
+          600: '#0078d4',
+          700: '#005a9e',
+          800: '#003966',
+          900: '#002050',
+          950: '#001233',
         },
       },
       fontFamily: {

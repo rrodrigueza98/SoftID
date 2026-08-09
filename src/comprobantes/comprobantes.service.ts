@@ -462,6 +462,63 @@ export class ComprobantesService {
     };
   }
 
+  // KPIs + series para el panel de ventas (prototipo visual). Mismo criterio
+  // que reporteRentabilidad: solo Factura Electronica emitida cuenta como venta.
+  async panelVentas(empresaId: string, desde: string, hasta: string) {
+    const desdeDate = new Date(`${desde}T00:00:00`);
+    const hastaDate = new Date(`${hasta}T23:59:59.999`);
+
+    const comprobantes = await this.prisma.comprobante.findMany({
+      where: {
+        empresaId,
+        tipoDocumento: TipoDocumentoElectronico.FACTURA_ELECTRONICA,
+        estado: EstadoComprobante.EMITIDO,
+        fechaEmision: { gte: desdeDate, lte: hastaDate },
+      },
+      include: { items: { include: { producto: true } } },
+      orderBy: { fechaEmision: 'asc' },
+    });
+
+    const totalVentas = comprobantes.length;
+    const montoTotal = round2(comprobantes.reduce((s, c) => s + Number(c.total), 0));
+    const ticketPromedio = totalVentas ? round2(montoTotal / totalVentas) : 0;
+    const enCredito = comprobantes.filter((c) => c.condicionVenta === 'CREDITO').length;
+    const porcentajeCredito = totalVentas ? round2((enCredito / totalVentas) * 100) : 0;
+
+    type FilaFecha = { fecha: string; cantidad: number; monto: number };
+    const porFechaMap = new Map<string, FilaFecha>();
+    for (const c of comprobantes) {
+      const fecha = c.fechaEmision.toISOString().slice(0, 10);
+      const fila = porFechaMap.get(fecha) ?? { fecha, cantidad: 0, monto: 0 };
+      fila.cantidad += 1;
+      fila.monto = round2(fila.monto + Number(c.total));
+      porFechaMap.set(fecha, fila);
+    }
+    const porFecha = [...porFechaMap.values()].sort((a, b) => a.fecha.localeCompare(b.fecha));
+
+    type FilaProducto = { productoId: string; descripcion: string; cantidad: number; monto: number };
+    const porProductoMap = new Map<string, FilaProducto>();
+    for (const c of comprobantes) {
+      for (const item of c.items) {
+        const key = item.productoId ?? item.descripcion;
+        const fila = porProductoMap.get(key) ?? { productoId: key, descripcion: item.descripcion, cantidad: 0, monto: 0 };
+        fila.cantidad = round2(fila.cantidad + Number(item.cantidad));
+        fila.monto = round2(fila.monto + Number(item.total));
+        porProductoMap.set(key, fila);
+      }
+    }
+    const porProducto = [...porProductoMap.values()].sort((a, b) => b.monto - a.monto).slice(0, 8);
+
+    return {
+      totalVentas,
+      montoTotal,
+      ticketPromedio,
+      porcentajeCredito,
+      porFecha,
+      porProducto,
+    };
+  }
+
   async generarReporteRentabilidadExcel(empresaId: string, desde: string, hasta: string): Promise<Buffer> {
     const { items, ventaSinCosto, totales } = await this.reporteRentabilidad(empresaId, desde, hasta);
 

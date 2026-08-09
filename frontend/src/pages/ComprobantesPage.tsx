@@ -12,7 +12,7 @@ import { PageSpinner } from '../components/ui/Spinner';
 import { EmptyState, Table, Thead, Th, Tr, Td } from '../components/ui/Table';
 import { ComprobanteDetailDialog } from './ComprobanteDetailDialog';
 import { TIPO_DOCUMENTO_ABREVIADO, TIPO_DOCUMENTO_LABEL } from './comprobante-labels';
-import type { Comprobante, ReporteRentabilidad, TipoDocumentoElectronico } from '../lib/types';
+import type { Comprobante, TipoDocumentoElectronico } from '../lib/types';
 
 // YYYY-MM-DD del primer dia del mes actual y de hoy, para precargar el
 // rango de exportacion con el mes en curso (el caso de uso mas comun).
@@ -52,36 +52,6 @@ export default function ComprobantesPage() {
     }
   };
 
-  const handleExportarRentabilidad = async () => {
-    setExportando(true);
-    try {
-      const res = await api.get('/comprobantes/reporte-rentabilidad.xlsx', {
-        params: { empresaId, desde, hasta },
-        responseType: 'blob',
-      });
-      const url = window.URL.createObjectURL(new Blob([res.data]));
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `rentabilidad-${desde}-a-${hasta}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    } finally {
-      setExportando(false);
-    }
-  };
-
-  const { data: rentabilidad, isLoading: cargandoRentabilidad } = useQuery({
-    queryKey: ['rentabilidad', { empresaId, desde, hasta }],
-    queryFn: async () =>
-      (
-        await api.get<ReporteRentabilidad>('/comprobantes/reporte-rentabilidad', {
-          params: { empresaId, desde, hasta },
-        })
-      ).data,
-  });
-
   const { data, isLoading } = useQuery({
     queryKey: ['comprobantes', { empresaId, tipoDocumento }],
     queryFn: async () =>
@@ -96,9 +66,14 @@ export default function ComprobantesPage() {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-ink-900">Comprobantes emitidos</h1>
-        <Link to="/facturacion/emitir">
-          <Button>Emitir comprobante</Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link to="/panel-rentabilidad">
+            <Button variant="secondary">Ver rentabilidad</Button>
+          </Link>
+          <Link to="/facturacion/emitir">
+            <Button>Emitir comprobante</Button>
+          </Link>
+        </div>
       </div>
 
       <Card>
@@ -121,80 +96,6 @@ export default function ComprobantesPage() {
             Formato general del Libro de Ventas (RG 90 DNIT): un detalle por comprobante con el desglose exento /
             gravado / IVA y totales al pie. Solo incluye documentos emitidos a clientes en el rango elegido.
           </p>
-        </div>
-      </Card>
-
-      <Card>
-        <CardHeader
-          title="Rentabilidad de ventas"
-          actions={
-            <Button variant="secondary" onClick={handleExportarRentabilidad} disabled={exportando}>
-              {exportando ? 'Generando…' : 'Descargar Excel'}
-            </Button>
-          }
-        />
-        <div className="flex flex-col gap-3 px-5 py-4">
-          <p className="text-xs text-ink-400">
-            Margen por producto (venta − costo) para las facturas emitidas en el mismo rango de fechas de arriba.
-            Solo Factura Electrónica emitida cuenta como venta; los ítems libres (sin producto) no tienen costo
-            cargado y se muestran aparte.
-          </p>
-          {cargandoRentabilidad ? (
-            <PageSpinner />
-          ) : !rentabilidad || rentabilidad.items.length === 0 ? (
-            <EmptyState message="No hay ventas de productos con costo cargado en este rango." />
-          ) : (
-            <>
-              <Table>
-                <Thead>
-                  <tr>
-                    <Th>Producto</Th>
-                    <Th className="text-right">Cant.</Th>
-                    <Th className="text-right">Venta</Th>
-                    <Th className="text-right">Costo</Th>
-                    <Th className="text-right">Margen</Th>
-                    <Th className="text-right">Margen %</Th>
-                  </tr>
-                </Thead>
-                <tbody>
-                  {rentabilidad.items.map((item) => (
-                    <Tr key={item.productoId}>
-                      <Td className="font-medium text-ink-900">
-                        {item.codigo && <span className="font-mono text-xs text-ink-500">{item.codigo} — </span>}
-                        {item.descripcion}
-                      </Td>
-                      <Td className="text-right tabular-nums">{item.cantidad}</Td>
-                      <Td className="text-right tabular-nums">{formatGs(item.totalVenta)}</Td>
-                      <Td className="text-right tabular-nums">{formatGs(item.totalCosto)}</Td>
-                      <Td className={`text-right tabular-nums font-medium ${item.margen < 0 ? 'text-red-600' : 'text-ink-900'}`}>
-                        {formatGs(item.margen)}
-                      </Td>
-                      <Td className={`text-right tabular-nums ${item.margenPorcentual < 0 ? 'text-red-600' : 'text-ink-500'}`}>
-                        {item.margenPorcentual.toFixed(1)}%
-                      </Td>
-                    </Tr>
-                  ))}
-                </tbody>
-              </Table>
-              <div className="flex flex-wrap items-center justify-end gap-6 border-t border-ink-100 px-1 pt-3 text-sm">
-                {rentabilidad.ventaSinCosto > 0 && (
-                  <span className="text-ink-400">Ítems sin costo: {formatGs(rentabilidad.ventaSinCosto)}</span>
-                )}
-                <span className="text-ink-500">
-                  Venta total: <span className="font-medium text-ink-900">{formatGs(rentabilidad.totales.totalVenta)}</span>
-                </span>
-                <span className="text-ink-500">
-                  Costo total: <span className="font-medium text-ink-900">{formatGs(rentabilidad.totales.totalCosto)}</span>
-                </span>
-                <span className="text-ink-500">
-                  Margen:{' '}
-                  <span className={`font-semibold ${rentabilidad.totales.margen < 0 ? 'text-red-600' : 'text-emerald-700'}`}>
-                    {formatGs(rentabilidad.totales.margen)} ({rentabilidad.totales.margenPorcentual.toFixed(1)}%)
-                  </span>
-                </span>
-              </div>
-            </>
-          )}
         </div>
       </Card>
 

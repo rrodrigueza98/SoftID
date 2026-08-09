@@ -20,6 +20,8 @@ const NAV_SECTIONS: { title?: string; modulo?: Modulo; items: NavItem[] }[] = [
       { to: '/facturacion', label: 'Comprobantes emitidos', end: true },
       { to: '/clientes', label: 'Clientes' },
       { to: '/cuentas-corrientes', label: 'Cuentas corrientes' },
+      { to: '/panel-ventas', label: 'Panel de ventas' },
+      { to: '/panel-rentabilidad', label: 'Panel de rentabilidad' },
     ],
   },
   {
@@ -28,6 +30,7 @@ const NAV_SECTIONS: { title?: string; modulo?: Modulo; items: NavItem[] }[] = [
     items: [
       { to: '/proveedores', label: 'Proveedores' },
       { to: '/compras', label: 'Comprobantes de compra' },
+      { to: '/panel-compras', label: 'Panel de compras' },
     ],
   },
   {
@@ -36,6 +39,7 @@ const NAV_SECTIONS: { title?: string; modulo?: Modulo; items: NavItem[] }[] = [
     items: [
       { to: '/productos', label: 'Productos' },
       { to: '/stock', label: 'Stock' },
+      { to: '/panel-inventario', label: 'Panel de inventario' },
     ],
   },
   { title: 'Contabilidad', modulo: 'CONTABILIDAD', items: [{ to: '/contabilidad', label: 'Contabilidad' }] },

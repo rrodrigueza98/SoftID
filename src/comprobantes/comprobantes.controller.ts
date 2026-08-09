@@ -30,6 +30,15 @@ export class ComprobantesController {
     return new StreamableFile(buffer);
   }
 
+  @Get('panel-ventas')
+  panelVentas(
+    @Query('empresaId') empresaId: string,
+    @Query('desde') desde: string,
+    @Query('hasta') hasta: string,
+  ) {
+    return this.comprobantesService.panelVentas(empresaId, desde, hasta);
+  }
+
   @Get('reporte-rentabilidad')
   reporteRentabilidad(
     @Query('empresaId') empresaId: string,

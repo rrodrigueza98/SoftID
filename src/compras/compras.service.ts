@@ -98,6 +98,64 @@ export class ComprasService {
     return compra;
   }
 
+  // KPIs + series para el panel de compras (prototipo visual), mismo
+  // criterio que ComprobantesService.panelVentas.
+  async panelCompras(empresaId: string, desde: string, hasta: string) {
+    const desdeDate = new Date(`${desde}T00:00:00`);
+    const hastaDate = new Date(`${hasta}T23:59:59.999`);
+
+    const compras = await this.prisma.compra.findMany({
+      where: {
+        empresaId,
+        estado: EstadoComprobante.EMITIDO,
+        fechaEmision: { gte: desdeDate, lte: hastaDate },
+      },
+      include: { proveedor: true },
+      orderBy: { fechaEmision: 'asc' },
+    });
+
+    const totalCompras = compras.length;
+    const montoTotal = round2(compras.reduce((s, c) => s + Number(c.total), 0));
+    const ticketPromedio = totalCompras ? round2(montoTotal / totalCompras) : 0;
+    const enCredito = compras.filter((c) => c.condicionCompra === 'CREDITO').length;
+    const porcentajeCredito = totalCompras ? round2((enCredito / totalCompras) * 100) : 0;
+
+    type FilaFecha = { fecha: string; cantidad: number; monto: number };
+    const porFechaMap = new Map<string, FilaFecha>();
+    for (const c of compras) {
+      const fecha = c.fechaEmision.toISOString().slice(0, 10);
+      const fila = porFechaMap.get(fecha) ?? { fecha, cantidad: 0, monto: 0 };
+      fila.cantidad += 1;
+      fila.monto = round2(fila.monto + Number(c.total));
+      porFechaMap.set(fecha, fila);
+    }
+    const porFecha = [...porFechaMap.values()].sort((a, b) => a.fecha.localeCompare(b.fecha));
+
+    type FilaProveedor = { proveedorId: string; razonSocial: string; cantidad: number; monto: number };
+    const porProveedorMap = new Map<string, FilaProveedor>();
+    for (const c of compras) {
+      const fila = porProveedorMap.get(c.proveedorId) ?? {
+        proveedorId: c.proveedorId,
+        razonSocial: c.proveedor.razonSocial,
+        cantidad: 0,
+        monto: 0,
+      };
+      fila.cantidad += 1;
+      fila.monto = round2(fila.monto + Number(c.total));
+      porProveedorMap.set(c.proveedorId, fila);
+    }
+    const porProveedor = [...porProveedorMap.values()].sort((a, b) => b.monto - a.monto).slice(0, 8);
+
+    return {
+      totalCompras,
+      montoTotal,
+      ticketPromedio,
+      porcentajeCredito,
+      porFecha,
+      porProveedor,
+    };
+  }
+
   // No revierte automaticamente el movimiento de cuenta corriente ni el
   // asiento contable que genero -- mismo criterio deliberado que anular() en
   // ComprobantesService (requiere un contramovimiento manual con su propio

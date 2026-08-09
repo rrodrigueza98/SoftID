@@ -1,10 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { api } from '../lib/api-client';
 import { useEmpresaId } from '../lib/hooks';
 import { useAuth } from '../lib/auth-context';
-import { Card } from '../components/ui/Card';
-import type { Modulo, Producto, Stock, Tercero } from '../lib/types';
+import { formatDate, formatGs } from '../lib/format';
+import { Card, CardHeader } from '../components/ui/Card';
+import { StatTile } from '../components/ui/StatTile';
+import { ChartTooltip } from '../components/ui/ChartTooltip';
+import type { Modulo, PanelVentas, Producto, Stock, Tercero } from '../lib/types';
 
 const SECTIONS: { to: string; label: string; hint: string; modulo: Modulo }[] = [
   { to: '/pos', label: 'Punto de venta', hint: 'Venta rápida de mostrador', modulo: 'VENTAS' },
@@ -18,6 +22,19 @@ const SECTIONS: { to: string; label: string; hint: string; modulo: Modulo }[] = 
   { to: '/cuentas-corrientes', label: 'Cuentas corrientes', hint: 'Saldos y cobros', modulo: 'VENTAS' },
   { to: '/contabilidad', label: 'Contabilidad', hint: 'Plan de Cuentas, Libro Diario y Mayor', modulo: 'CONTABILIDAD' },
 ];
+
+const BARRA = '#0078d4'; // brand-600
+const CURSOR = 'rgba(0,120,212,0.06)';
+const GRILLA = '#e4e9e8'; // ink-100
+
+function hace30Dias() {
+  const d = new Date();
+  d.setDate(d.getDate() - 29);
+  return d.toISOString().slice(0, 10);
+}
+function hoy() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 function useCount<T>(key: string, url: string, params: Record<string, string>, enabled = true) {
   return useQuery({
@@ -49,10 +66,19 @@ export default function DashboardPage() {
     queryFn: async () => (await api.get<Stock[]>('/stock', { params: { empresaId } })).data,
     enabled: puedeVer('INVENTARIO'),
   });
+  const desde = hace30Dias();
+  const hasta = hoy();
+  const panelVentas = useQuery({
+    queryKey: ['panel-ventas', { empresaId, desde, hasta }],
+    queryFn: async () =>
+      (await api.get<PanelVentas>('/comprobantes/panel-ventas', { params: { empresaId, desde, hasta } })).data,
+    enabled: puedeVer('VENTAS'),
+  });
 
   const itemsBajoMinimo = (stockBajo.data ?? []).filter(
     (s) => s.producto.stockMinimo != null && Number(s.cantidad) <= Number(s.producto.stockMinimo),
   );
+  const porFecha = (panelVentas.data?.porFecha ?? []).map((f) => ({ ...f, etiqueta: formatDate(f.fecha) }));
 
   return (
     <div className="flex flex-col gap-8">
@@ -61,26 +87,64 @@ export default function DashboardPage() {
         <p className="mt-1 text-sm text-ink-500">Resumen rápido de tu empresa.</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {(puedeVer('VENTAS') || puedeVer('COMPRAS')) && (
-          <Card className="p-5">
-            <p className="text-xs font-medium uppercase tracking-wide text-ink-500">Clientes</p>
-            <p className="mt-2 text-2xl font-semibold tabular-nums text-ink-900">{clientes.data ?? '—'}</p>
-          </Card>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        {puedeVer('VENTAS') && (
+          <>
+            <StatTile label="Ventas (30 días)" value={panelVentas.data?.totalVentas ?? '—'} />
+            <StatTile label="Facturado (30 días)" value={panelVentas.data ? formatGs(panelVentas.data.montoTotal) : '—'} />
+          </>
         )}
+        {(puedeVer('VENTAS') || puedeVer('COMPRAS')) && <StatTile label="Clientes" value={clientes.data ?? '—'} />}
         {puedeVer('INVENTARIO') && (
           <>
-            <Card className="p-5">
-              <p className="text-xs font-medium uppercase tracking-wide text-ink-500">Productos</p>
-              <p className="mt-2 text-2xl font-semibold tabular-nums text-ink-900">{productos.data ?? '—'}</p>
-            </Card>
-            <Card className={itemsBajoMinimo.length > 0 ? 'border-amber-300 bg-amber-50 p-5' : 'p-5'}>
-              <p className="text-xs font-medium uppercase tracking-wide text-ink-500">Bajo stock mínimo</p>
-              <p className="mt-2 text-2xl font-semibold tabular-nums text-ink-900">{itemsBajoMinimo.length}</p>
-            </Card>
+            <StatTile label="Productos" value={productos.data ?? '—'} />
+            <StatTile
+              label="Bajo stock mínimo"
+              value={itemsBajoMinimo.length}
+              tone={itemsBajoMinimo.length > 0 ? 'warning' : 'neutral'}
+            />
           </>
         )}
       </div>
+
+      {puedeVer('VENTAS') && porFecha.length > 0 && (
+        <Card>
+          <CardHeader title="Ventas por fecha" subtitle="Monto facturado — últimos 30 días" />
+          <div className="h-56 px-2 py-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={porFecha} margin={{ top: 4, right: 12, left: 4, bottom: 0 }}>
+                <CartesianGrid vertical={false} stroke={GRILLA} />
+                <XAxis
+                  dataKey="etiqueta"
+                  tick={{ fontSize: 11, fill: '#748a86' }}
+                  tickLine={false}
+                  axisLine={{ stroke: GRILLA }}
+                  interval="preserveStartEnd"
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: '#748a86' }}
+                  tickLine={false}
+                  axisLine={false}
+                  width={40}
+                  tickFormatter={(v) => new Intl.NumberFormat('es-PY', { notation: 'compact' }).format(v)}
+                />
+                <Tooltip
+                  cursor={{ fill: CURSOR }}
+                  content={
+                    <ChartTooltip
+                      formatearEtiqueta={(row) => ({
+                        titulo: String(row.etiqueta),
+                        lineas: [`Monto: ${formatGs(row.monto as number)}`, `Comprobantes: ${row.cantidad as number}`],
+                      })}
+                    />
+                  }
+                />
+                <Bar dataKey="monto" fill={BARRA} radius={[4, 4, 0, 0]} maxBarSize={24} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+      )}
 
       <div>
         <h2 className="mb-3 text-sm font-semibold text-ink-700">Ir a…</h2>

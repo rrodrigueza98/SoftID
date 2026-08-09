@@ -555,6 +555,50 @@ export interface BalanceSumasSaldos {
   totales: { debe: number; haber: number };
 }
 
+export interface PanelVentasFilaFecha {
+  fecha: string;
+  cantidad: number;
+  monto: number;
+}
+
+export interface PanelVentasFilaProducto {
+  productoId: string;
+  descripcion: string;
+  cantidad: number;
+  monto: number;
+}
+
+export interface PanelVentas {
+  totalVentas: number;
+  montoTotal: number;
+  ticketPromedio: number;
+  porcentajeCredito: number;
+  porFecha: PanelVentasFilaFecha[];
+  porProducto: PanelVentasFilaProducto[];
+}
+
+export interface PanelComprasFilaFecha {
+  fecha: string;
+  cantidad: number;
+  monto: number;
+}
+
+export interface PanelComprasFilaProveedor {
+  proveedorId: string;
+  razonSocial: string;
+  cantidad: number;
+  monto: number;
+}
+
+export interface PanelCompras {
+  totalCompras: number;
+  montoTotal: number;
+  ticketPromedio: number;
+  porcentajeCredito: number;
+  porFecha: PanelComprasFilaFecha[];
+  porProveedor: PanelComprasFilaProveedor[];
+}
+
 export interface Compra {
   id: string;
   empresaId: string;

@@ -18,6 +18,15 @@ export class ComprasController {
     return this.comprasService.findAll({ empresaId, proveedorId });
   }
 
+  @Get('panel-compras')
+  panelCompras(
+    @Query('empresaId') empresaId: string,
+    @Query('desde') desde: string,
+    @Query('hasta') hasta: string,
+  ) {
+    return this.comprasService.panelCompras(empresaId, desde, hasta);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.comprasService.findOne(id);
