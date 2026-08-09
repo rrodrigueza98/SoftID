@@ -1,5 +1,5 @@
 import { IsArray, IsBoolean, IsEmail, IsEnum, IsOptional, IsString } from 'class-validator';
-import { Modulo } from '@prisma/client';
+import { Modulo, Pantalla } from '@prisma/client';
 
 // Deliberadamente sin `password` -- el cambio de contraseña tiene su propio
 // endpoint (ChangePasswordDto) para no mezclar validaciones.
@@ -29,4 +29,9 @@ export class UpdateUsuarioDto {
   @IsArray()
   @IsString({ each: true })
   puntosExpedicionPermitidos?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsEnum(Pantalla, { each: true })
+  pantallasPermitidas?: Pantalla[];
 }

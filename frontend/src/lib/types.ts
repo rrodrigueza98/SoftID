@@ -6,6 +6,19 @@ export type RolTipo = 'ADMIN' | 'OPERADOR';
 // Secciones operativas restringibles por usuario (ver Usuario.modulosPermitidos).
 export type Modulo = 'VENTAS' | 'COMPRAS' | 'INVENTARIO' | 'CONTABILIDAD';
 
+// Pantallas puntuales dentro de cada modulo (ver Usuario.pantallasPermitidas).
+export type Pantalla =
+  | 'PUNTO_DE_VENTA'
+  | 'FACTURACION'
+  | 'COMPROBANTES_EMITIDOS'
+  | 'CLIENTES'
+  | 'CUENTAS_CORRIENTES'
+  | 'PROVEEDORES'
+  | 'COMPROBANTES_COMPRA'
+  | 'PRODUCTOS'
+  | 'STOCK'
+  | 'CONTABILIDAD';
+
 export interface Rol {
   id: string;
   empresaId: string;
@@ -27,6 +40,9 @@ export interface Usuario {
   // Vacio = sin restriccion (opera en cualquier punto de expedicion). Solo
   // tiene efecto para usuarios OPERADOR.
   puntosExpedicionPermitidos: string[];
+  // Vacio = sin restriccion adicional dentro de los modulos permitidos.
+  // Solo tiene efecto para usuarios OPERADOR.
+  pantallasPermitidas: Pantalla[];
   rol: Rol;
 }
 

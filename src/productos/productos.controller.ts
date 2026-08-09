@@ -20,6 +20,7 @@ import { ProductosService } from './productos.service';
 import { CreateProductoDto } from './dto/create-producto.dto';
 import { UpdateProductoDto } from './dto/update-producto.dto';
 import { RequireModulo } from '../auth/decorators/modulo.decorator';
+import { RequirePantalla } from '../auth/decorators/pantalla.decorator';
 
 // La lectura queda abierta a cualquier usuario autenticado -- Facturacion y
 // POS necesitan poder buscar productos aunque el operador no tenga acceso
@@ -30,6 +31,7 @@ export class ProductosController {
   constructor(private readonly productosService: ProductosService) {}
 
   @RequireModulo('INVENTARIO')
+  @RequirePantalla('PRODUCTOS')
   @Post()
   create(@Body() dto: CreateProductoDto) {
     return this.productosService.create(dto);
@@ -45,6 +47,7 @@ export class ProductosController {
   }
 
   @RequireModulo('INVENTARIO')
+  @RequirePantalla('PRODUCTOS')
   @Get('plantilla-excel')
   async plantillaExcel(@Query('empresaId') empresaId: string, @Res({ passthrough: true }) res: Response) {
     const buffer = await this.productosService.generarPlantillaExcel(empresaId);
@@ -56,6 +59,7 @@ export class ProductosController {
   }
 
   @RequireModulo('INVENTARIO')
+  @RequirePantalla('PRODUCTOS')
   @Post('importar-excel')
   @UseInterceptors(FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } }))
   importarExcel(@Query('empresaId') empresaId: string, @UploadedFile() file?: Express.Multer.File) {
@@ -69,12 +73,14 @@ export class ProductosController {
   }
 
   @RequireModulo('INVENTARIO')
+  @RequirePantalla('PRODUCTOS')
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateProductoDto) {
     return this.productosService.update(id, dto);
   }
 
   @RequireModulo('INVENTARIO')
+  @RequirePantalla('PRODUCTOS')
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.productosService.remove(id);

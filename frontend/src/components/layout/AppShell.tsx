@@ -5,9 +5,9 @@ import { useAuth } from '../../lib/auth-context';
 import { useEmpresaActiva } from '../../lib/empresa-activa-context';
 import { api } from '../../lib/api-client';
 import { cn } from '../../lib/cn';
-import type { Empresa, Modulo } from '../../lib/types';
+import type { Empresa, Modulo, Pantalla } from '../../lib/types';
 
-type NavItem = { to: string; label: string; end?: boolean; soloAdmin?: boolean };
+type NavItem = { to: string; label: string; end?: boolean; soloAdmin?: boolean; pantalla?: Pantalla };
 
 const NAV_SECTIONS: { title?: string; modulo?: Modulo; items: NavItem[] }[] = [
   { items: [{ to: '/', label: 'Inicio', end: true }] },
@@ -15,34 +15,38 @@ const NAV_SECTIONS: { title?: string; modulo?: Modulo; items: NavItem[] }[] = [
     title: 'Ventas',
     modulo: 'VENTAS',
     items: [
-      { to: '/pos', label: 'Punto de venta' },
-      { to: '/facturacion/emitir', label: 'Facturación' },
-      { to: '/facturacion', label: 'Comprobantes emitidos', end: true },
-      { to: '/clientes', label: 'Clientes' },
-      { to: '/cuentas-corrientes', label: 'Cuentas corrientes' },
-      { to: '/panel-ventas', label: 'Panel de ventas' },
-      { to: '/panel-rentabilidad', label: 'Panel de rentabilidad' },
+      { to: '/pos', label: 'Punto de venta', pantalla: 'PUNTO_DE_VENTA' },
+      { to: '/facturacion/emitir', label: 'Facturación', pantalla: 'FACTURACION' },
+      { to: '/facturacion', label: 'Comprobantes emitidos', end: true, pantalla: 'COMPROBANTES_EMITIDOS' },
+      { to: '/clientes', label: 'Clientes', pantalla: 'CLIENTES' },
+      { to: '/cuentas-corrientes', label: 'Cuentas corrientes', pantalla: 'CUENTAS_CORRIENTES' },
+      { to: '/panel-ventas', label: 'Panel de ventas', pantalla: 'COMPROBANTES_EMITIDOS' },
+      { to: '/panel-rentabilidad', label: 'Panel de rentabilidad', pantalla: 'COMPROBANTES_EMITIDOS' },
     ],
   },
   {
     title: 'Compras',
     modulo: 'COMPRAS',
     items: [
-      { to: '/proveedores', label: 'Proveedores' },
-      { to: '/compras', label: 'Comprobantes de compra' },
-      { to: '/panel-compras', label: 'Panel de compras' },
+      { to: '/proveedores', label: 'Proveedores', pantalla: 'PROVEEDORES' },
+      { to: '/compras', label: 'Comprobantes de compra', pantalla: 'COMPROBANTES_COMPRA' },
+      { to: '/panel-compras', label: 'Panel de compras', pantalla: 'COMPROBANTES_COMPRA' },
     ],
   },
   {
     title: 'Inventario',
     modulo: 'INVENTARIO',
     items: [
-      { to: '/productos', label: 'Productos' },
-      { to: '/stock', label: 'Stock' },
-      { to: '/panel-inventario', label: 'Panel de inventario' },
+      { to: '/productos', label: 'Productos', pantalla: 'PRODUCTOS' },
+      { to: '/stock', label: 'Stock', pantalla: 'STOCK' },
+      { to: '/panel-inventario', label: 'Panel de inventario', pantalla: 'PRODUCTOS' },
     ],
   },
-  { title: 'Contabilidad', modulo: 'CONTABILIDAD', items: [{ to: '/contabilidad', label: 'Contabilidad' }] },
+  {
+    title: 'Contabilidad',
+    modulo: 'CONTABILIDAD',
+    items: [{ to: '/contabilidad', label: 'Contabilidad', pantalla: 'CONTABILIDAD' }],
+  },
   {
     title: 'Configuración',
     items: [
@@ -72,14 +76,23 @@ export function AppShell() {
   // aca en vez de ocultarlos con CSS, para que ni siquiera aparezcan un
   // instante en el DOM. Las secciones que quedan sin items no se muestran.
   // Ademas, si el operador tiene modulosPermitidos configurado (no vacio),
-  // las secciones de modulos que no esten en esa lista tampoco se muestran
-  // -- el backend ya las rechaza (ModulosGuard), esto es solo para no
-  // ofrecer un link que va a tirar 403.
+  // las secciones de modulos que no esten en esa lista tampoco se muestran,
+  // y si tiene pantallasPermitidas configurado, se filtran los items
+  // puntuales de esas pantallas -- el backend ya las rechaza (ModulosGuard/
+  // PantallasGuard), esto es solo para no ofrecer un link que va a tirar 403.
   const seccionesVisibles = useMemo(() => {
     const modulosPermitidos = usuario?.modulosPermitidos ?? [];
-    const restringido = !esAdmin && modulosPermitidos.length > 0;
-    return NAV_SECTIONS.filter((s) => !restringido || !s.modulo || modulosPermitidos.includes(s.modulo))
-      .map((s) => ({ ...s, items: s.items.filter((i) => !i.soloAdmin || esAdmin) }))
+    const restringidoPorModulo = !esAdmin && modulosPermitidos.length > 0;
+    const pantallasPermitidas = usuario?.pantallasPermitidas ?? [];
+    const restringidoPorPantalla = !esAdmin && pantallasPermitidas.length > 0;
+    return NAV_SECTIONS.filter((s) => !restringidoPorModulo || !s.modulo || modulosPermitidos.includes(s.modulo))
+      .map((s) => ({
+        ...s,
+        items: s.items.filter(
+          (i) =>
+            (!i.soloAdmin || esAdmin) && (!restringidoPorPantalla || !i.pantalla || pantallasPermitidas.includes(i.pantalla)),
+        ),
+      }))
       .filter((s) => s.items.length > 0);
   }, [esAdmin, usuario]);
 

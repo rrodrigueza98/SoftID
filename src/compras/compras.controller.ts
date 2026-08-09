@@ -2,8 +2,10 @@ import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common
 import { ComprasService } from './compras.service';
 import { CreateCompraDto } from './dto/create-compra.dto';
 import { RequireModulo } from '../auth/decorators/modulo.decorator';
+import { RequirePantalla } from '../auth/decorators/pantalla.decorator';
 
 @RequireModulo('COMPRAS')
+@RequirePantalla('COMPROBANTES_COMPRA')
 @Controller('compras')
 export class ComprasController {
   constructor(private readonly comprasService: ComprasService) {}

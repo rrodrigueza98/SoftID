@@ -1,9 +1,10 @@
 import { Body, Controller, ForbiddenException, Get, Param, Patch, Post, Query, Res, StreamableFile } from '@nestjs/common';
-import { TipoDocumentoElectronico } from '@prisma/client';
+import { Pantalla, TipoDocumentoElectronico } from '@prisma/client';
 import type { Response } from 'express';
 import { ComprobantesService } from './comprobantes.service';
 import { CreateComprobanteDto } from './dto/create-comprobante.dto';
 import { RequireModulo } from '../auth/decorators/modulo.decorator';
+import { RequirePantalla } from '../auth/decorators/pantalla.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthUser } from '../auth/auth.types';
 
@@ -12,11 +13,16 @@ import { AuthUser } from '../auth/auth.types';
 export class ComprobantesController {
   constructor(private readonly comprobantesService: ComprobantesService) {}
 
+  // POS (con sesionCajaId) y Facturacion manual (sin) comparten este mismo
+  // endpoint -- no hay forma de restringir por pantalla con un decorador
+  // estatico, asi que se verifica a mano segun ese campo.
   @Post()
-  create(@Body() dto: CreateComprobanteDto) {
+  create(@Body() dto: CreateComprobanteDto, @CurrentUser() usuario: AuthUser) {
+    this.verificarPantalla(usuario, [dto.sesionCajaId ? 'PUNTO_DE_VENTA' : 'FACTURACION']);
     return this.comprobantesService.create(dto);
   }
 
+  @RequirePantalla('COMPROBANTES_EMITIDOS')
   @Get('reporte-ventas')
   async reporteVentas(
     @Query('empresaId') empresaId: string,
@@ -32,6 +38,7 @@ export class ComprobantesController {
     return new StreamableFile(buffer);
   }
 
+  @RequirePantalla('COMPROBANTES_EMITIDOS')
   @Get('panel-ventas')
   panelVentas(
     @Query('empresaId') empresaId: string,
@@ -41,6 +48,7 @@ export class ComprobantesController {
     return this.comprobantesService.panelVentas(empresaId, desde, hasta);
   }
 
+  @RequirePantalla('COMPROBANTES_EMITIDOS')
   @Get('reporte-rentabilidad')
   reporteRentabilidad(
     @Query('empresaId') empresaId: string,
@@ -50,6 +58,7 @@ export class ComprobantesController {
     return this.comprobantesService.reporteRentabilidad(empresaId, desde, hasta);
   }
 
+  @RequirePantalla('COMPROBANTES_EMITIDOS')
   @Get('reporte-rentabilidad.xlsx')
   async reporteRentabilidadExcel(
     @Query('empresaId') empresaId: string,
@@ -73,6 +82,10 @@ export class ComprobantesController {
     @Query('proveedorId') proveedorId?: string,
     @Query('tipoDocumento') tipoDocumento?: TipoDocumentoElectronico,
   ) {
+    // Deliberadamente sin PUNTO_DE_VENTA aca -- listar el historial completo
+    // es justo lo que hace la pantalla Comprobantes emitidos, que un
+    // operador acotado solo a Punto de venta no deberia poder ver.
+    this.verificarPantalla(usuario, ['COMPROBANTES_EMITIDOS']);
     return this.comprobantesService.findAll({
       empresaId,
       clienteId,
@@ -84,6 +97,9 @@ export class ComprobantesController {
 
   @Get(':id')
   async findOne(@Param('id') id: string, @CurrentUser() usuario: AuthUser) {
+    // PUNTO_DE_VENTA entra tambien -- el ticket de una venta de POS se
+    // imprime pidiendo este mismo endpoint justo despues de emitir.
+    this.verificarPantalla(usuario, ['COMPROBANTES_EMITIDOS', 'PUNTO_DE_VENTA']);
     const comprobante = await this.comprobantesService.findOne(id);
     this.verificarAccesoPuntoExpedicion(comprobante.puntoExpedicionId, usuario);
     return comprobante;
@@ -91,6 +107,7 @@ export class ComprobantesController {
 
   @Patch(':id/anular')
   async anular(@Param('id') id: string, @CurrentUser() usuario: AuthUser) {
+    this.verificarPantalla(usuario, ['COMPROBANTES_EMITIDOS']);
     const comprobante = await this.comprobantesService.findOne(id);
     this.verificarAccesoPuntoExpedicion(comprobante.puntoExpedicionId, usuario);
     return this.comprobantesService.anular(id);
@@ -111,6 +128,18 @@ export class ComprobantesController {
     }
     if (!usuario.puntosExpedicionPermitidos.includes(puntoExpedicionId)) {
       throw new ForbiddenException('No tenés acceso a este comprobante');
+    }
+  }
+
+  // Chequeo manual (no via decorador) para las rutas donde la pantalla
+  // requerida depende de datos de la request (POS vs Facturacion) o donde
+  // se aceptan varias pantallas alternativas.
+  private verificarPantalla(usuario: AuthUser, permitidas: Pantalla[]) {
+    if (usuario.esSuperAdmin || usuario.rolTipo === 'ADMIN' || usuario.pantallasPermitidas.length === 0) {
+      return;
+    }
+    if (!permitidas.some((p) => usuario.pantallasPermitidas.includes(p))) {
+      throw new ForbiddenException('Tu usuario no tiene acceso a esta pantalla');
     }
   }
 }

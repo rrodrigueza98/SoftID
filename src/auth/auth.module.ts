@@ -11,6 +11,7 @@ import { RolesGuard } from './guards/roles.guard';
 import { TenantGuard } from './guards/tenant.guard';
 import { ModulosGuard } from './guards/modulos.guard';
 import { PuntosExpedicionGuard } from './guards/puntos-expedicion.guard';
+import { PantallasGuard } from './guards/pantallas.guard';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { PuntosExpedicionGuard } from './guards/puntos-expedicion.guard';
     { provide: APP_GUARD, useClass: TenantGuard },
     { provide: APP_GUARD, useClass: ModulosGuard },
     { provide: APP_GUARD, useClass: PuntosExpedicionGuard },
+    { provide: APP_GUARD, useClass: PantallasGuard },
   ],
 })
 export class AuthModule {}

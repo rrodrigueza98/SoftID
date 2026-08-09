@@ -21,6 +21,7 @@ const USUARIO_SELECT = {
   esSuperAdmin: true,
   modulosPermitidos: true,
   puntosExpedicionPermitidos: true,
+  pantallasPermitidas: true,
   createdAt: true,
   updatedAt: true,
   rol: true,
@@ -45,6 +46,7 @@ export class UsuariosService {
         activo: dto.activo,
         modulosPermitidos: dto.modulosPermitidos ?? [],
         puntosExpedicionPermitidos: dto.puntosExpedicionPermitidos ?? [],
+        pantallasPermitidas: dto.pantallasPermitidas ?? [],
       },
       select: USUARIO_SELECT,
     });

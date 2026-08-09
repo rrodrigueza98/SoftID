@@ -1,5 +1,5 @@
 import { IsArray, IsBoolean, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
-import { Modulo } from '@prisma/client';
+import { Modulo, Pantalla } from '@prisma/client';
 
 export class CreateUsuarioDto {
   @IsString()
@@ -38,4 +38,11 @@ export class CreateUsuarioDto {
   @IsArray()
   @IsString({ each: true })
   puntosExpedicionPermitidos?: string[];
+
+  // Solo tiene efecto para usuarios OPERADOR (ver PantallasGuard). Vacio u
+  // omitido = sin restriccion adicional dentro de los modulos permitidos.
+  @IsOptional()
+  @IsArray()
+  @IsEnum(Pantalla, { each: true })
+  pantallasPermitidas?: Pantalla[];
 }

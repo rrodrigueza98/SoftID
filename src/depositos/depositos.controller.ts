@@ -12,6 +12,7 @@ import { DepositosService } from './depositos.service';
 import { CreateDepositoDto } from './dto/create-deposito.dto';
 import { UpdateDepositoDto } from './dto/update-deposito.dto';
 import { RequireModulo } from '../auth/decorators/modulo.decorator';
+import { RequirePantalla } from '../auth/decorators/pantalla.decorator';
 
 // La lectura queda abierta a cualquier usuario autenticado -- Facturacion y
 // POS necesitan poder elegir el deposito a descontar aunque el operador no
@@ -21,6 +22,7 @@ export class DepositosController {
   constructor(private readonly depositosService: DepositosService) {}
 
   @RequireModulo('INVENTARIO')
+  @RequirePantalla('STOCK')
   @Post()
   create(@Body() dto: CreateDepositoDto) {
     return this.depositosService.create(dto);
@@ -37,12 +39,14 @@ export class DepositosController {
   }
 
   @RequireModulo('INVENTARIO')
+  @RequirePantalla('STOCK')
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateDepositoDto) {
     return this.depositosService.update(id, dto);
   }
 
   @RequireModulo('INVENTARIO')
+  @RequirePantalla('STOCK')
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.depositosService.remove(id);

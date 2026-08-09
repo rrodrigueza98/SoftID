@@ -12,8 +12,10 @@ import { CategoriasProductoService } from './categorias-producto.service';
 import { CreateCategoriaProductoDto } from './dto/create-categoria-producto.dto';
 import { UpdateCategoriaProductoDto } from './dto/update-categoria-producto.dto';
 import { RequireModulo } from '../auth/decorators/modulo.decorator';
+import { RequirePantalla } from '../auth/decorators/pantalla.decorator';
 
 @RequireModulo('INVENTARIO')
+@RequirePantalla('PRODUCTOS')
 @Controller('categorias-producto')
 export class CategoriasProductoController {
   constructor(private readonly categoriasProductoService: CategoriasProductoService) {}

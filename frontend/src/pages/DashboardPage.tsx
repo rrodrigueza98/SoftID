@@ -8,19 +8,55 @@ import { formatDate, formatGs } from '../lib/format';
 import { Card, CardHeader } from '../components/ui/Card';
 import { StatTile } from '../components/ui/StatTile';
 import { ChartTooltip } from '../components/ui/ChartTooltip';
-import type { Modulo, PanelVentas, Producto, Stock, Tercero } from '../lib/types';
+import type { Modulo, Pantalla, PanelVentas, Producto, Stock, Tercero } from '../lib/types';
 
-const SECTIONS: { to: string; label: string; hint: string; modulo: Modulo }[] = [
-  { to: '/pos', label: 'Punto de venta', hint: 'Venta rápida de mostrador', modulo: 'VENTAS' },
-  { to: '/facturacion/emitir', label: 'Facturación', hint: 'Cargar y emitir un nuevo documento', modulo: 'VENTAS' },
-  { to: '/facturacion', label: 'Comprobantes emitidos', hint: 'Consultar historial de facturación', modulo: 'VENTAS' },
-  { to: '/clientes', label: 'Clientes', hint: 'Base de datos de clientes', modulo: 'VENTAS' },
-  { to: '/proveedores', label: 'Proveedores', hint: 'Base de datos de proveedores', modulo: 'COMPRAS' },
-  { to: '/compras', label: 'Compras', hint: 'Registrar comprobantes de compra', modulo: 'COMPRAS' },
-  { to: '/productos', label: 'Productos', hint: 'Catálogo y precios', modulo: 'INVENTARIO' },
-  { to: '/stock', label: 'Stock', hint: 'Saldos y movimientos', modulo: 'INVENTARIO' },
-  { to: '/cuentas-corrientes', label: 'Cuentas corrientes', hint: 'Saldos y cobros', modulo: 'VENTAS' },
-  { to: '/contabilidad', label: 'Contabilidad', hint: 'Plan de Cuentas, Libro Diario y Mayor', modulo: 'CONTABILIDAD' },
+const SECTIONS: { to: string; label: string; hint: string; modulo: Modulo; pantalla: Pantalla }[] = [
+  { to: '/pos', label: 'Punto de venta', hint: 'Venta rápida de mostrador', modulo: 'VENTAS', pantalla: 'PUNTO_DE_VENTA' },
+  {
+    to: '/facturacion/emitir',
+    label: 'Facturación',
+    hint: 'Cargar y emitir un nuevo documento',
+    modulo: 'VENTAS',
+    pantalla: 'FACTURACION',
+  },
+  {
+    to: '/facturacion',
+    label: 'Comprobantes emitidos',
+    hint: 'Consultar historial de facturación',
+    modulo: 'VENTAS',
+    pantalla: 'COMPROBANTES_EMITIDOS',
+  },
+  { to: '/clientes', label: 'Clientes', hint: 'Base de datos de clientes', modulo: 'VENTAS', pantalla: 'CLIENTES' },
+  {
+    to: '/proveedores',
+    label: 'Proveedores',
+    hint: 'Base de datos de proveedores',
+    modulo: 'COMPRAS',
+    pantalla: 'PROVEEDORES',
+  },
+  {
+    to: '/compras',
+    label: 'Compras',
+    hint: 'Registrar comprobantes de compra',
+    modulo: 'COMPRAS',
+    pantalla: 'COMPROBANTES_COMPRA',
+  },
+  { to: '/productos', label: 'Productos', hint: 'Catálogo y precios', modulo: 'INVENTARIO', pantalla: 'PRODUCTOS' },
+  { to: '/stock', label: 'Stock', hint: 'Saldos y movimientos', modulo: 'INVENTARIO', pantalla: 'STOCK' },
+  {
+    to: '/cuentas-corrientes',
+    label: 'Cuentas corrientes',
+    hint: 'Saldos y cobros',
+    modulo: 'VENTAS',
+    pantalla: 'CUENTAS_CORRIENTES',
+  },
+  {
+    to: '/contabilidad',
+    label: 'Contabilidad',
+    hint: 'Plan de Cuentas, Libro Diario y Mayor',
+    modulo: 'CONTABILIDAD',
+    pantalla: 'CONTABILIDAD',
+  },
 ];
 
 const BARRA = '#0078d4'; // brand-600
@@ -52,7 +88,11 @@ export default function DashboardPage() {
   const restringido = !esAdmin && modulosPermitidos.length > 0;
   const puedeVer = (m: Modulo) => !restringido || modulosPermitidos.includes(m);
 
-  const seccionesVisibles = SECTIONS.filter((s) => puedeVer(s.modulo));
+  const pantallasPermitidas = usuario?.pantallasPermitidas ?? [];
+  const restringidoPorPantalla = !esAdmin && pantallasPermitidas.length > 0;
+  const puedeVerPantalla = (p: Pantalla) => !restringidoPorPantalla || pantallasPermitidas.includes(p);
+
+  const seccionesVisibles = SECTIONS.filter((s) => puedeVer(s.modulo) && puedeVerPantalla(s.pantalla));
 
   const clientes = useCount<Tercero>(
     'terceros',

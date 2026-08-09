@@ -349,6 +349,22 @@ enum Modulo {
   CONTABILIDAD
 }
 
+// Pantallas puntuales dentro de cada modulo (ver Usuario.pantallasPermitidas).
+// Es un segundo nivel de restriccion, mas fino que Modulo: un operador puede
+// tener acceso al modulo Ventas pero solo a Punto de venta, por ejemplo.
+enum Pantalla {
+  PUNTO_DE_VENTA
+  FACTURACION
+  COMPROBANTES_EMITIDOS
+  CLIENTES
+  CUENTAS_CORRIENTES
+  PROVEEDORES
+  COMPROBANTES_COMPRA
+  PRODUCTOS
+  STOCK
+  CONTABILIDAD
+}
+
 model Rol {
   id        String   @id @default(cuid())
   empresaId String
@@ -386,6 +402,11 @@ model Usuario {
   // comprobantes y abrir caja en esos puntos de expedicion puntuales.
   // Solo se evalua para OPERADOR; ADMIN y superadmin no se restringen.
   puntosExpedicionPermitidos String[] @default([])
+  // Vacio (default) = sin restriccion adicional, opera en cualquier
+  // pantalla del modulo que tenga permitido. Si tiene valores, se acota
+  // ademas a esas pantallas puntuales (ej. Ventas pero solo Punto de venta).
+  // Solo se evalua para OPERADOR; ADMIN y superadmin no se restringen.
+  pantallasPermitidas Pantalla[] @default([])
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

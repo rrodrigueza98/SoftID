@@ -10,7 +10,7 @@ import { Input, Select, FormField } from '../components/ui/Field';
 import { Badge } from '../components/ui/Badge';
 import { PageSpinner } from '../components/ui/Spinner';
 import { EmptyState, Table, Thead, Th, Tr, Td } from '../components/ui/Table';
-import type { Establecimiento, Modulo, Rol, Usuario } from '../lib/types';
+import type { Establecimiento, Modulo, Pantalla, Rol, Usuario } from '../lib/types';
 
 const MODULOS: { value: Modulo; label: string }[] = [
   { value: 'VENTAS', label: 'Ventas' },
@@ -19,6 +19,27 @@ const MODULOS: { value: Modulo; label: string }[] = [
   { value: 'CONTABILIDAD', label: 'Contabilidad' },
 ];
 
+// Pantallas de cada modulo -- se muestran anidadas debajo del modulo cuando
+// este esta tildado, para acotar aun mas al operador dentro de el.
+const PANTALLAS_POR_MODULO: Record<Modulo, { value: Pantalla; label: string }[]> = {
+  VENTAS: [
+    { value: 'PUNTO_DE_VENTA', label: 'Punto de venta' },
+    { value: 'FACTURACION', label: 'Facturación' },
+    { value: 'COMPROBANTES_EMITIDOS', label: 'Comprobantes emitidos' },
+    { value: 'CLIENTES', label: 'Clientes' },
+    { value: 'CUENTAS_CORRIENTES', label: 'Cuentas corrientes' },
+  ],
+  COMPRAS: [
+    { value: 'PROVEEDORES', label: 'Proveedores' },
+    { value: 'COMPROBANTES_COMPRA', label: 'Comprobantes de compra' },
+  ],
+  INVENTARIO: [
+    { value: 'PRODUCTOS', label: 'Productos' },
+    { value: 'STOCK', label: 'Stock' },
+  ],
+  CONTABILIDAD: [{ value: 'CONTABILIDAD', label: 'Contabilidad' }],
+};
+
 const emptyForm = {
   nombre: '',
   email: '',
@@ -26,6 +47,7 @@ const emptyForm = {
   rolId: '',
   modulosPermitidos: [] as Modulo[],
   puntosExpedicionPermitidos: [] as string[],
+  pantallasPermitidas: [] as Pantalla[],
 };
 
 const emptyEditForm = {
@@ -34,6 +56,7 @@ const emptyEditForm = {
   rolId: '',
   modulosPermitidos: [] as Modulo[],
   puntosExpedicionPermitidos: [] as string[],
+  pantallasPermitidas: [] as Pantalla[],
 };
 
 function toggleModulo(lista: Modulo[], m: Modulo): Modulo[] {
@@ -42,6 +65,54 @@ function toggleModulo(lista: Modulo[], m: Modulo): Modulo[] {
 
 function togglePunto(lista: string[], id: string): string[] {
   return lista.includes(id) ? lista.filter((x) => x !== id) : [...lista, id];
+}
+
+function togglePantalla(lista: Pantalla[], p: Pantalla): Pantalla[] {
+  return lista.includes(p) ? lista.filter((x) => x !== p) : [...lista, p];
+}
+
+// Checklist de modulos con las pantallas de cada uno anidadas debajo,
+// visibles solo si ese modulo esta tildado -- se reutiliza en alta y edicion.
+function ChecklistModulosYPantallas({
+  modulosSeleccionados,
+  onToggleModulo,
+  pantallasSeleccionadas,
+  onTogglePantalla,
+}: {
+  modulosSeleccionados: Modulo[];
+  onToggleModulo: (m: Modulo) => void;
+  pantallasSeleccionadas: Pantalla[];
+  onTogglePantalla: (p: Pantalla) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      {MODULOS.map((m) => {
+        const activo = modulosSeleccionados.includes(m.value);
+        return (
+          <div key={m.value}>
+            <label className="flex items-center gap-2 text-sm text-ink-700">
+              <input type="checkbox" checked={activo} onChange={() => onToggleModulo(m.value)} />
+              {m.label}
+            </label>
+            {activo && (
+              <div className="mt-1 flex flex-col gap-1 border-l border-ink-100 pl-4">
+                {PANTALLAS_POR_MODULO[m.value].map((p) => (
+                  <label key={p.value} className="flex items-center gap-2 text-xs text-ink-600">
+                    <input
+                      type="checkbox"
+                      checked={pantallasSeleccionadas.includes(p.value)}
+                      onChange={() => onTogglePantalla(p.value)}
+                    />
+                    {p.label}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 // Checklist de puntos de expedicion, agrupados por establecimiento -- se
@@ -130,6 +201,7 @@ export default function UsuariosPage() {
         rolId: form.rolId,
         modulosPermitidos: form.modulosPermitidos,
         puntosExpedicionPermitidos: form.puntosExpedicionPermitidos,
+        pantallasPermitidas: form.pantallasPermitidas,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['usuarios', empresaId] });
@@ -154,6 +226,7 @@ export default function UsuariosPage() {
         rolId: editForm.rolId,
         modulosPermitidos: editForm.modulosPermitidos,
         puntosExpedicionPermitidos: editForm.puntosExpedicionPermitidos,
+        pantallasPermitidas: editForm.pantallasPermitidas,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['usuarios', empresaId] });
@@ -181,6 +254,7 @@ export default function UsuariosPage() {
       rolId: u.rolId,
       modulosPermitidos: u.modulosPermitidos,
       puntosExpedicionPermitidos: u.puntosExpedicionPermitidos,
+      pantallasPermitidas: u.pantallasPermitidas,
     });
     setEditError(null);
   }
@@ -317,21 +391,16 @@ export default function UsuariosPage() {
           </FormField>
 
           {rolSeleccionado?.tipo === 'OPERADOR' && (
-            <FormField label="Módulos permitidos">
-              <div className="flex flex-col gap-1.5">
-                {MODULOS.map((m) => (
-                  <label key={m.value} className="flex items-center gap-2 text-sm text-ink-700">
-                    <input
-                      type="checkbox"
-                      checked={form.modulosPermitidos.includes(m.value)}
-                      onChange={() => setForm({ ...form, modulosPermitidos: toggleModulo(form.modulosPermitidos, m.value) })}
-                    />
-                    {m.label}
-                  </label>
-                ))}
-              </div>
+            <FormField label="Módulos y pantallas permitidas">
+              <ChecklistModulosYPantallas
+                modulosSeleccionados={form.modulosPermitidos}
+                onToggleModulo={(m) => setForm({ ...form, modulosPermitidos: toggleModulo(form.modulosPermitidos, m) })}
+                pantallasSeleccionadas={form.pantallasPermitidas}
+                onTogglePantalla={(p) => setForm({ ...form, pantallasPermitidas: togglePantalla(form.pantallasPermitidas, p) })}
+              />
               <p className="mt-1.5 text-xs text-ink-400">
-                Si no marcás ninguno, el usuario accede a todos los módulos operativos.
+                Si no marcás ningún módulo, el usuario accede a todos. Tildando pantallas dentro de un módulo lo acotás
+                todavía más (ej. Ventas, pero solo Punto de venta).
               </p>
             </FormField>
           )}
@@ -400,23 +469,20 @@ export default function UsuariosPage() {
           </FormField>
 
           {rolSeleccionadoEdicion?.tipo === 'OPERADOR' && (
-            <FormField label="Módulos permitidos">
-              <div className="flex flex-col gap-1.5">
-                {MODULOS.map((m) => (
-                  <label key={m.value} className="flex items-center gap-2 text-sm text-ink-700">
-                    <input
-                      type="checkbox"
-                      checked={editForm.modulosPermitidos.includes(m.value)}
-                      onChange={() =>
-                        setEditForm({ ...editForm, modulosPermitidos: toggleModulo(editForm.modulosPermitidos, m.value) })
-                      }
-                    />
-                    {m.label}
-                  </label>
-                ))}
-              </div>
+            <FormField label="Módulos y pantallas permitidas">
+              <ChecklistModulosYPantallas
+                modulosSeleccionados={editForm.modulosPermitidos}
+                onToggleModulo={(m) =>
+                  setEditForm({ ...editForm, modulosPermitidos: toggleModulo(editForm.modulosPermitidos, m) })
+                }
+                pantallasSeleccionadas={editForm.pantallasPermitidas}
+                onTogglePantalla={(p) =>
+                  setEditForm({ ...editForm, pantallasPermitidas: togglePantalla(editForm.pantallasPermitidas, p) })
+                }
+              />
               <p className="mt-1.5 text-xs text-ink-400">
-                Si no marcás ninguno, el usuario accede a todos los módulos operativos.
+                Si no marcás ningún módulo, el usuario accede a todos. Tildando pantallas dentro de un módulo lo acotás
+                todavía más (ej. Ventas, pero solo Punto de venta).
               </p>
             </FormField>
           )}
