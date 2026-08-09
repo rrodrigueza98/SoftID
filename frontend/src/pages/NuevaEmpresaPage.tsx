@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, apiErrorMessage } from '../lib/api-client';
@@ -23,7 +23,22 @@ const emptyEmpresaForm = {
   departamento: '',
   telefono: '',
   email: '',
+  logoUrl: '' as string,
 };
+
+// Limite generoso para un logo (se guarda como data URI en la misma fila de
+// la empresa, no en un storage aparte) -- alcanza de sobra para un isotipo
+// chico y evita filas gigantes en la base.
+const LOGO_MAX_BYTES = 300 * 1024;
+
+function leerImagenComoDataUri(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
 
 const emptyOperadorForm = {
   nombre: '',
@@ -49,7 +64,21 @@ export default function NuevaEmpresaPage() {
   const [rolOperadorId, setRolOperadorId] = useState('');
   const [rucDialogOpen, setRucDialogOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [logoError, setLogoError] = useState<string | null>(null);
   const [listo, setListo] = useState(false);
+
+  const handleLogoChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > LOGO_MAX_BYTES) {
+      setLogoError('El logo no puede pesar más de 300 KB. Probá con una imagen más chica o comprimida.');
+      return;
+    }
+    setLogoError(null);
+    const dataUri = await leerImagenComoDataUri(file);
+    setEmpresaForm((f) => ({ ...f, logoUrl: dataUri }));
+  };
 
   const crearEmpresaMutation = useMutation({
     mutationFn: async () => {
@@ -66,6 +95,7 @@ export default function NuevaEmpresaPage() {
           departamento: empresaForm.departamento,
           telefono: empresaForm.telefono || undefined,
           email: empresaForm.email || undefined,
+          logoUrl: empresaForm.logoUrl || undefined,
         })
       ).data;
 
@@ -149,6 +179,7 @@ export default function NuevaEmpresaPage() {
                 setEmpresaForm(emptyEmpresaForm);
                 setOperadorForm(emptyOperadorForm);
                 setEmpresaCreada(null);
+                setLogoError(null);
                 setListo(false);
               }}
             >
@@ -219,6 +250,39 @@ export default function NuevaEmpresaPage() {
                   />
                 </FormField>
               </div>
+
+              <FormField label="Logo (opcional)">
+                <div className="flex items-center gap-3">
+                  {empresaForm.logoUrl ? (
+                    <img
+                      src={empresaForm.logoUrl}
+                      alt="Logo de la empresa"
+                      className="h-12 w-12 rounded border border-ink-200 object-contain"
+                    />
+                  ) : (
+                    <div className="flex h-12 w-12 items-center justify-center rounded border border-dashed border-ink-300 text-[9px] text-ink-400">
+                      Sin logo
+                    </div>
+                  )}
+                  <label className="cursor-pointer rounded-md border border-ink-200 px-3 py-1.5 text-sm font-medium text-ink-700 hover:bg-ink-50">
+                    {empresaForm.logoUrl ? 'Cambiar' : 'Subir imagen'}
+                    <input type="file" accept="image/*" className="hidden" onChange={handleLogoChange} />
+                  </label>
+                  {empresaForm.logoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setEmpresaForm((f) => ({ ...f, logoUrl: '' }))}
+                      className="text-xs font-medium text-ink-500 underline decoration-dotted hover:text-ink-700"
+                    >
+                      Quitar
+                    </button>
+                  )}
+                </div>
+                {logoError && <p className="mt-1 text-xs text-red-600">{logoError}</p>}
+                <p className="mt-1 text-xs text-ink-400">
+                  Se muestra en el encabezado de los comprobantes y recibos impresos de esta empresa.
+                </p>
+              </FormField>
 
               <div className="grid grid-cols-2 gap-4">
                 <FormField label="Tipo de contribuyente" required>

@@ -37,6 +37,7 @@ export interface ComprobanteVisualData {
     ciudad: string;
     departamento: string;
     telefono?: string | null;
+    logoUrl?: string | null;
   } | null;
   tipoDocumento: TipoDocumentoElectronico;
   numeroCompleto: string;
@@ -83,17 +84,22 @@ export function ComprobanteVisual({ data }: { data: ComprobanteVisualData }) {
       )}
 
       <div className="flex items-start justify-between border-2 border-ink-900 p-4">
-        <div className="max-w-[55%]">
-          <p className="text-base font-bold">{data.empresa?.razonSocial ?? '—'}</p>
-          {data.empresa?.nombreFantasia && <p className="text-sm">{data.empresa.nombreFantasia}</p>}
-          <p className="mt-1 text-xs">
-            RUC: {data.empresa?.ruc}-{data.empresa?.dvRuc}
-          </p>
-          <p className="text-xs">{data.empresa?.direccion}</p>
-          <p className="text-xs">
-            {data.empresa?.ciudad}, {data.empresa?.departamento}
-          </p>
-          {data.empresa?.telefono && <p className="text-xs">Tel: {data.empresa.telefono}</p>}
+        <div className="flex max-w-[55%] items-start gap-3">
+          {data.empresa?.logoUrl && (
+            <img src={data.empresa.logoUrl} alt="" className="h-14 w-14 shrink-0 object-contain" />
+          )}
+          <div>
+            <p className="text-base font-bold">{data.empresa?.razonSocial ?? '—'}</p>
+            {data.empresa?.nombreFantasia && <p className="text-sm">{data.empresa.nombreFantasia}</p>}
+            <p className="mt-1 text-xs">
+              RUC: {data.empresa?.ruc}-{data.empresa?.dvRuc}
+            </p>
+            <p className="text-xs">{data.empresa?.direccion}</p>
+            <p className="text-xs">
+              {data.empresa?.ciudad}, {data.empresa?.departamento}
+            </p>
+            {data.empresa?.telefono && <p className="text-xs">Tel: {data.empresa.telefono}</p>}
+          </div>
         </div>
         <div className="max-w-[40%] border-l-2 border-ink-900 pl-4 text-right">
           <p className="text-sm font-bold uppercase">{tipoDocumentoLabel(data.tipoDocumento, data.esElectronico)}</p>

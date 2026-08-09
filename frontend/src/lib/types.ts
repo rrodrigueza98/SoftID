@@ -471,6 +471,9 @@ export interface Empresa {
   ciudad: string;
   departamento: string;
   telefono?: string | null;
+  // Data URI (base64) que carga el superadmin al crear la empresa -- se usa
+  // en el encabezado de comprobantes y recibos impresos.
+  logoUrl?: string | null;
   proximoNumeroRecibo: number;
 }
 
