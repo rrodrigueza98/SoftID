@@ -31,4 +31,11 @@ export class CreateUsuarioDto {
   @IsArray()
   @IsEnum(Modulo, { each: true })
   modulosPermitidos?: Modulo[];
+
+  // Solo tiene efecto para usuarios OPERADOR (ver PuntosExpedicionGuard).
+  // Vacio u omitido = sin restriccion, opera en cualquier punto de expedicion.
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  puntosExpedicionPermitidos?: string[];
 }

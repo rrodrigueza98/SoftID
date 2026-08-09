@@ -244,14 +244,22 @@ export class ComprobantesService {
     });
   }
 
-  findAll(params: { empresaId: string; clienteId?: string; proveedorId?: string; tipoDocumento?: TipoDocumentoElectronico }) {
-    const { empresaId, clienteId, proveedorId, tipoDocumento } = params;
+  findAll(params: {
+    empresaId: string;
+    clienteId?: string;
+    proveedorId?: string;
+    tipoDocumento?: TipoDocumentoElectronico;
+    // undefined = sin restriccion (ADMIN/superadmin/operador sin restringir).
+    puntosExpedicionPermitidos?: string[];
+  }) {
+    const { empresaId, clienteId, proveedorId, tipoDocumento, puntosExpedicionPermitidos } = params;
     return this.prisma.comprobante.findMany({
       where: {
         empresaId,
         ...(clienteId ? { clienteId } : {}),
         ...(proveedorId ? { proveedorId } : {}),
         ...(tipoDocumento ? { tipoDocumento } : {}),
+        ...(puntosExpedicionPermitidos ? { puntoExpedicionId: { in: puntosExpedicionPermitidos } } : {}),
       },
       include: { items: true, cliente: true, proveedor: true },
       orderBy: { fechaEmision: 'desc' },

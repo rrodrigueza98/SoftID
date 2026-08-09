@@ -381,6 +381,11 @@ model Usuario {
   // permita -- asi ningun operador existente pierde acceso al agregar esto.
   // Solo se evalua para OPERADOR; ADMIN y superadmin siempre ven todo.
   modulosPermitidos Modulo[] @default([])
+  // Vacio (default) = sin restriccion, opera en cualquier punto de
+  // expedicion de la empresa. Si tiene valores, solo puede emitir/ver
+  // comprobantes y abrir caja en esos puntos de expedicion puntuales.
+  // Solo se evalua para OPERADOR; ADMIN y superadmin no se restringen.
+  puntosExpedicionPermitidos String[] @default([])
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

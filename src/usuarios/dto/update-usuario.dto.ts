@@ -24,4 +24,9 @@ export class UpdateUsuarioDto {
   @IsArray()
   @IsEnum(Modulo, { each: true })
   modulosPermitidos?: Modulo[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  puntosExpedicionPermitidos?: string[];
 }

@@ -12,6 +12,7 @@ export interface AuthUser {
   rolTipo: RolTipo;
   esSuperAdmin: boolean;
   modulosPermitidos: Modulo[];
+  puntosExpedicionPermitidos: string[];
 }
 
 export interface JwtPayload {

@@ -222,7 +222,7 @@ function emptyRow(unidadMedidaId = ''): ItemRow {
 
 export default function EmitirComprobantePage() {
   const empresaId = useEmpresaId();
-  const { esAdmin } = useAuth();
+  const { esAdmin, usuario } = useAuth();
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [fiscalSetupOpen, setFiscalSetupOpen] = useState(false);
@@ -290,13 +290,22 @@ export default function EmitirComprobantePage() {
   });
   const establecimiento = establecimientos?.find((e) => e.id === establecimientoId);
 
+  // Si el operador esta restringido a ciertos puntos de expedicion (ver
+  // PuntosExpedicionGuard), no tiene sentido ofrecerle en el selector un
+  // establecimiento/PE que igual le va a devolver 403 al emitir.
+  const puntosPermitidos = usuario?.puntosExpedicionPermitidos ?? [];
+  const restringidoPorPE = !esAdmin && puntosPermitidos.length > 0;
+  const establecimientosVisibles = !restringidoPorPE
+    ? establecimientos
+    : establecimientos?.filter((e) => e.puntosExpedicion?.some((p) => puntosPermitidos.includes(p.id)));
+
   // Preseleccionar la casa matriz (o el primero que haya) apenas carga la
   // lista -- el usuario puede cambiarla despues con el selector.
   useEffect(() => {
-    if (!establecimientoId && establecimientos?.length) {
-      setEstablecimientoId(establecimientos.find((e) => e.esCasaMatriz)?.id ?? establecimientos[0].id);
+    if (!establecimientoId && establecimientosVisibles?.length) {
+      setEstablecimientoId(establecimientosVisibles.find((e) => e.esCasaMatriz)?.id ?? establecimientosVisibles[0].id);
     }
-  }, [establecimientos, establecimientoId]);
+  }, [establecimientosVisibles, establecimientoId]);
 
   const { data: puntosExpedicion } = useQuery({
     queryKey: ['puntos-expedicion', establecimientoId],
@@ -305,18 +314,21 @@ export default function EmitirComprobantePage() {
     enabled: Boolean(establecimientoId),
   });
   const puntoExpedicion = puntosExpedicion?.find((p) => p.id === puntoExpedicionId);
+  const puntosExpedicionVisibles = !restringidoPorPE
+    ? puntosExpedicion
+    : puntosExpedicion?.filter((p) => puntosPermitidos.includes(p.id));
 
   // Si se cambia de establecimiento (o todavia no hay nada elegido), cae al
   // primer punto de expedicion disponible de ese establecimiento.
   useEffect(() => {
-    if (!puntosExpedicion?.length) {
+    if (!puntosExpedicionVisibles?.length) {
       setPuntoExpedicionId('');
       return;
     }
-    if (!puntosExpedicion.find((p) => p.id === puntoExpedicionId)) {
-      setPuntoExpedicionId(puntosExpedicion[0].id);
+    if (!puntosExpedicionVisibles.find((p) => p.id === puntoExpedicionId)) {
+      setPuntoExpedicionId(puntosExpedicionVisibles[0].id);
     }
-  }, [puntosExpedicion, puntoExpedicionId]);
+  }, [puntosExpedicionVisibles, puntoExpedicionId]);
 
   const timbradosDisponibles = useMemo(
     () => (puntoExpedicion?.timbrados ?? []).filter((t) => t.activo && t.tipoDocumento === tipoDocumento && t.proximoNumero <= t.numeroHasta),
@@ -739,11 +751,11 @@ export default function EmitirComprobantePage() {
           >
             {error && <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
-            {establecimientos && establecimientos.length > 0 && (
+            {establecimientosVisibles && establecimientosVisibles.length > 0 && (
               <div className="grid grid-cols-2 gap-4">
                 <FormField label="Establecimiento" required>
                   <Select value={establecimientoId} onChange={(e) => setEstablecimientoId(e.target.value)}>
-                    {establecimientos.map((est) => (
+                    {establecimientosVisibles.map((est) => (
                       <option key={est.id} value={est.id}>
                         {est.codigo} — {est.nombre}
                       </option>
@@ -751,11 +763,11 @@ export default function EmitirComprobantePage() {
                   </Select>
                 </FormField>
                 <FormField label="Punto de expedición" required>
-                  {!puntosExpedicion || puntosExpedicion.length === 0 ? (
+                  {!puntosExpedicionVisibles || puntosExpedicionVisibles.length === 0 ? (
                     <p className="text-xs text-amber-700">Este establecimiento no tiene puntos de expedición.</p>
                   ) : (
                     <Select value={puntoExpedicionId} onChange={(e) => setPuntoExpedicionId(e.target.value)}>
-                      {puntosExpedicion.map((pe) => (
+                      {puntosExpedicionVisibles.map((pe) => (
                         <option key={pe.id} value={pe.id}>
                           {pe.codigo} — {pe.descripcion}
                         </option>

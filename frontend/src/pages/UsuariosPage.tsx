@@ -10,7 +10,7 @@ import { Input, Select, FormField } from '../components/ui/Field';
 import { Badge } from '../components/ui/Badge';
 import { PageSpinner } from '../components/ui/Spinner';
 import { EmptyState, Table, Thead, Th, Tr, Td } from '../components/ui/Table';
-import type { Modulo, Rol, Usuario } from '../lib/types';
+import type { Establecimiento, Modulo, Rol, Usuario } from '../lib/types';
 
 const MODULOS: { value: Modulo; label: string }[] = [
   { value: 'VENTAS', label: 'Ventas' },
@@ -25,6 +25,7 @@ const emptyForm = {
   password: '',
   rolId: '',
   modulosPermitidos: [] as Modulo[],
+  puntosExpedicionPermitidos: [] as string[],
 };
 
 const emptyEditForm = {
@@ -32,10 +33,54 @@ const emptyEditForm = {
   email: '',
   rolId: '',
   modulosPermitidos: [] as Modulo[],
+  puntosExpedicionPermitidos: [] as string[],
 };
 
 function toggleModulo(lista: Modulo[], m: Modulo): Modulo[] {
   return lista.includes(m) ? lista.filter((x) => x !== m) : [...lista, m];
+}
+
+function togglePunto(lista: string[], id: string): string[] {
+  return lista.includes(id) ? lista.filter((x) => x !== id) : [...lista, id];
+}
+
+// Checklist de puntos de expedicion, agrupados por establecimiento -- se
+// reutiliza igual en el dialog de alta y el de edicion.
+function ChecklistPuntosExpedicion({
+  establecimientos,
+  seleccionados,
+  onToggle,
+}: {
+  establecimientos?: Establecimiento[];
+  seleccionados: string[];
+  onToggle: (id: string) => void;
+}) {
+  if (!establecimientos || establecimientos.length === 0) {
+    return <p className="text-xs text-ink-400">Todavía no hay puntos de expedición cargados.</p>;
+  }
+  return (
+    <div className="flex flex-col gap-3">
+      {establecimientos.map((est) => (
+        <div key={est.id}>
+          <p className="mb-1 text-xs font-semibold text-ink-600">
+            {est.codigo} — {est.nombre}
+          </p>
+          {!est.puntosExpedicion || est.puntosExpedicion.length === 0 ? (
+            <p className="text-xs text-ink-400">Sin puntos de expedición.</p>
+          ) : (
+            <div className="flex flex-col gap-1.5 pl-2">
+              {est.puntosExpedicion.map((pe) => (
+                <label key={pe.id} className="flex items-center gap-2 text-sm text-ink-700">
+                  <input type="checkbox" checked={seleccionados.includes(pe.id)} onChange={() => onToggle(pe.id)} />
+                  {pe.codigo} — {pe.descripcion}
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export default function UsuariosPage() {
@@ -66,6 +111,12 @@ export default function UsuariosPage() {
     enabled: esAdmin && (open || Boolean(editandoId)),
   });
 
+  const { data: establecimientos } = useQuery({
+    queryKey: ['establecimientos', empresaId],
+    queryFn: async () => (await api.get<Establecimiento[]>('/establecimientos', { params: { empresaId } })).data,
+    enabled: esAdmin && (open || Boolean(editandoId)),
+  });
+
   const rolSeleccionado = roles?.find((r) => r.id === form.rolId);
   const rolSeleccionadoEdicion = roles?.find((r) => r.id === editForm.rolId);
 
@@ -78,6 +129,7 @@ export default function UsuariosPage() {
         password: form.password,
         rolId: form.rolId,
         modulosPermitidos: form.modulosPermitidos,
+        puntosExpedicionPermitidos: form.puntosExpedicionPermitidos,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['usuarios', empresaId] });
@@ -101,6 +153,7 @@ export default function UsuariosPage() {
         email: editForm.email,
         rolId: editForm.rolId,
         modulosPermitidos: editForm.modulosPermitidos,
+        puntosExpedicionPermitidos: editForm.puntosExpedicionPermitidos,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['usuarios', empresaId] });
@@ -122,7 +175,13 @@ export default function UsuariosPage() {
 
   function abrirEdicion(u: Usuario) {
     setEditandoId(u.id);
-    setEditForm({ nombre: u.nombre, email: u.email, rolId: u.rolId, modulosPermitidos: u.modulosPermitidos });
+    setEditForm({
+      nombre: u.nombre,
+      email: u.email,
+      rolId: u.rolId,
+      modulosPermitidos: u.modulosPermitidos,
+      puntosExpedicionPermitidos: u.puntosExpedicionPermitidos,
+    });
     setEditError(null);
   }
 
@@ -277,6 +336,19 @@ export default function UsuariosPage() {
             </FormField>
           )}
 
+          {rolSeleccionado?.tipo === 'OPERADOR' && (
+            <FormField label="Puntos de expedición permitidos">
+              <ChecklistPuntosExpedicion
+                establecimientos={establecimientos}
+                seleccionados={form.puntosExpedicionPermitidos}
+                onToggle={(id) => setForm({ ...form, puntosExpedicionPermitidos: togglePunto(form.puntosExpedicionPermitidos, id) })}
+              />
+              <p className="mt-1.5 text-xs text-ink-400">
+                Si no marcás ninguno, el usuario emite y ve comprobantes de cualquier punto de expedición.
+              </p>
+            </FormField>
+          )}
+
           <div className="flex justify-end gap-2 border-t border-ink-100 pt-3">
             <Button type="button" variant="secondary" onClick={() => setOpen(false)}>
               Cancelar
@@ -345,6 +417,21 @@ export default function UsuariosPage() {
               </div>
               <p className="mt-1.5 text-xs text-ink-400">
                 Si no marcás ninguno, el usuario accede a todos los módulos operativos.
+              </p>
+            </FormField>
+          )}
+
+          {rolSeleccionadoEdicion?.tipo === 'OPERADOR' && (
+            <FormField label="Puntos de expedición permitidos">
+              <ChecklistPuntosExpedicion
+                establecimientos={establecimientos}
+                seleccionados={editForm.puntosExpedicionPermitidos}
+                onToggle={(id) =>
+                  setEditForm({ ...editForm, puntosExpedicionPermitidos: togglePunto(editForm.puntosExpedicionPermitidos, id) })
+                }
+              />
+              <p className="mt-1.5 text-xs text-ink-400">
+                Si no marcás ninguno, el usuario emite y ve comprobantes de cualquier punto de expedición.
               </p>
             </FormField>
           )}

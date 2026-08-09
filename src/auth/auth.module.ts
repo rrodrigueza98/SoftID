@@ -10,6 +10,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { TenantGuard } from './guards/tenant.guard';
 import { ModulosGuard } from './guards/modulos.guard';
+import { PuntosExpedicionGuard } from './guards/puntos-expedicion.guard';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { ModulosGuard } from './guards/modulos.guard';
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: TenantGuard },
     { provide: APP_GUARD, useClass: ModulosGuard },
+    { provide: APP_GUARD, useClass: PuntosExpedicionGuard },
   ],
 })
 export class AuthModule {}

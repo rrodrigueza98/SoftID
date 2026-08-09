@@ -20,6 +20,7 @@ const USUARIO_SELECT = {
   activo: true,
   esSuperAdmin: true,
   modulosPermitidos: true,
+  puntosExpedicionPermitidos: true,
   createdAt: true,
   updatedAt: true,
   rol: true,
@@ -43,6 +44,7 @@ export class UsuariosService {
         passwordHash,
         activo: dto.activo,
         modulosPermitidos: dto.modulosPermitidos ?? [],
+        puntosExpedicionPermitidos: dto.puntosExpedicionPermitidos ?? [],
       },
       select: USUARIO_SELECT,
     });

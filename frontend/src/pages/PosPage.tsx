@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, apiErrorMessage } from '../lib/api-client';
 import { useEmpresaId } from '../lib/hooks';
+import { useAuth } from '../lib/auth-context';
 import { formatGs, formatDateTime } from '../lib/format';
 import { calcularItem, calcularSubtotales } from '../lib/comprobante-calc';
 import { Card } from '../components/ui/Card';
@@ -45,6 +46,7 @@ interface CartItem {
 
 export default function PosPage() {
   const empresaId = useEmpresaId();
+  const { esAdmin, usuario } = useAuth();
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [fiscalSetupOpen, setFiscalSetupOpen] = useState(false);
@@ -73,14 +75,23 @@ export default function PosPage() {
   });
   const establecimiento = establecimientos?.find((e) => e.id === establecimientoId);
 
+  // Si el operador esta restringido a ciertos puntos de expedicion (ver
+  // PuntosExpedicionGuard), no tiene sentido ofrecerle en el selector un
+  // establecimiento/PE en el que igual le van a rechazar la apertura de caja.
+  const puntosPermitidos = usuario?.puntosExpedicionPermitidos ?? [];
+  const restringidoPorPE = !esAdmin && puntosPermitidos.length > 0;
+  const establecimientosVisibles = !restringidoPorPE
+    ? establecimientos
+    : establecimientos?.filter((e) => e.puntosExpedicion?.some((p) => puntosPermitidos.includes(p.id)));
+
   // Preseleccionar la casa matriz (o el primero que haya) apenas carga la
   // lista -- se puede cambiar despues con el selector, mientras no haya caja
   // abierta (una sesion de caja queda atada a un solo punto de expedicion).
   useEffect(() => {
-    if (!establecimientoId && establecimientos?.length) {
-      setEstablecimientoId(establecimientos.find((e) => e.esCasaMatriz)?.id ?? establecimientos[0].id);
+    if (!establecimientoId && establecimientosVisibles?.length) {
+      setEstablecimientoId(establecimientosVisibles.find((e) => e.esCasaMatriz)?.id ?? establecimientosVisibles[0].id);
     }
-  }, [establecimientos, establecimientoId]);
+  }, [establecimientosVisibles, establecimientoId]);
 
   const {
     data: puntosExpedicion,
@@ -93,16 +104,19 @@ export default function PosPage() {
     enabled: Boolean(establecimientoId),
   });
   const puntoExpedicion = puntosExpedicion?.find((p) => p.id === puntoExpedicionId);
+  const puntosExpedicionVisibles = !restringidoPorPE
+    ? puntosExpedicion
+    : puntosExpedicion?.filter((p) => puntosPermitidos.includes(p.id));
 
   useEffect(() => {
-    if (!puntosExpedicion?.length) {
+    if (!puntosExpedicionVisibles?.length) {
       setPuntoExpedicionId('');
       return;
     }
-    if (!puntosExpedicion.find((p) => p.id === puntoExpedicionId)) {
-      setPuntoExpedicionId(puntosExpedicion[0].id);
+    if (!puntosExpedicionVisibles.find((p) => p.id === puntoExpedicionId)) {
+      setPuntoExpedicionId(puntosExpedicionVisibles[0].id);
     }
-  }, [puntosExpedicion, puntoExpedicionId]);
+  }, [puntosExpedicionVisibles, puntoExpedicionId]);
 
   const timbradosDisponibles = useMemo(
     () =>
@@ -374,10 +388,10 @@ export default function PosPage() {
               abrirCajaMutation.mutate();
             }}
           >
-            {establecimientos && establecimientos.length > 1 && (
+            {establecimientosVisibles && establecimientosVisibles.length > 1 && (
               <FormField label="Establecimiento" required>
                 <Select value={establecimientoId} onChange={(e) => setEstablecimientoId(e.target.value)}>
-                  {establecimientos.map((est) => (
+                  {establecimientosVisibles.map((est) => (
                     <option key={est.id} value={est.id}>
                       {est.codigo} — {est.nombre}
                     </option>
@@ -385,10 +399,10 @@ export default function PosPage() {
                 </Select>
               </FormField>
             )}
-            {puntosExpedicion && puntosExpedicion.length > 1 && (
+            {puntosExpedicionVisibles && puntosExpedicionVisibles.length > 1 && (
               <FormField label="Punto de expedición" required>
                 <Select value={puntoExpedicionId} onChange={(e) => setPuntoExpedicionId(e.target.value)}>
-                  {puntosExpedicion.map((pe) => (
+                  {puntosExpedicionVisibles.map((pe) => (
                     <option key={pe.id} value={pe.id}>
                       {pe.codigo} — {pe.descripcion}
                     </option>

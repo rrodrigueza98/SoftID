@@ -24,6 +24,9 @@ export interface Usuario {
   // Vacio = sin restriccion (accede a todo lo que su rol permita). Solo
   // tiene efecto para usuarios OPERADOR.
   modulosPermitidos: Modulo[];
+  // Vacio = sin restriccion (opera en cualquier punto de expedicion). Solo
+  // tiene efecto para usuarios OPERADOR.
+  puntosExpedicionPermitidos: string[];
   rol: Rol;
 }
 
