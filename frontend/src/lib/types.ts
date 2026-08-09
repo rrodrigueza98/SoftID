@@ -459,7 +459,7 @@ export interface Recibo {
   aplicaciones?: ReciboAplicacion[];
 }
 
-export type RegimenTributario = 'IRE_GENERAL' | 'IRE_SIMPLE' | 'IRE_RESIT';
+export type RegimenTributario = 'IRE_GENERAL' | 'IRE_SIMPLE' | 'IRE_RESIMPLE';
 
 export interface Empresa {
   id: string;

@@ -301,7 +301,7 @@ export default function NuevaEmpresaPage() {
                   >
                     <option value="IRE_GENERAL">IRE General</option>
                     <option value="IRE_SIMPLE">IRE Simple</option>
-                    <option value="IRE_RESIT">IRE RESIT</option>
+                    <option value="IRE_RESIMPLE">IRE RESIMPLE</option>
                   </Select>
                 </FormField>
               </div>

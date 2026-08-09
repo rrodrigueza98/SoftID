@@ -41,8 +41,8 @@ enum TipoContribuyente {
 /// con otro regimen.
 enum RegimenTributario {
   IRE_GENERAL
-  IRE_SIMPLE // ex RESIMPLE
-  IRE_RESIT
+  IRE_SIMPLE
+  IRE_RESIMPLE
 }
 
 /// Catalogo del receptor (campo D208 iTipIDRec, corregido en NT_E_KUATIA 002/023/027).
