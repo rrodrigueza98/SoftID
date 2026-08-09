@@ -64,13 +64,17 @@ export default function PosPage() {
   const [observacionCierre, setObservacionCierre] = useState('');
   const [cierreResultado, setCierreResultado] = useState<SesionCaja | null>(null);
 
-  const { data: establecimientos } = useQuery({
+  const { data: establecimientos, isLoading: establecimientosLoading } = useQuery({
     queryKey: ['establecimientos', empresaId],
     queryFn: async () => (await api.get<Establecimiento[]>('/establecimientos', { params: { empresaId } })).data,
   });
   const establecimiento = establecimientos?.[0];
 
-  const { data: puntosExpedicion } = useQuery({
+  const {
+    data: puntosExpedicion,
+    isLoading: puntosExpedicionLoading,
+    isFetched: puntosExpedicionFetched,
+  } = useQuery({
     queryKey: ['puntos-expedicion', establecimiento?.id],
     queryFn: async () =>
       (await api.get<PuntoExpedicion[]>('/puntos-expedicion', { params: { establecimientoId: establecimiento!.id } })).data,
@@ -257,8 +261,47 @@ export default function PosPage() {
 
   const puedeCobrar = cart.length > 0 && Boolean(timbrado) && cart.every((r) => r.cantidad > 0);
 
-  if (sesionLoading || !sesionFetched) {
+  // Ojo: puntosExpedicion y sesion son queries encadenadas y condicionales
+  // (enabled: Boolean(...)). Si la empresa todavia no tiene establecimiento o
+  // punto de expedicion, esas queries quedan deshabilitadas para siempre --
+  // isFetched nunca pasa a true, asi que NO alcanza con "sesionLoading ||
+  // !sesionFetched" solo, o la pantalla queda en "Cargando..." de por vida.
+  const cargando =
+    establecimientosLoading ||
+    (Boolean(establecimiento) && (puntosExpedicionLoading || !puntosExpedicionFetched)) ||
+    (Boolean(puntoExpedicion) && (sesionLoading || !sesionFetched));
+
+  if (cargando) {
     return <p className="text-sm text-ink-500">Cargando…</p>;
+  }
+
+  if (!establecimiento || !puntoExpedicion) {
+    return (
+      <div className="flex flex-col gap-6">
+        <div>
+          <h1 className="text-xl font-semibold text-ink-900">Punto de venta</h1>
+          <p className="mt-1 text-sm text-ink-500">Venta rápida de mostrador, con control de caja.</p>
+        </div>
+        <Card className="mx-auto w-full max-w-md p-5 text-center">
+          <p className="text-sm text-ink-600">
+            Esta empresa todavía no tiene un establecimiento y punto de expedición configurados -- son
+            necesarios antes de poder abrir caja.
+          </p>
+          <Button className="mt-4" onClick={() => setFiscalSetupOpen(true)}>
+            Configurar…
+          </Button>
+        </Card>
+        <FiscalSetupDialog
+          open={fiscalSetupOpen}
+          onClose={() => {
+            setFiscalSetupOpen(false);
+            queryClient.invalidateQueries({ queryKey: ['establecimientos'] });
+            queryClient.invalidateQueries({ queryKey: ['puntos-expedicion'] });
+          }}
+          tipoDocumentoSugerido="FACTURA_ELECTRONICA"
+        />
+      </div>
+    );
   }
 
   return (
