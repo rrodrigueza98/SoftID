@@ -64,23 +64,45 @@ export default function PosPage() {
   const [observacionCierre, setObservacionCierre] = useState('');
   const [cierreResultado, setCierreResultado] = useState<SesionCaja | null>(null);
 
+  const [establecimientoId, setEstablecimientoId] = useState('');
+  const [puntoExpedicionId, setPuntoExpedicionId] = useState('');
+
   const { data: establecimientos, isLoading: establecimientosLoading } = useQuery({
     queryKey: ['establecimientos', empresaId],
     queryFn: async () => (await api.get<Establecimiento[]>('/establecimientos', { params: { empresaId } })).data,
   });
-  const establecimiento = establecimientos?.[0];
+  const establecimiento = establecimientos?.find((e) => e.id === establecimientoId);
+
+  // Preseleccionar la casa matriz (o el primero que haya) apenas carga la
+  // lista -- se puede cambiar despues con el selector, mientras no haya caja
+  // abierta (una sesion de caja queda atada a un solo punto de expedicion).
+  useEffect(() => {
+    if (!establecimientoId && establecimientos?.length) {
+      setEstablecimientoId(establecimientos.find((e) => e.esCasaMatriz)?.id ?? establecimientos[0].id);
+    }
+  }, [establecimientos, establecimientoId]);
 
   const {
     data: puntosExpedicion,
     isLoading: puntosExpedicionLoading,
     isFetched: puntosExpedicionFetched,
   } = useQuery({
-    queryKey: ['puntos-expedicion', establecimiento?.id],
+    queryKey: ['puntos-expedicion', establecimientoId],
     queryFn: async () =>
-      (await api.get<PuntoExpedicion[]>('/puntos-expedicion', { params: { establecimientoId: establecimiento!.id } })).data,
-    enabled: Boolean(establecimiento),
+      (await api.get<PuntoExpedicion[]>('/puntos-expedicion', { params: { establecimientoId } })).data,
+    enabled: Boolean(establecimientoId),
   });
-  const puntoExpedicion = puntosExpedicion?.[0];
+  const puntoExpedicion = puntosExpedicion?.find((p) => p.id === puntoExpedicionId);
+
+  useEffect(() => {
+    if (!puntosExpedicion?.length) {
+      setPuntoExpedicionId('');
+      return;
+    }
+    if (!puntosExpedicion.find((p) => p.id === puntoExpedicionId)) {
+      setPuntoExpedicionId(puntosExpedicion[0].id);
+    }
+  }, [puntosExpedicion, puntoExpedicionId]);
 
   const timbradosDisponibles = useMemo(
     () =>
@@ -318,6 +340,9 @@ export default function PosPage() {
                 Caja abierta por <span className="font-medium text-ink-700">{sesion.usuarioApertura?.nombre}</span>
               </p>
               <p>desde {formatDateTime(sesion.fechaApertura)}</p>
+              <p>
+                {establecimiento?.codigo} — {puntoExpedicion?.codigo} {puntoExpedicion?.descripcion}
+              </p>
             </div>
             <Button
               variant="secondary"
@@ -349,6 +374,28 @@ export default function PosPage() {
               abrirCajaMutation.mutate();
             }}
           >
+            {establecimientos && establecimientos.length > 1 && (
+              <FormField label="Establecimiento" required>
+                <Select value={establecimientoId} onChange={(e) => setEstablecimientoId(e.target.value)}>
+                  {establecimientos.map((est) => (
+                    <option key={est.id} value={est.id}>
+                      {est.codigo} — {est.nombre}
+                    </option>
+                  ))}
+                </Select>
+              </FormField>
+            )}
+            {puntosExpedicion && puntosExpedicion.length > 1 && (
+              <FormField label="Punto de expedición" required>
+                <Select value={puntoExpedicionId} onChange={(e) => setPuntoExpedicionId(e.target.value)}>
+                  {puntosExpedicion.map((pe) => (
+                    <option key={pe.id} value={pe.id}>
+                      {pe.codigo} — {pe.descripcion}
+                    </option>
+                  ))}
+                </Select>
+              </FormField>
+            )}
             <FormField label="Monto inicial (₲)" required>
               <Input
                 type="number"

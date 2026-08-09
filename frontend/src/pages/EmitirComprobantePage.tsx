@@ -281,19 +281,42 @@ export default function EmitirComprobantePage() {
     queryFn: async () => (await api.get<Empresa>(`/empresas/${empresaId}`)).data,
   });
 
+  const [establecimientoId, setEstablecimientoId] = useState('');
+  const [puntoExpedicionId, setPuntoExpedicionId] = useState('');
+
   const { data: establecimientos } = useQuery({
     queryKey: ['establecimientos', empresaId],
     queryFn: async () => (await api.get<Establecimiento[]>('/establecimientos', { params: { empresaId } })).data,
   });
-  const establecimiento = establecimientos?.[0];
+  const establecimiento = establecimientos?.find((e) => e.id === establecimientoId);
+
+  // Preseleccionar la casa matriz (o el primero que haya) apenas carga la
+  // lista -- el usuario puede cambiarla despues con el selector.
+  useEffect(() => {
+    if (!establecimientoId && establecimientos?.length) {
+      setEstablecimientoId(establecimientos.find((e) => e.esCasaMatriz)?.id ?? establecimientos[0].id);
+    }
+  }, [establecimientos, establecimientoId]);
 
   const { data: puntosExpedicion } = useQuery({
-    queryKey: ['puntos-expedicion', establecimiento?.id],
+    queryKey: ['puntos-expedicion', establecimientoId],
     queryFn: async () =>
-      (await api.get<PuntoExpedicion[]>('/puntos-expedicion', { params: { establecimientoId: establecimiento!.id } })).data,
-    enabled: Boolean(establecimiento),
+      (await api.get<PuntoExpedicion[]>('/puntos-expedicion', { params: { establecimientoId } })).data,
+    enabled: Boolean(establecimientoId),
   });
-  const puntoExpedicion = puntosExpedicion?.[0];
+  const puntoExpedicion = puntosExpedicion?.find((p) => p.id === puntoExpedicionId);
+
+  // Si se cambia de establecimiento (o todavia no hay nada elegido), cae al
+  // primer punto de expedicion disponible de ese establecimiento.
+  useEffect(() => {
+    if (!puntosExpedicion?.length) {
+      setPuntoExpedicionId('');
+      return;
+    }
+    if (!puntosExpedicion.find((p) => p.id === puntoExpedicionId)) {
+      setPuntoExpedicionId(puntosExpedicion[0].id);
+    }
+  }, [puntosExpedicion, puntoExpedicionId]);
 
   const timbradosDisponibles = useMemo(
     () => (puntoExpedicion?.timbrados ?? []).filter((t) => t.activo && t.tipoDocumento === tipoDocumento && t.proximoNumero <= t.numeroHasta),
@@ -587,6 +610,7 @@ export default function EmitirComprobantePage() {
       Boolean(datosVendedor.departamentoTransaccion));
 
   const puedeEmitir =
+    Boolean(establecimiento) &&
     Boolean(puntoExpedicion) &&
     Boolean(timbradoId) &&
     (esAutofactura ? Boolean(proveedorId) : Boolean(clienteId)) &&
@@ -714,6 +738,33 @@ export default function EmitirComprobantePage() {
             className="flex flex-col gap-4"
           >
             {error && <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+
+            {establecimientos && establecimientos.length > 0 && (
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label="Establecimiento" required>
+                  <Select value={establecimientoId} onChange={(e) => setEstablecimientoId(e.target.value)}>
+                    {establecimientos.map((est) => (
+                      <option key={est.id} value={est.id}>
+                        {est.codigo} — {est.nombre}
+                      </option>
+                    ))}
+                  </Select>
+                </FormField>
+                <FormField label="Punto de expedición" required>
+                  {!puntosExpedicion || puntosExpedicion.length === 0 ? (
+                    <p className="text-xs text-amber-700">Este establecimiento no tiene puntos de expedición.</p>
+                  ) : (
+                    <Select value={puntoExpedicionId} onChange={(e) => setPuntoExpedicionId(e.target.value)}>
+                      {puntosExpedicion.map((pe) => (
+                        <option key={pe.id} value={pe.id}>
+                          {pe.codigo} — {pe.descripcion}
+                        </option>
+                      ))}
+                    </Select>
+                  )}
+                </FormField>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <FormField label="Tipo de documento" required>
