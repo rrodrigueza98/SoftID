@@ -254,6 +254,12 @@ export default function EstablecimientosPage() {
                   <Td>
                     <div className="flex gap-3">
                       <button
+                        onClick={(ev) => { ev.stopPropagation(); setEstablecimientoId(e.id); setPuntoExpedicionId(null); }}
+                        className="text-xs font-medium text-brand-700 underline decoration-dotted hover:text-brand-800"
+                      >
+                        Ver puntos de expedición
+                      </button>
+                      <button
                         onClick={(ev) => { ev.stopPropagation(); abrirEdicionEstablecimiento(e); }}
                         className="text-xs font-medium text-ink-500 underline decoration-dotted hover:text-ink-700"
                       >
@@ -304,6 +310,12 @@ export default function EstablecimientosPage() {
                     </Td>
                     <Td>
                       <div className="flex gap-3">
+                        <button
+                          onClick={(ev) => { ev.stopPropagation(); setPuntoExpedicionId(p.id); }}
+                          className="text-xs font-medium text-brand-700 underline decoration-dotted hover:text-brand-800"
+                        >
+                          Ver timbrados
+                        </button>
                         <button
                           onClick={(ev) => { ev.stopPropagation(); abrirEdicionPuntoExpedicion(p); }}
                           className="text-xs font-medium text-ink-500 underline decoration-dotted hover:text-ink-700"
