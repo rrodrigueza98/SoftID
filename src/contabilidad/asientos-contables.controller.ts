@@ -34,4 +34,14 @@ export class AsientosContablesController {
   balanceSumasSaldos(@Query('empresaId') empresaId: string, @Query('desde') desde?: string, @Query('hasta') hasta?: string) {
     return this.asientosContablesService.balanceSumasSaldos({ empresaId, desde, hasta });
   }
+
+  @Get('estado-resultados')
+  estadoResultados(@Query('empresaId') empresaId: string, @Query('desde') desde: string, @Query('hasta') hasta: string) {
+    return this.asientosContablesService.estadoResultados({ empresaId, desde, hasta });
+  }
+
+  @Get('estado-situacion-financiera')
+  estadoSituacionFinanciera(@Query('empresaId') empresaId: string, @Query('fechaCorte') fechaCorte: string) {
+    return this.asientosContablesService.estadoSituacionFinanciera({ empresaId, fechaCorte });
+  }
 }

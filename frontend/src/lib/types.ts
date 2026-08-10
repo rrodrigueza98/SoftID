@@ -583,6 +583,66 @@ export interface BalanceSumasSaldos {
   totales: { debe: number; haber: number };
 }
 
+export interface GrupoResultadoFila {
+  cuentaId: string;
+  codigo: string;
+  nombre: string;
+  monto: number;
+}
+
+export interface GrupoResultado {
+  label: string;
+  filas: GrupoResultadoFila[];
+  total: number;
+}
+
+export interface EstadoResultados {
+  desde: string;
+  hasta: string;
+  ventas: GrupoResultado;
+  costoVentas: GrupoResultado;
+  utilidadBruta: number;
+  gastosOperacionales: GrupoResultado;
+  gastosVentas: GrupoResultado;
+  gastosAdministracion: GrupoResultado;
+  utilidadOperativa: number;
+  otrosIngresos: GrupoResultado;
+  otrosGastos: GrupoResultado;
+  gastosFinancieros: GrupoResultado;
+  gananciasExtraordinarias: GrupoResultado;
+  perdidasExtraordinarias: GrupoResultado;
+  utilidadAntesImpuesto: number;
+  impuestoRenta: GrupoResultado;
+  utilidadNeta: number;
+}
+
+export interface GrupoBalanceFila {
+  cuentaId: string;
+  codigo: string;
+  nombre: string;
+  saldo: number;
+}
+
+export interface GrupoBalance {
+  filas: GrupoBalanceFila[];
+  total: number;
+}
+
+export interface EstadoSituacionFinanciera {
+  fechaCorte: string;
+  activoCorriente: GrupoBalance;
+  activoNoCorriente: GrupoBalance;
+  totalActivo: number;
+  pasivoCorriente: GrupoBalance;
+  pasivoNoCorriente: GrupoBalance;
+  totalPasivo: number;
+  patrimonio: GrupoBalance;
+  resultadoDelEjercicio: number;
+  totalPatrimonio: number;
+  totalPasivoYPatrimonio: number;
+  diferencia: number;
+}
+
 export interface PanelVentasFilaFecha {
   fecha: string;
   cantidad: number;

@@ -14,6 +14,9 @@ import type {
   AsientoContable,
   BalanceSumasSaldos,
   CuentaContable,
+  EstadoResultados,
+  EstadoSituacionFinanciera,
+  GrupoResultado,
   LibroMayor,
   MapeoContable,
   RolCuenta,
@@ -31,6 +34,8 @@ const ORIGEN_LABEL: Record<string, string> = { MANUAL: 'Manual', VENTA: 'Venta',
 
 const TABS = [
   { id: 'plan', label: 'Plan de Cuentas' },
+  { id: 'resultados', label: 'Estado de Resultados' },
+  { id: 'situacion', label: 'Situación Financiera' },
   { id: 'diario', label: 'Libro Diario' },
   { id: 'mayor', label: 'Libro Mayor' },
   { id: 'balance', label: 'Balance de Sumas y Saldos' },
@@ -60,6 +65,8 @@ export default function ContabilidadPage() {
       </div>
 
       {tab === 'plan' && <PlanDeCuentasTab />}
+      {tab === 'resultados' && <EstadoResultadosTab />}
+      {tab === 'situacion' && <EstadoSituacionFinancieraTab />}
       {tab === 'diario' && <LibroDiarioTab />}
       {tab === 'mayor' && <LibroMayorTab />}
       {tab === 'balance' && <BalanceTab />}
@@ -374,6 +381,254 @@ function LibroMayorTab() {
             </tbody>
           </Table>
         </Card>
+      )}
+    </div>
+  );
+}
+
+function primerDiaDelAnio() {
+  return `${new Date().getFullYear()}-01-01`;
+}
+
+// Fila de un grupo del Estado de Resultados (ej. "Ventas", "Gastos de
+// Administración") -- se omite entera si no tiene cuentas con movimiento,
+// para no listar secciones vacías.
+function GrupoResultadoSection({ grupo, negativo }: { grupo: GrupoResultado; negativo?: boolean }) {
+  if (grupo.filas.length === 0) return null;
+  return (
+    <div className="px-5 py-3">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium text-ink-700">{negativo ? `(-) ${grupo.label}` : grupo.label}</span>
+        <span className="tabular-nums font-medium text-ink-900">{formatGs(grupo.total)}</span>
+      </div>
+      <div className="mt-1 flex flex-col gap-0.5">
+        {grupo.filas.map((f) => (
+          <div key={f.cuentaId} className="flex items-center justify-between pl-4 text-xs text-ink-500">
+            <span>
+              {f.codigo} {f.nombre}
+            </span>
+            <span className="tabular-nums">{formatGs(f.monto)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SubtotalRow({ label, value, final: esFinal }: { label: string; value: number; final?: boolean }) {
+  return (
+    <div
+      className={`flex items-center justify-between px-5 py-3 ${
+        esFinal ? 'bg-brand-50 text-brand-900' : 'bg-ink-50 text-ink-900'
+      }`}
+    >
+      <span className="text-sm font-semibold">{label}</span>
+      <span className={`tabular-nums font-semibold ${value < 0 ? 'text-red-600' : ''}`}>{formatGs(value)}</span>
+    </div>
+  );
+}
+
+function EstadoResultadosTab() {
+  const empresaId = useEmpresaId();
+  const [desde, setDesde] = useState(primerDiaDelAnio());
+  const [hasta, setHasta] = useState(hoy());
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['estado-resultados', { empresaId, desde, hasta }],
+    queryFn: async () =>
+      (await api.get<EstadoResultados>('/asientos-contables/estado-resultados', { params: { empresaId, desde, hasta } })).data,
+  });
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Card>
+        <div className="flex flex-wrap items-end gap-3 px-5 py-4">
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium uppercase tracking-wide text-ink-500">Desde</span>
+            <Input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className="w-40" />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium uppercase tracking-wide text-ink-500">Hasta</span>
+            <Input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className="w-40" />
+          </label>
+        </div>
+      </Card>
+
+      <Card>
+        <CardHeader
+          title="Estado de Resultados"
+          subtitle={`Por función, ${formatDate(desde)} al ${formatDate(hasta)} — NIIF para PYMES, Sección 5`}
+        />
+        {isLoading ? (
+          <PageSpinner />
+        ) : !data ? (
+          <EmptyState message="No se pudo calcular el estado de resultados." />
+        ) : (
+          <div className="divide-y divide-ink-100">
+            <GrupoResultadoSection grupo={data.ventas} />
+            <GrupoResultadoSection grupo={data.costoVentas} negativo />
+            <SubtotalRow label="Utilidad Bruta" value={data.utilidadBruta} />
+            <GrupoResultadoSection grupo={data.gastosOperacionales} negativo />
+            <GrupoResultadoSection grupo={data.gastosVentas} negativo />
+            <GrupoResultadoSection grupo={data.gastosAdministracion} negativo />
+            <SubtotalRow label="Utilidad Operativa" value={data.utilidadOperativa} />
+            <GrupoResultadoSection grupo={data.otrosIngresos} />
+            <GrupoResultadoSection grupo={data.gananciasExtraordinarias} />
+            <GrupoResultadoSection grupo={data.otrosGastos} negativo />
+            <GrupoResultadoSection grupo={data.gastosFinancieros} negativo />
+            <GrupoResultadoSection grupo={data.perdidasExtraordinarias} negativo />
+            <SubtotalRow label="Utilidad antes de Impuesto a la Renta" value={data.utilidadAntesImpuesto} />
+            <GrupoResultadoSection grupo={data.impuestoRenta} negativo />
+            <SubtotalRow label="Utilidad Neta del Ejercicio" value={data.utilidadNeta} final />
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+function GrupoBalanceCard({
+  titulo,
+  grupos,
+}: {
+  titulo: string;
+  grupos: { label: string; grupo: { filas: { cuentaId: string; codigo: string; nombre: string; saldo: number }[]; total: number } }[];
+}) {
+  const total = grupos.reduce((s, g) => s + g.grupo.total, 0);
+  return (
+    <Card>
+      <CardHeader title={titulo} />
+      <div className="divide-y divide-ink-100">
+        {grupos.map(
+          ({ label, grupo }) =>
+            grupo.filas.length > 0 && (
+              <div key={label} className="px-5 py-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-ink-700">{label}</span>
+                  <span className="tabular-nums font-medium text-ink-900">{formatGs(grupo.total)}</span>
+                </div>
+                <div className="mt-1 flex flex-col gap-0.5">
+                  {grupo.filas.map((f) => (
+                    <div key={f.cuentaId} className="flex items-center justify-between pl-4 text-xs text-ink-500">
+                      <span>
+                        {f.codigo} {f.nombre}
+                      </span>
+                      <span className="tabular-nums">{formatGs(f.saldo)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ),
+        )}
+        {grupos.every((g) => g.grupo.filas.length === 0) && <EmptyState message="Sin saldo a esta fecha." />}
+      </div>
+      <div className="flex items-center justify-between border-t border-ink-200 bg-ink-50 px-5 py-3">
+        <span className="text-sm font-semibold text-ink-900">Total {titulo}</span>
+        <span className="tabular-nums font-semibold text-ink-900">{formatGs(total)}</span>
+      </div>
+    </Card>
+  );
+}
+
+function EstadoSituacionFinancieraTab() {
+  const empresaId = useEmpresaId();
+  const [fechaCorte, setFechaCorte] = useState(hoy());
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['estado-situacion-financiera', { empresaId, fechaCorte }],
+    queryFn: async () =>
+      (
+        await api.get<EstadoSituacionFinanciera>('/asientos-contables/estado-situacion-financiera', {
+          params: { empresaId, fechaCorte },
+        })
+      ).data,
+  });
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Card>
+        <div className="flex flex-wrap items-end gap-3 px-5 py-4">
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium uppercase tracking-wide text-ink-500">Fecha de corte</span>
+            <Input type="date" value={fechaCorte} onChange={(e) => setFechaCorte(e.target.value)} className="w-40" />
+          </label>
+          <p className="ml-2 text-xs text-ink-400">
+            Saldo acumulado de cada cuenta desde el inicio de actividades hasta esta fecha — NIIF para PYMES, Sección 4.
+          </p>
+        </div>
+      </Card>
+
+      {isLoading ? (
+        <PageSpinner />
+      ) : !data ? (
+        <EmptyState message="No se pudo calcular el estado de situación financiera." />
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <GrupoBalanceCard
+              titulo="Activo"
+              grupos={[
+                { label: 'Activo Corriente', grupo: data.activoCorriente },
+                { label: 'Activo No Corriente', grupo: data.activoNoCorriente },
+              ]}
+            />
+            <div className="flex flex-col gap-4">
+              <GrupoBalanceCard
+                titulo="Pasivo"
+                grupos={[
+                  { label: 'Pasivo Corriente', grupo: data.pasivoCorriente },
+                  { label: 'Pasivo No Corriente', grupo: data.pasivoNoCorriente },
+                ]}
+              />
+              <Card>
+                <CardHeader title="Patrimonio" />
+                <div className="divide-y divide-ink-100">
+                  {data.patrimonio.filas.length > 0 && (
+                    <div className="px-5 py-3">
+                      <div className="mt-1 flex flex-col gap-0.5">
+                        {data.patrimonio.filas.map((f) => (
+                          <div key={f.cuentaId} className="flex items-center justify-between text-xs text-ink-500">
+                            <span>
+                              {f.codigo} {f.nombre}
+                            </span>
+                            <span className="tabular-nums">{formatGs(f.saldo)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div className="px-5 py-3">
+                    <div className="flex items-center justify-between text-xs text-ink-500">
+                      <span>Resultado del ejercicio (calculado, no contabilizado)</span>
+                      <span className="tabular-nums">{formatGs(data.resultadoDelEjercicio)}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between border-t border-ink-200 bg-ink-50 px-5 py-3">
+                  <span className="text-sm font-semibold text-ink-900">Total Patrimonio</span>
+                  <span className="tabular-nums font-semibold text-ink-900">{formatGs(data.totalPatrimonio)}</span>
+                </div>
+              </Card>
+            </div>
+          </div>
+
+          <Card>
+            <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+              <div className="flex gap-6 text-sm">
+                <span className="text-ink-500">
+                  Total Activo: <span className="font-semibold text-ink-900">{formatGs(data.totalActivo)}</span>
+                </span>
+                <span className="text-ink-500">
+                  Total Pasivo + Patrimonio:{' '}
+                  <span className="font-semibold text-ink-900">{formatGs(data.totalPasivoYPatrimonio)}</span>
+                </span>
+              </div>
+              <Badge tone={data.diferencia === 0 ? 'success' : 'danger'}>
+                {data.diferencia === 0 ? 'Cuadra' : `No cuadra — diferencia ${formatGs(data.diferencia)}`}
+              </Badge>
+            </div>
+          </Card>
+        </>
       )}
     </div>
   );

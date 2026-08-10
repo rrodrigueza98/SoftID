@@ -2,7 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { Comprobante, ComprobanteItem, Compra, OrdenPago, OrigenAsiento, Prisma, Recibo } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAsientoContableDto } from './dto/create-asiento-contable.dto';
-import { esFormaPagoBancaria, MapeoContable } from './mapeo-contable';
+import { clasificarBalance, clasificarResultado, esFormaPagoBancaria, GrupoResultado, MapeoContable } from './mapeo-contable';
 
 type TxClient = Prisma.TransactionClient;
 
@@ -141,6 +141,177 @@ export class AsientosContablesService {
         debe: round2(filas.reduce((s, f) => s + f.debe, 0)),
         haber: round2(filas.reduce((s, f) => s + f.haber, 0)),
       },
+    };
+  }
+
+  private readonly GRUPO_LABEL_RESULTADO: Record<GrupoResultado, string> = {
+    VENTAS: 'Ventas',
+    COSTO_VENTAS: 'Costo de Ventas',
+    OTROS_INGRESOS: 'Otros Ingresos',
+    GASTOS_OPERACIONALES: 'Gastos Operacionales',
+    GASTOS_VENTAS: 'Gastos de Ventas',
+    GASTOS_ADMINISTRACION: 'Gastos de Administración',
+    OTROS_GASTOS: 'Otros Gastos',
+    GASTOS_FINANCIEROS: 'Gastos Financieros',
+    GANANCIAS_EXTRAORDINARIAS: 'Ganancias Extraordinarias',
+    PERDIDAS_EXTRAORDINARIAS: 'Pérdidas Extraordinarias',
+    IMPUESTO_RENTA: 'Impuesto a la Renta',
+  };
+
+  // Estado de Resultados por funcion (NIIF para PYMES, Seccion 5), armado a
+  // partir de las cuentas de Ingreso/Egreso del periodo -- mismo dato que ya
+  // usa balanceSumasSaldos, solo que agrupado en el formato de varios pasos
+  // (utilidad bruta -> operativa -> antes de impuesto -> neta) en vez de
+  // listado plano.
+  async estadoResultados(params: { empresaId: string; desde: string; hasta: string }) {
+    const { empresaId, desde, hasta } = params;
+    const cuentas = await this.prisma.cuentaContable.findMany({
+      where: { empresaId, imputable: true, tipo: { in: ['INGRESO', 'EGRESO'] } },
+      orderBy: { codigo: 'asc' },
+    });
+
+    const filtroFecha = { gte: new Date(`${desde}T00:00:00`), lte: new Date(`${hasta}T23:59:59.999`) };
+
+    const gruposMap = new Map<GrupoResultado, { cuentaId: string; codigo: string; nombre: string; monto: number }[]>();
+    for (const cuenta of cuentas) {
+      const agregado = await this.prisma.asientoContableDetalle.aggregate({
+        where: { cuentaId: cuenta.id, asiento: { empresaId, fecha: filtroFecha } },
+        _sum: { debe: true, haber: true },
+      });
+      const debe = Number(agregado._sum.debe ?? 0);
+      const haber = Number(agregado._sum.haber ?? 0);
+      const monto = round2(cuenta.naturaleza === 'ACREEDORA' ? haber - debe : debe - haber);
+      if (monto === 0) continue;
+      const grupo = clasificarResultado(cuenta.codigo, cuenta.tipo);
+      if (!gruposMap.has(grupo)) gruposMap.set(grupo, []);
+      gruposMap.get(grupo)!.push({ cuentaId: cuenta.id, codigo: cuenta.codigo, nombre: cuenta.nombre, monto });
+    }
+
+    const grupo = (id: GrupoResultado) => {
+      const filas = gruposMap.get(id) ?? [];
+      return { label: this.GRUPO_LABEL_RESULTADO[id], filas, total: round2(filas.reduce((s, f) => s + f.monto, 0)) };
+    };
+
+    const ventas = grupo('VENTAS');
+    const costoVentas = grupo('COSTO_VENTAS');
+    const utilidadBruta = round2(ventas.total - costoVentas.total);
+
+    const gastosOperacionales = grupo('GASTOS_OPERACIONALES');
+    const gastosVentas = grupo('GASTOS_VENTAS');
+    const gastosAdministracion = grupo('GASTOS_ADMINISTRACION');
+    const utilidadOperativa = round2(
+      utilidadBruta - gastosOperacionales.total - gastosVentas.total - gastosAdministracion.total,
+    );
+
+    const otrosIngresos = grupo('OTROS_INGRESOS');
+    const otrosGastos = grupo('OTROS_GASTOS');
+    const gastosFinancieros = grupo('GASTOS_FINANCIEROS');
+    const gananciasExtraordinarias = grupo('GANANCIAS_EXTRAORDINARIAS');
+    const perdidasExtraordinarias = grupo('PERDIDAS_EXTRAORDINARIAS');
+    const utilidadAntesImpuesto = round2(
+      utilidadOperativa +
+        otrosIngresos.total +
+        gananciasExtraordinarias.total -
+        otrosGastos.total -
+        gastosFinancieros.total -
+        perdidasExtraordinarias.total,
+    );
+
+    const impuestoRenta = grupo('IMPUESTO_RENTA');
+    const utilidadNeta = round2(utilidadAntesImpuesto - impuestoRenta.total);
+
+    return {
+      desde,
+      hasta,
+      ventas,
+      costoVentas,
+      utilidadBruta,
+      gastosOperacionales,
+      gastosVentas,
+      gastosAdministracion,
+      utilidadOperativa,
+      otrosIngresos,
+      otrosGastos,
+      gastosFinancieros,
+      gananciasExtraordinarias,
+      perdidasExtraordinarias,
+      utilidadAntesImpuesto,
+      impuestoRenta,
+      utilidadNeta,
+    };
+  }
+
+  // Estado de Situacion Financiera (NIIF para PYMES, Seccion 4): saldo
+  // ACUMULADO de cada cuenta de Activo/Pasivo/Patrimonio hasta la fecha de
+  // corte (no un rango -- por eso no hay "desde"), agrupado en
+  // corriente/no corriente. El sistema no contabiliza un asiento de cierre
+  // de ejercicio, asi que el Resultado del Ejercicio no sale de una cuenta
+  // posteada sino que se calcula en vivo (Ingresos - Egresos del año
+  // calendario hasta la fecha de corte, mismo criterio fiscal que la DNIT)
+  // y se suma al Patrimonio solo para esta presentacion.
+  async estadoSituacionFinanciera(params: { empresaId: string; fechaCorte: string }) {
+    const { empresaId, fechaCorte } = params;
+    const cuentas = await this.prisma.cuentaContable.findMany({
+      where: { empresaId, imputable: true, tipo: { in: ['ACTIVO', 'PASIVO', 'PATRIMONIO'] } },
+      orderBy: { codigo: 'asc' },
+    });
+
+    const hastaFecha = { lte: new Date(`${fechaCorte}T23:59:59.999`) };
+
+    const gruposMap = new Map<
+      ReturnType<typeof clasificarBalance>,
+      { cuentaId: string; codigo: string; nombre: string; saldo: number }[]
+    >();
+    for (const cuenta of cuentas) {
+      const agregado = await this.prisma.asientoContableDetalle.aggregate({
+        where: { cuentaId: cuenta.id, asiento: { empresaId, fecha: hastaFecha } },
+        _sum: { debe: true, haber: true },
+      });
+      const debe = Number(agregado._sum.debe ?? 0);
+      const haber = Number(agregado._sum.haber ?? 0);
+      const signo = cuenta.naturaleza === 'DEUDORA' ? 1 : -1;
+      const saldo = round2(signo * (debe - haber));
+      if (saldo === 0) continue;
+      const grupo = clasificarBalance(cuenta.codigo, cuenta.tipo);
+      if (!gruposMap.has(grupo)) gruposMap.set(grupo, []);
+      gruposMap.get(grupo)!.push({ cuentaId: cuenta.id, codigo: cuenta.codigo, nombre: cuenta.nombre, saldo });
+    }
+
+    const grupo = (id: ReturnType<typeof clasificarBalance>) => {
+      const filas = gruposMap.get(id) ?? [];
+      return { filas, total: round2(filas.reduce((s, f) => s + f.saldo, 0)) };
+    };
+
+    const activoCorriente = grupo('ACTIVO_CORRIENTE');
+    const activoNoCorriente = grupo('ACTIVO_NO_CORRIENTE');
+    const totalActivo = round2(activoCorriente.total + activoNoCorriente.total);
+
+    const pasivoCorriente = grupo('PASIVO_CORRIENTE');
+    const pasivoNoCorriente = grupo('PASIVO_NO_CORRIENTE');
+    const totalPasivo = round2(pasivoCorriente.total + pasivoNoCorriente.total);
+
+    const patrimonio = grupo('PATRIMONIO');
+
+    const anio = fechaCorte.slice(0, 4);
+    const resultados = await this.estadoResultados({ empresaId, desde: `${anio}-01-01`, hasta: fechaCorte });
+    const resultadoDelEjercicio = resultados.utilidadNeta;
+
+    const totalPatrimonio = round2(patrimonio.total + resultadoDelEjercicio);
+    const totalPasivoYPatrimonio = round2(totalPasivo + totalPatrimonio);
+
+    return {
+      fechaCorte,
+      activoCorriente,
+      activoNoCorriente,
+      totalActivo,
+      pasivoCorriente,
+      pasivoNoCorriente,
+      totalPasivo,
+      patrimonio,
+      resultadoDelEjercicio,
+      totalPatrimonio,
+      totalPasivoYPatrimonio,
+      diferencia: round2(totalActivo - totalPasivoYPatrimonio),
     };
   }
 
