@@ -58,8 +58,9 @@ export default function StockPage() {
   });
 
   const { data: movimientos, isLoading: loadingMovimientos } = useQuery({
-    queryKey: ['movimientos-stock', { limit: 20 }],
-    queryFn: async () => (await api.get<MovimientoStock[]>('/movimientos-stock', { params: { limit: 20 } })).data,
+    queryKey: ['movimientos-stock', { empresaId, limit: 20 }],
+    queryFn: async () =>
+      (await api.get<MovimientoStock[]>('/movimientos-stock', { params: { empresaId, limit: 20 } })).data,
   });
 
   const hayDepositos = (depositos?.length ?? 0) > 0;

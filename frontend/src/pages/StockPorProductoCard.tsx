@@ -38,9 +38,9 @@ export function StockPorProductoCard() {
   });
 
   const { data: movimientos, isLoading: loadingMovimientos } = useQuery({
-    queryKey: ['movimientos-stock', { productoId, limit: 8 }],
+    queryKey: ['movimientos-stock', { empresaId, productoId, limit: 8 }],
     queryFn: async () =>
-      (await api.get<MovimientoStock[]>('/movimientos-stock', { params: { productoId, limit: 8 } })).data,
+      (await api.get<MovimientoStock[]>('/movimientos-stock', { params: { empresaId, productoId, limit: 8 } })).data,
     enabled: Boolean(productoId),
   });
 

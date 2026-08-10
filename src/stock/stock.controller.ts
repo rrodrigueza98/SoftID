@@ -21,11 +21,13 @@ export class StockController {
 
   @Get('movimientos-stock')
   findMovimientos(
+    @Query('empresaId') empresaId: string,
     @Query('productoId') productoId?: string,
     @Query('depositoId') depositoId?: string,
     @Query('limit') limit?: string,
   ) {
     return this.stockService.findMovimientos({
+      empresaId,
       productoId,
       depositoId,
       limit: limit ? Number(limit) : undefined,

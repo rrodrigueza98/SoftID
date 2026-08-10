@@ -30,10 +30,14 @@ export class StockService {
     });
   }
 
-  findMovimientos(params: { productoId?: string; depositoId?: string; limit?: number }) {
-    const { productoId, depositoId, limit } = params;
+  // empresaId siempre filtra (via producto.empresaId) -- sin esto, devolvia
+  // los movimientos mas recientes de TODAS las empresas mezclados (fuga
+  // entre tenants). productoId/depositoId solo acotan mas todavia.
+  findMovimientos(params: { empresaId: string; productoId?: string; depositoId?: string; limit?: number }) {
+    const { empresaId, productoId, depositoId, limit } = params;
     return this.prisma.movimientoStock.findMany({
       where: {
+        producto: { empresaId },
         ...(productoId ? { productoId } : {}),
         ...(depositoId ? { depositoId } : {}),
       },
