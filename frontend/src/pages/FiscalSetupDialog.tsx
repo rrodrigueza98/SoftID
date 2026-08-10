@@ -5,12 +5,16 @@ import { useEmpresaId } from '../lib/hooks';
 import { Dialog } from '../components/ui/Dialog';
 import { Button } from '../components/ui/Button';
 import { Input, Select, FormField } from '../components/ui/Field';
-import { TIPO_DOCUMENTO_LABEL } from './comprobante-labels';
+import { tipoDocumentoLabel } from './comprobante-labels';
 import type { Establecimiento, PuntoExpedicion, TipoDocumentoElectronico } from '../lib/types';
 
-const TIPOS_DOCUMENTO = (
-  ['FACTURA_ELECTRONICA', 'NOTA_CREDITO_ELECTRONICA', 'NOTA_DEBITO_ELECTRONICA', 'AUTOFACTURA_ELECTRONICA', 'NOTA_REMISION_ELECTRONICA'] as TipoDocumentoElectronico[]
-).map((value) => ({ value, label: TIPO_DOCUMENTO_LABEL[value] }));
+const VALORES_TIPO_DOCUMENTO: TipoDocumentoElectronico[] = [
+  'FACTURA_ELECTRONICA',
+  'NOTA_CREDITO_ELECTRONICA',
+  'NOTA_DEBITO_ELECTRONICA',
+  'AUTOFACTURA_ELECTRONICA',
+  'NOTA_REMISION_ELECTRONICA',
+];
 
 export function FiscalSetupDialog({
   open,
@@ -57,6 +61,13 @@ export function FiscalSetupDialog({
   const [numeroDesde, setNumeroDesde] = useState('1');
   const [numeroHasta, setNumeroHasta] = useState('9999999');
   const [fechaInicioVigencia, setFechaInicioVigencia] = useState(() => new Date().toISOString().slice(0, 10));
+
+  // Las etiquetas dependen del regimen elegido en este mismo paso -- un
+  // timbrado tradicional numera "Factura", no "Factura Electronica".
+  const TIPOS_DOCUMENTO = VALORES_TIPO_DOCUMENTO.map((value) => ({
+    value,
+    label: tipoDocumentoLabel(value, esElectronico),
+  }));
 
   useEffect(() => {
     if (open) {

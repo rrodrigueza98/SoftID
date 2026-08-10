@@ -17,6 +17,7 @@ import {
   RESPONSABLE_EMISION_REMISION_LABEL,
   RESPONSABLE_FLETE_LABEL,
   TIPO_DOCUMENTO_LABEL,
+  tipoDocumentoLabel,
 } from './comprobante-labels';
 import { ComprobanteVisual, type ComprobanteVisualData } from './ComprobanteVisual';
 import type {
@@ -333,6 +334,21 @@ export default function EmitirComprobantePage() {
   const timbradosDisponibles = useMemo(
     () => (puntoExpedicion?.timbrados ?? []).filter((t) => t.activo && t.tipoDocumento === tipoDocumento && t.proximoNumero <= t.numeroHasta),
     [puntoExpedicion, tipoDocumento],
+  );
+
+  // Cada tipo de documento puede tener su propio timbrado, y cada timbrado
+  // su propio regimen (electronico o tradicional) -- el selector de "Tipo de
+  // documento" tiene que reflejar el regimen real de CADA tipo, no asumir
+  // que todos son electronicos como dice el nombre del enum.
+  const tiposConLabel = useMemo(
+    () =>
+      TIPOS.map((t) => {
+        const timbradoDeEsteTipo = (puntoExpedicion?.timbrados ?? []).find(
+          (tb) => tb.activo && tb.tipoDocumento === t.value && tb.proximoNumero <= tb.numeroHasta,
+        );
+        return { value: t.value, label: tipoDocumentoLabel(t.value, timbradoDeEsteTipo?.esElectronico ?? true) };
+      }),
+    [puntoExpedicion],
   );
 
   useEffect(() => {
@@ -781,7 +797,7 @@ export default function EmitirComprobantePage() {
             <div className="grid grid-cols-2 gap-4">
               <FormField label="Tipo de documento" required>
                 <Select value={tipoDocumento} onChange={(e) => setTipoDocumento(e.target.value as TipoDocumentoElectronico)}>
-                  {TIPOS.map((t) => (
+                  {tiposConLabel.map((t) => (
                     <option key={t.value} value={t.value}>
                       {t.label}
                     </option>
@@ -792,8 +808,8 @@ export default function EmitirComprobantePage() {
                 {timbradosDisponibles.length === 0 ? (
                   <div className="flex flex-col gap-1">
                     <p className="text-xs text-amber-700">
-                      No hay timbrado vigente para {TIPO_DOCUMENTO_LABEL[tipoDocumento]}. Cada tipo de documento necesita el
-                      suyo propio.
+                      No hay timbrado vigente para {tipoDocumentoLabel(tipoDocumento, esElectronico)}. Cada tipo de documento
+                      necesita el suyo propio.
                     </p>
                     {esAdmin ? (
                       <Button type="button" variant="secondary" size="sm" onClick={() => setFiscalSetupOpen(true)}>
