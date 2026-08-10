@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { Comprobante, ComprobanteItem, Compra, OrigenAsiento, Prisma, Recibo } from '@prisma/client';
+import { Comprobante, ComprobanteItem, Compra, OrdenPago, OrigenAsiento, Prisma, Recibo } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAsientoContableDto } from './dto/create-asiento-contable.dto';
 import { esFormaPagoBancaria, MapeoContable } from './mapeo-contable';
@@ -237,6 +237,41 @@ export class AsientosContablesService {
           create: [
             { cuentaId: cuentaOrigenId, debe: monto, haber: 0 },
             { cuentaId: mapeo.CLIENTES, debe: 0, haber: monto },
+          ],
+        },
+      },
+    });
+  }
+
+  // Asiento automatico de un pago a proveedor (Orden de Pago) -- espejo
+  // exacto de generarAsientoCobro:
+  //   Debe  Proveedores (se reduce la deuda)
+  //   Haber Caja o Banco, segun si la Orden de Pago tiene cuentaBancariaId
+  async generarAsientoPago(tx: TxClient, ordenPago: OrdenPago) {
+    const empresa = await tx.empresa.findUniqueOrThrow({ where: { id: ordenPago.empresaId } });
+    const mapeo = (empresa.mapeoContable as MapeoContable | null) ?? {};
+
+    const cuentaDestinoId = ordenPago.cuentaBancariaId
+      ? mapeo.BANCO
+      : esFormaPagoBancaria(ordenPago.formaPago)
+        ? mapeo.BANCO
+        : mapeo.CAJA;
+    if (!cuentaDestinoId || !mapeo.PROVEEDORES) return null;
+
+    const monto = Number(ordenPago.monto);
+    const numero = await this.siguienteNumero(tx, ordenPago.empresaId);
+    return tx.asientoContable.create({
+      data: {
+        empresaId: ordenPago.empresaId,
+        numero,
+        fecha: ordenPago.fecha,
+        concepto: `Pago Orden Nº ${ordenPago.numero}`,
+        origen: OrigenAsiento.PAGO,
+        ordenPagoId: ordenPago.id,
+        detalles: {
+          create: [
+            { cuentaId: mapeo.PROVEEDORES, debe: monto, haber: 0 },
+            { cuentaId: cuentaDestinoId, debe: 0, haber: monto },
           ],
         },
       },

@@ -24,6 +24,7 @@ import { CajaModule } from './caja/caja.module';
 import { ContabilidadModule } from './contabilidad/contabilidad.module';
 import { ComprasModule } from './compras/compras.module';
 import { BancosModule } from './bancos/bancos.module';
+import { OrdenesPagoModule } from './ordenes-pago/ordenes-pago.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { BancosModule } from './bancos/bancos.module';
     ContabilidadModule,
     ComprasModule,
     BancosModule,
+    OrdenesPagoModule,
   ],
 })
 export class AppModule {}

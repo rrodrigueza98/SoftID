@@ -52,8 +52,9 @@ export default function App() {
         <Route path="/productos" element={<ProductosPage />} />
         <Route path="/stock" element={<StockPage />} />
         <Route path="/panel-inventario" element={<PanelInventarioPage />} />
-        <Route path="/cuentas-corrientes" element={<CuentasCorrientesPage />} />
+        <Route path="/cuentas-corrientes" element={<CuentasCorrientesPage tipo="CLIENTE" />} />
         <Route path="/compras" element={<ComprasPage />} />
+        <Route path="/compras/cuentas-corrientes" element={<CuentasCorrientesPage tipo="PROVEEDOR" />} />
         <Route path="/panel-compras" element={<PanelComprasPage />} />
         <Route path="/contabilidad" element={<ContabilidadPage />} />
         <Route path="/bancos" element={<BancosPage />} />

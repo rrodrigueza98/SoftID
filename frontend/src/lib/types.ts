@@ -668,6 +668,29 @@ export interface ConciliacionBancaria {
   createdAt: string;
 }
 
+export interface OrdenPagoAplicacion {
+  id: string;
+  ordenPagoId: string;
+  compraId: string;
+  montoAplicado: string;
+  compra?: Compra;
+}
+
+export interface OrdenPago {
+  id: string;
+  empresaId: string;
+  empresa?: Empresa;
+  proveedorId: string;
+  proveedor?: Tercero;
+  numero: string;
+  fecha: string;
+  monto: string;
+  formaPago: FormaPago;
+  observacion?: string | null;
+  cuentaBancariaId?: string | null;
+  aplicaciones?: OrdenPagoAplicacion[];
+}
+
 export interface Compra {
   id: string;
   empresaId: string;

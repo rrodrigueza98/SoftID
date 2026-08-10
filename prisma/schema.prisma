@@ -235,6 +235,9 @@ model Empresa {
   // igual necesita numeracion correlativa propia -- un contador simple por
   // empresa alcanza, sin la jerarquia de establecimiento/punto de expedicion.
   proximoNumeroRecibo Int             @default(1)
+  // Orden de Pago (pago a proveedor): mismo criterio que Recibo, serie
+  // correlativa propia por empresa, tampoco es un documento SIFEN.
+  proximoNumeroOrdenPago Int          @default(1)
   // Correlativo del Libro Diario -- mismo criterio simple que el de Recibo
   // (no es un documento SIFEN, solo necesita ser unico y consecutivo).
   proximoNumeroAsiento Int            @default(1)
@@ -257,6 +260,7 @@ model Empresa {
   condicionesPago   CondicionPago[]
   roles             Rol[]
   recibos           Recibo[]
+  ordenesPago       OrdenPago[]
   sesionesCaja      SesionCaja[]
   compras           Compra[]
   cuentasContables  CuentaContable[]  @relation("EmpresaCuentas")
@@ -455,6 +459,7 @@ model Tercero {
   comprobantesComoProveedor Comprobante[]        @relation("ComprobanteProveedor")
   recibos                 Recibo[]
   compras                 Compra[]
+  ordenesPago             OrdenPago[]
 
   // El mismo RUC puede existir como Cliente y como Proveedor a la vez (son
   // roles distintos en el sistema) -- por eso "tipo" entra en la clave unica,
@@ -641,6 +646,7 @@ model MovimientoCuentaCorriente {
   concepto          String
   comprobanteId     String?
   reciboId          String?
+  ordenPagoId       String?
   fecha             DateTime                      @default(now())
   fechaVencimiento  DateTime?
   usuarioId         String?
@@ -648,6 +654,7 @@ model MovimientoCuentaCorriente {
   cuentaCorriente CuentaCorriente @relation(fields: [cuentaCorrienteId], references: [id])
   comprobante     Comprobante?    @relation(fields: [comprobanteId], references: [id])
   recibo          Recibo?         @relation(fields: [reciboId], references: [id])
+  ordenPago       OrdenPago?      @relation(fields: [ordenPagoId], references: [id])
 
   @@index([cuentaCorrienteId, fecha])
   @@map("movimientos_cuenta_corriente")
@@ -693,6 +700,48 @@ model ReciboAplicacion {
   comprobante Comprobante @relation(fields: [comprobanteId], references: [id])
 
   @@map("recibo_aplicaciones")
+}
+
+/// Orden de pago a un proveedor -- espejo de Recibo (cobro), aplicable a
+/// una o varias Compras pendientes (pagos parciales o combinados).
+model OrdenPago {
+  id          String    @id @default(cuid())
+  empresaId   String
+  proveedorId String
+  numero      String
+  fecha       DateTime  @default(now())
+  monto       Decimal   @db.Decimal(15, 2)
+  formaPago   FormaPago
+  observacion String?
+  // Solo se completa cuando el pago sale por una cuenta bancaria real
+  // (transferencia, cheque, etc.) -- si esta presente, se genera un
+  // MovimientoBancario DEBITO enlazado. Si se deja vacio, se asume que
+  // salio de Caja (efectivo).
+  cuentaBancariaId String?
+  createdAt   DateTime  @default(now())
+
+  empresa        Empresa                     @relation(fields: [empresaId], references: [id])
+  proveedor      Tercero                     @relation(fields: [proveedorId], references: [id])
+  cuentaBancaria CuentaBancaria?             @relation(fields: [cuentaBancariaId], references: [id])
+  aplicaciones   OrdenPagoAplicacion[]
+  movimientosCC  MovimientoCuentaCorriente[]
+  asientosContables AsientoContable[]
+  movimientoBancario MovimientoBancario?
+
+  @@unique([empresaId, numero])
+  @@map("ordenes_pago")
+}
+
+model OrdenPagoAplicacion {
+  id            String  @id @default(cuid())
+  ordenPagoId   String
+  compraId      String
+  montoAplicado Decimal @db.Decimal(15, 2)
+
+  ordenPago OrdenPago @relation(fields: [ordenPagoId], references: [id])
+  compra    Compra    @relation(fields: [compraId], references: [id])
+
+  @@map("orden_pago_aplicaciones")
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -1077,6 +1126,7 @@ model Compra {
   proveedor         Tercero           @relation(fields: [proveedorId], references: [id])
   cuentaContable    CuentaContable    @relation(fields: [cuentaContableId], references: [id])
   asientosContables AsientoContable[]
+  aplicacionesPago  OrdenPagoAplicacion[]
 
   @@map("compras")
 }
@@ -1109,6 +1159,7 @@ enum OrigenAsiento {
   VENTA
   COBRO
   COMPRA
+  PAGO
 }
 
 model CuentaContable {
@@ -1147,12 +1198,14 @@ model AsientoContable {
   comprobanteId String? // presente si el asiento salio automatico de una venta
   reciboId      String? // presente si el asiento salio automatico de un cobro
   compraId      String? // presente si el asiento salio automatico de una compra
+  ordenPagoId   String? // presente si el asiento salio automatico de un pago a proveedor
   createdAt     DateTime      @default(now())
 
   empresa     Empresa                  @relation("EmpresaAsientos", fields: [empresaId], references: [id])
   comprobante Comprobante?             @relation(fields: [comprobanteId], references: [id])
   recibo      Recibo?                  @relation(fields: [reciboId], references: [id])
   compra      Compra?                  @relation(fields: [compraId], references: [id])
+  ordenPago   OrdenPago?               @relation(fields: [ordenPagoId], references: [id])
   detalles    AsientoContableDetalle[]
 
   @@unique([empresaId, numero])
@@ -1206,6 +1259,7 @@ model CuentaBancaria {
   movimientos    MovimientoBancario[]
   conciliaciones ConciliacionBancaria[]
   recibos        Recibo[]
+  ordenesPago    OrdenPago[]
 
   @@unique([empresaId, numeroCuenta])
   @@map("cuentas_bancarias")
@@ -1227,10 +1281,14 @@ model MovimientoBancario {
   // transferencia/deposito, queda enlazado aca -- permite mostrar el origen
   // en Bancos y evita generarlo dos veces para el mismo recibo.
   reciboId          String?                 @unique
+  // Idem, pero cuando el movimiento sale de una Orden de Pago a proveedor
+  // (egreso) en vez de un cobro.
+  ordenPagoId       String?                 @unique
   createdAt         DateTime                @default(now())
 
   cuentaBancaria CuentaBancaria @relation(fields: [cuentaBancariaId], references: [id])
   recibo         Recibo?        @relation(fields: [reciboId], references: [id])
+  ordenPago      OrdenPago?     @relation(fields: [ordenPagoId], references: [id])
 
   @@map("movimientos_bancarios")
 }

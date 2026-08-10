@@ -41,6 +41,13 @@ const SECTIONS: { to: string; label: string; hint: string; modulo: Modulo; panta
     modulo: 'COMPRAS',
     pantalla: 'COMPROBANTES_COMPRA',
   },
+  {
+    to: '/compras/cuentas-corrientes',
+    label: 'Pagos a proveedores',
+    hint: 'Cuenta corriente y órdenes de pago',
+    modulo: 'COMPRAS',
+    pantalla: 'PROVEEDORES',
+  },
   { to: '/productos', label: 'Productos', hint: 'Catálogo y precios', modulo: 'INVENTARIO', pantalla: 'PRODUCTOS' },
   { to: '/stock', label: 'Stock', hint: 'Saldos y movimientos', modulo: 'INVENTARIO', pantalla: 'STOCK' },
   {

@@ -31,6 +31,7 @@ const NAV_SECTIONS: { title?: string; modulo?: Modulo; items: NavItem[] }[] = [
       { to: '/proveedores', label: 'Proveedores', pantalla: 'PROVEEDORES' },
       { to: '/compras', label: 'Comprobantes de compra', pantalla: 'COMPROBANTES_COMPRA' },
       { to: '/panel-compras', label: 'Panel de compras', pantalla: 'COMPROBANTES_COMPRA' },
+      { to: '/compras/cuentas-corrientes', label: 'Cuentas corrientes', pantalla: 'PROVEEDORES' },
     ],
   },
   {
