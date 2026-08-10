@@ -11,6 +11,7 @@ import { Badge } from '../components/ui/Badge';
 import { PageSpinner } from '../components/ui/Spinner';
 import { EmptyState, Table, Thead, Th, Tr, Td } from '../components/ui/Table';
 import { NuevoAsientoDialog } from './NuevoAsientoDialog';
+import { NuevaCuentaContableDialog } from './NuevaCuentaContableDialog';
 import type {
   AsientoContable,
   BalanceSumasSaldos,
@@ -85,6 +86,7 @@ function PlanDeCuentasTab() {
   const empresaId = useEmpresaId();
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
+  const [nuevaCuentaOpen, setNuevaCuentaOpen] = useState(false);
 
   const { data: cuentas, isLoading } = useQuery({
     queryKey: ['cuentas-contables', empresaId],
@@ -170,7 +172,11 @@ function PlanDeCuentasTab() {
       )}
 
       <Card>
-        <CardHeader title="Plan de Cuentas" subtitle={`${cuentas.length} cuentas`} />
+        <CardHeader
+          title="Plan de Cuentas"
+          subtitle={`${cuentas.length} cuentas`}
+          actions={<Button onClick={() => setNuevaCuentaOpen(true)}>Nueva cuenta</Button>}
+        />
         <Table>
           <Thead>
             <tr>
@@ -197,6 +203,13 @@ function PlanDeCuentasTab() {
           </tbody>
         </Table>
       </Card>
+
+      <NuevaCuentaContableDialog
+        open={nuevaCuentaOpen}
+        onClose={() => setNuevaCuentaOpen(false)}
+        empresaId={empresaId}
+        cuentas={cuentas}
+      />
     </div>
   );
 }

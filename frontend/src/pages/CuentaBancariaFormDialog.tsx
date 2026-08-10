@@ -54,6 +54,8 @@ export function CuentaBancariaFormDialog({ open, onClose }: { open: boolean; onC
     onError: (err) => setError(apiErrorMessage(err)),
   });
 
+  const cuentasImputables = cuentasContables?.filter((c) => c.imputable) ?? [];
+
   const puedeGuardar = banco && nombre && numeroCuenta && cuentaContableId && fechaSaldoInicial;
 
   return (
@@ -98,12 +100,15 @@ export function CuentaBancariaFormDialog({ open, onClose }: { open: boolean; onC
         <FormField label="Cuenta contable asociada" required>
           <Select value={cuentaContableId} onChange={(e) => setCuentaContableId(e.target.value)} required>
             <option value="">Seleccionar…</option>
-            {cuentasContables?.map((c) => (
+            {cuentasImputables.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.codigo} — {c.nombre}
               </option>
             ))}
           </Select>
+          <p className="mt-1 text-xs text-ink-400">
+            Si todavía no tenés una cuenta propia para este banco, creala primero en Contabilidad → Plan de Cuentas.
+          </p>
         </FormField>
 
         <div className="grid grid-cols-2 gap-4">

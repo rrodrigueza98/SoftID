@@ -467,12 +467,20 @@ export class AsientosContablesService {
   // Asiento automatico de un cobro (Recibo):
   //   Debe  Caja/Banco (segun forma de pago)   = monto
   //   Haber Clientes                            = monto
+  // Si el recibo tiene cuentaBancariaId, se postea a la cuenta contable
+  // propia de ese banco (CuentaBancaria.cuentaContableId) en vez del rol
+  // generico mapeo.BANCO -- asi los movimientos de distintos bancos no se
+  // mezclan en una unica cuenta del Libro Mayor.
   async generarAsientoCobro(tx: TxClient, recibo: Recibo) {
     const empresa = await tx.empresa.findUniqueOrThrow({ where: { id: recibo.empresaId } });
     this.verificarPeriodoAbierto(empresa, recibo.fecha);
     const mapeo = (empresa.mapeoContable as MapeoContable | null) ?? {};
 
-    const cuentaOrigenId = esFormaPagoBancaria(recibo.formaPago) ? mapeo.BANCO : mapeo.CAJA;
+    const cuentaOrigenId = recibo.cuentaBancariaId
+      ? (await tx.cuentaBancaria.findUniqueOrThrow({ where: { id: recibo.cuentaBancariaId } })).cuentaContableId
+      : esFormaPagoBancaria(recibo.formaPago)
+        ? mapeo.BANCO
+        : mapeo.CAJA;
     if (!cuentaOrigenId || !mapeo.CLIENTES) return null;
 
     const monto = Number(recibo.monto);
@@ -499,13 +507,15 @@ export class AsientosContablesService {
   // exacto de generarAsientoCobro:
   //   Debe  Proveedores (se reduce la deuda)
   //   Haber Caja o Banco, segun si la Orden de Pago tiene cuentaBancariaId
+  // (usando la cuenta contable propia del banco, no el rol generico BANCO --
+  // ver comentario en generarAsientoCobro)
   async generarAsientoPago(tx: TxClient, ordenPago: OrdenPago) {
     const empresa = await tx.empresa.findUniqueOrThrow({ where: { id: ordenPago.empresaId } });
     this.verificarPeriodoAbierto(empresa, ordenPago.fecha);
     const mapeo = (empresa.mapeoContable as MapeoContable | null) ?? {};
 
     const cuentaDestinoId = ordenPago.cuentaBancariaId
-      ? mapeo.BANCO
+      ? (await tx.cuentaBancaria.findUniqueOrThrow({ where: { id: ordenPago.cuentaBancariaId } })).cuentaContableId
       : esFormaPagoBancaria(ordenPago.formaPago)
         ? mapeo.BANCO
         : mapeo.CAJA;
