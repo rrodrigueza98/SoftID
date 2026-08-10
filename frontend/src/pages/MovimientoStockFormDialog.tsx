@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, apiErrorMessage } from '../lib/api-client';
 import { useEmpresaId } from '../lib/hooks';
@@ -37,6 +37,17 @@ export function MovimientoStockFormDialog({
   const [costoUnitario, setCostoUnitario] = useState('');
   const [observacion, setObservacion] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  // El dialogo esta siempre montado (StockPage lo renderiza sin importar
+  // "open"), asi que en la primerisima carga de la pagina el useState de
+  // arriba se inicializa ANTES de que responda la consulta de depositos --
+  // queda "" para siempre y el <select> nunca dispara su onChange porque el
+  // usuario nunca toco el unico deposito ya "elegido" visualmente. Sin este
+  // efecto, el boton Registrar queda deshabilitado en silencio (sin error)
+  // apenas se abre la pantalla por primera vez.
+  useEffect(() => {
+    if (!depositoId && depositos.length > 0) setDepositoId(depositos[0].id);
+  }, [depositos, depositoId]);
 
   const { data: productos } = useQuery({
     queryKey: ['productos-select', empresaId],
