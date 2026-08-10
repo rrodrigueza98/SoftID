@@ -663,13 +663,21 @@ model Recibo {
   monto       Decimal   @db.Decimal(15, 2)
   formaPago   FormaPago
   observacion String?
+  // Solo se completa cuando el cobro entra por una cuenta bancaria real
+  // (transferencia, deposito, etc.) -- si esta presente, se genera un
+  // MovimientoBancario CREDITO enlazado para que aparezca en Bancos listo
+  // para conciliar. No reemplaza el asiento contable automatico (que sigue
+  // usando el rol generico "BANCO" del mapeo contable).
+  cuentaBancariaId String?
   createdAt   DateTime  @default(now())
 
   empresa      Empresa                     @relation(fields: [empresaId], references: [id])
   tercero      Tercero                     @relation(fields: [terceroId], references: [id])
+  cuentaBancaria CuentaBancaria?           @relation(fields: [cuentaBancariaId], references: [id])
   aplicaciones ReciboAplicacion[]
   movimientosCC MovimientoCuentaCorriente[]
   asientosContables AsientoContable[]
+  movimientoBancario MovimientoBancario?
 
   @@unique([empresaId, numero])
   @@map("recibos")
@@ -1197,6 +1205,7 @@ model CuentaBancaria {
   cuentaContable CuentaContable          @relation(fields: [cuentaContableId], references: [id])
   movimientos    MovimientoBancario[]
   conciliaciones ConciliacionBancaria[]
+  recibos        Recibo[]
 
   @@unique([empresaId, numeroCuenta])
   @@map("cuentas_bancarias")
@@ -1214,9 +1223,14 @@ model MovimientoBancario {
   // para cotejar contra el extracto, no genera contabilidad por si solo.
   conciliado        Boolean                 @default(false)
   fechaConciliacion DateTime?
+  // Si este movimiento se genero solo al registrar un cobro (Recibo) por
+  // transferencia/deposito, queda enlazado aca -- permite mostrar el origen
+  // en Bancos y evita generarlo dos veces para el mismo recibo.
+  reciboId          String?                 @unique
   createdAt         DateTime                @default(now())
 
   cuentaBancaria CuentaBancaria @relation(fields: [cuentaBancariaId], references: [id])
+  recibo         Recibo?        @relation(fields: [reciboId], references: [id])
 
   @@map("movimientos_bancarios")
 }

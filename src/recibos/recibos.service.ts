@@ -45,8 +45,23 @@ export class RecibosService {
           monto: dto.monto,
           formaPago: dto.formaPago,
           observacion: dto.observacion,
+          cuentaBancariaId: dto.cuentaBancariaId,
         },
       });
+
+      if (dto.cuentaBancariaId) {
+        await tx.movimientoBancario.create({
+          data: {
+            cuentaBancariaId: dto.cuentaBancariaId,
+            fecha: recibo.fecha,
+            concepto: `Cobro Recibo Nº ${numero}`,
+            tipo: 'CREDITO',
+            monto: dto.monto,
+            referencia: numero,
+            reciboId: recibo.id,
+          },
+        });
+      }
 
       await this.cuentasCorrientesService.registrarMovimiento(
         {

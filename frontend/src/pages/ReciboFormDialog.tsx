@@ -8,7 +8,7 @@ import { Button } from '../components/ui/Button';
 import { Input, Select, FormField } from '../components/ui/Field';
 import { ReciboVisual, type ReciboVisualData } from './ReciboVisual';
 import { TIPO_DOCUMENTO_ABREVIADO } from './comprobante-labels';
-import type { Comprobante, Empresa, FormaPago, Tercero } from '../lib/types';
+import type { Comprobante, CuentaBancaria, Empresa, FormaPago, Tercero } from '../lib/types';
 
 const FORMAS_PAGO: { value: FormaPago; label: string }[] = [
   { value: 'EFECTIVO', label: 'Efectivo' },
@@ -19,6 +19,11 @@ const FORMAS_PAGO: { value: FormaPago; label: string }[] = [
   { value: 'BILLETERA_ELECTRONICA', label: 'Billetera electrónica' },
   { value: 'OTRO', label: 'Otro' },
 ];
+
+// Formas de pago que entran por una cuenta bancaria real -- para estas se
+// ofrece elegir la cuenta bancaria puntual y asi generar el movimiento en
+// Bancos listo para conciliar (ver RecibosService.create).
+const FORMAS_PAGO_BANCARIAS = new Set<FormaPago>(['TRANSFERENCIA', 'CHEQUE', 'BILLETERA_ELECTRONICA']);
 
 export function ReciboFormDialog({
   open,
@@ -34,9 +39,11 @@ export function ReciboFormDialog({
   const [monto, setMonto] = useState('');
   const [formaPago, setFormaPago] = useState<FormaPago>('EFECTIVO');
   const [comprobanteId, setComprobanteId] = useState('');
+  const [cuentaBancariaId, setCuentaBancariaId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [reciboCreado, setReciboCreado] = useState<{ id: string; numero: string } | null>(null);
+  const esBancario = FORMAS_PAGO_BANCARIAS.has(formaPago);
 
   const { data: empresa } = useQuery({
     queryKey: ['empresa', empresaId],
@@ -55,15 +62,30 @@ export function ReciboFormDialog({
     enabled: open,
   });
 
+  // Se ofrece elegir la cuenta bancaria solo para formas de pago bancarias.
+  // Si la consulta falla (ej. operador sin acceso a Bancos), simplemente no
+  // se muestra el selector y el cobro se registra igual, sin enlazar banco.
+  const { data: cuentasBancarias } = useQuery({
+    queryKey: ['cuentas-bancarias', empresaId],
+    queryFn: async () => (await api.get<CuentaBancaria[]>('/cuentas-bancarias', { params: { empresaId } })).data,
+    enabled: open && esBancario,
+    retry: false,
+  });
+
   useEffect(() => {
     if (!open) return;
     setMonto('');
     setComprobanteId('');
     setFormaPago('EFECTIVO');
+    setCuentaBancariaId('');
     setError(null);
     setPreviewing(false);
     setReciboCreado(null);
   }, [open]);
+
+  useEffect(() => {
+    if (!esBancario) setCuentaBancariaId('');
+  }, [esBancario]);
 
   const mutation = useMutation({
     mutationFn: async () =>
@@ -73,6 +95,7 @@ export function ReciboFormDialog({
           terceroId: tercero.id,
           monto: Number(monto),
           formaPago,
+          cuentaBancariaId: esBancario && cuentaBancariaId ? cuentaBancariaId : undefined,
           aplicaciones: comprobanteId ? [{ comprobanteId, montoAplicado: Number(monto) }] : [],
         })
       ).data,
@@ -80,6 +103,10 @@ export function ReciboFormDialog({
       queryClient.invalidateQueries({ queryKey: ['cuenta-corriente', tercero.id] });
       queryClient.invalidateQueries({ queryKey: ['terceros'] });
       queryClient.invalidateQueries({ queryKey: ['empresa', empresaId] });
+      if (cuentaBancariaId) {
+        queryClient.invalidateQueries({ queryKey: ['movimientos-bancarios', cuentaBancariaId] });
+        queryClient.invalidateQueries({ queryKey: ['cuenta-bancaria-saldo', cuentaBancariaId] });
+      }
       setReciboCreado({ id: recibo.id, numero: recibo.numero });
     },
     onError: (err) => setError(apiErrorMessage(err)),
@@ -177,6 +204,19 @@ export function ReciboFormDialog({
               ))}
             </Select>
           </FormField>
+
+          {esBancario && cuentasBancarias && cuentasBancarias.length > 0 && (
+            <FormField label="Cuenta bancaria (opcional, para reflejar el movimiento en Bancos)">
+              <Select value={cuentaBancariaId} onChange={(e) => setCuentaBancariaId(e.target.value)}>
+                <option value="">No registrar en Bancos</option>
+                {cuentasBancarias.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nombre} — {c.banco} · {c.numeroCuenta}
+                  </option>
+                ))}
+              </Select>
+            </FormField>
+          )}
 
           <FormField label="Aplicar a factura (opcional)">
             <Select value={comprobanteId} onChange={(e) => setComprobanteId(e.target.value)}>

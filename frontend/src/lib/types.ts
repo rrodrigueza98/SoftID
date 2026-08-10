@@ -480,6 +480,7 @@ export interface Recibo {
   monto: string;
   formaPago: FormaPago;
   observacion?: string | null;
+  cuentaBancariaId?: string | null;
   aplicaciones?: ReciboAplicacion[];
 }
 
