@@ -347,6 +347,18 @@ export interface MovimientoCuentaCorriente {
   fechaVencimiento?: string | null;
 }
 
+export interface FacturaVencida {
+  id: string;
+  numero: string;
+  tipoDocumento: TipoDocumentoElectronico;
+  fechaEmision: string;
+  fechaVencimiento: string;
+  total: number;
+  saldoPendiente: number;
+  diasVencido: number;
+  cliente: { id: string; razonSocial: string; numeroDocumento: string };
+}
+
 export interface ComprobanteItem {
   id: string;
   productoId?: string | null;

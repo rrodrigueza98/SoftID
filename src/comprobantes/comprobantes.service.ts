@@ -225,6 +225,20 @@ export class ComprobantesService {
         if (!cuenta) throw new NotFoundException(`El cliente ${dto.clienteId} no tiene cuenta corriente`);
 
         const esNotaCredito = dto.tipoDocumento === TipoDocumentoElectronico.NOTA_CREDITO_ELECTRONICA;
+
+        // Solo la deuda nueva (factura) tiene sentido de "vencimiento" -- una
+        // nota de credito reduce saldo, no genera un plazo propio. Se calcula
+        // en base al plazo de la condicion de pago del comprobante (0 dias si
+        // no tiene una asignada, equivalente a "vence el mismo dia").
+        let fechaVencimiento: Date | undefined;
+        if (!esNotaCredito) {
+          const condicionPago = dto.condicionPagoId
+            ? await tx.condicionPago.findUnique({ where: { id: dto.condicionPagoId } })
+            : null;
+          fechaVencimiento = new Date(comprobante.fechaEmision);
+          fechaVencimiento.setDate(fechaVencimiento.getDate() + (condicionPago?.diasPlazo ?? 0));
+        }
+
         await this.cuentasCorrientesService.registrarMovimiento(
           {
             cuentaCorrienteId: cuenta.id,
@@ -232,6 +246,7 @@ export class ComprobantesService {
             monto: subtotales.total,
             concepto: `${dto.tipoDocumento} Nº ${numero}`,
             comprobanteId: comprobante.id,
+            fechaVencimiento,
           },
           tx,
         );
@@ -527,6 +542,64 @@ export class ComprobantesService {
 
   // KPIs + series para el panel de ventas (prototipo visual). Mismo criterio
   // que reporteRentabilidad: solo Factura Electronica emitida cuenta como venta.
+  // Facturas a credito con vencimiento pasado y saldo todavia pendiente. El
+  // vencimiento se calcula al vuelo (fechaEmision + condicionPago.diasPlazo)
+  // en vez de depender del campo fechaVencimiento guardado en el movimiento
+  // de cuenta corriente -- asi el listado tambien cubre comprobantes viejos,
+  // emitidos antes de que ese campo empezara a completarse.
+  async findVencidos(empresaId: string) {
+    const comprobantes = await this.prisma.comprobante.findMany({
+      where: {
+        empresaId,
+        condicionVenta: CondicionVenta.CREDITO,
+        estado: EstadoComprobante.EMITIDO,
+        tipoDocumento: { not: TipoDocumentoElectronico.NOTA_CREDITO_ELECTRONICA },
+        clienteId: { not: null },
+      },
+      include: { cliente: true, condicionPago: true },
+    });
+    if (comprobantes.length === 0) return [];
+
+    const aplicaciones = await this.prisma.reciboAplicacion.groupBy({
+      by: ['comprobanteId'],
+      where: { comprobanteId: { in: comprobantes.map((c) => c.id) } },
+      _sum: { montoAplicado: true },
+    });
+    const aplicadoPorComprobante = new Map(
+      aplicaciones.map((a) => [a.comprobanteId, Number(a._sum.montoAplicado ?? 0)]),
+    );
+
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const MS_POR_DIA = 24 * 60 * 60 * 1000;
+
+    return comprobantes
+      .map((c) => {
+        const fechaVencimiento = new Date(c.fechaEmision);
+        fechaVencimiento.setDate(fechaVencimiento.getDate() + (c.condicionPago?.diasPlazo ?? 0));
+        const saldoPendiente = round2(Number(c.total) - (aplicadoPorComprobante.get(c.id) ?? 0));
+        // Dias vencido en calendario (ignora la hora exacta de emision) -- si
+        // no, una factura emitida a la tarde parece "vencer" con menos dias
+        // de atraso que una emitida a la manana del mismo dia.
+        const vencimientoMedianoche = new Date(fechaVencimiento);
+        vencimientoMedianoche.setHours(0, 0, 0, 0);
+        const diasVencido = Math.floor((hoy.getTime() - vencimientoMedianoche.getTime()) / MS_POR_DIA);
+        return {
+          id: c.id,
+          numero: c.numero,
+          tipoDocumento: c.tipoDocumento,
+          fechaEmision: c.fechaEmision,
+          fechaVencimiento,
+          total: Number(c.total),
+          saldoPendiente,
+          diasVencido,
+          cliente: { id: c.cliente!.id, razonSocial: c.cliente!.razonSocial, numeroDocumento: c.cliente!.numeroDocumento },
+        };
+      })
+      .filter((c) => c.saldoPendiente > 0.01 && c.diasVencido > 0)
+      .sort((a, b) => b.diasVencido - a.diasVencido);
+  }
+
   async panelVentas(empresaId: string, desde: string, hasta: string) {
     const desdeDate = new Date(`${desde}T00:00:00`);
     const hastaDate = new Date(`${hasta}T23:59:59.999`);

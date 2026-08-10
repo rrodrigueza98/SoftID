@@ -38,6 +38,15 @@ export class ComprobantesController {
     return new StreamableFile(buffer);
   }
 
+  // Sin @RequirePantalla propio -- se usa tanto desde el Dashboard (todos los
+  // roles con acceso a VENTAS) como desde Cuentas Corrientes, asi que se
+  // acepta cualquiera de las dos pantallas en vez de exigir una sola.
+  @RequirePantalla('COMPROBANTES_EMITIDOS', 'CUENTAS_CORRIENTES')
+  @Get('vencidos')
+  vencidos(@Query('empresaId') empresaId: string) {
+    return this.comprobantesService.findVencidos(empresaId);
+  }
+
   @RequirePantalla('COMPROBANTES_EMITIDOS')
   @Get('panel-ventas')
   panelVentas(

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api-client';
 import { useDebouncedValue, useEmpresaId } from '../lib/hooks';
-import { formatDateTime, formatGs } from '../lib/format';
+import { formatDate, formatDateTime, formatGs } from '../lib/format';
 import { Card, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Field';
@@ -11,7 +11,7 @@ import { PageSpinner } from '../components/ui/Spinner';
 import { EmptyState, Table, Thead, Th, Tr, Td } from '../components/ui/Table';
 import { ReciboFormDialog } from './ReciboFormDialog';
 import { OrdenPagoFormDialog } from './OrdenPagoFormDialog';
-import type { CuentaCorriente, MovimientoCuentaCorriente, Tercero, TipoTercero } from '../lib/types';
+import type { CuentaCorriente, FacturaVencida, MovimientoCuentaCorriente, Tercero, TipoTercero } from '../lib/types';
 
 const CONFIG: Record<
   Extract<TipoTercero, 'CLIENTE' | 'PROVEEDOR'>,
@@ -81,9 +81,53 @@ export default function CuentasCorrientesPage({ tipo = 'CLIENTE' }: { tipo?: 'CL
     enabled: Boolean(cuenta),
   });
 
+  const { data: facturasVencidas } = useQuery({
+    queryKey: ['facturas-vencidas', empresaId],
+    queryFn: async () => (await api.get<FacturaVencida[]>('/comprobantes/vencidos', { params: { empresaId } })).data,
+    enabled: tipo === 'CLIENTE',
+  });
+
+  async function seleccionarPorClienteId(clienteId: string) {
+    const { data } = await api.get<Tercero>(`/terceros/${clienteId}`);
+    setSeleccionado(data);
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-xl font-semibold text-ink-900">{cfg.titulo}</h1>
+
+      {tipo === 'CLIENTE' && facturasVencidas && facturasVencidas.length > 0 && (
+        <Card>
+          <CardHeader
+            title="Facturas vencidas"
+            subtitle={`${facturasVencidas.length} factura${facturasVencidas.length === 1 ? '' : 's'} a crédito con el plazo cumplido`}
+          />
+          <Table>
+            <Thead>
+              <tr>
+                <Th>Cliente</Th>
+                <Th>Factura</Th>
+                <Th>Vencimiento</Th>
+                <Th className="text-right">Días vencido</Th>
+                <Th className="text-right">Saldo pendiente</Th>
+              </tr>
+            </Thead>
+            <tbody>
+              {facturasVencidas.map((f) => (
+                <Tr key={f.id} onClick={() => seleccionarPorClienteId(f.cliente.id)}>
+                  <Td className="font-medium text-ink-900">{f.cliente.razonSocial}</Td>
+                  <Td className="text-ink-500">Nº {f.numero}</Td>
+                  <Td className="text-ink-500">{formatDate(f.fechaVencimiento)}</Td>
+                  <Td className="text-right tabular-nums">
+                    <Badge tone="warning">{f.diasVencido} días</Badge>
+                  </Td>
+                  <Td className="text-right tabular-nums font-medium">{formatGs(f.saldoPendiente)}</Td>
+                </Tr>
+              ))}
+            </tbody>
+          </Table>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_1fr]">
         <Card className="h-fit">

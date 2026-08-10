@@ -8,7 +8,7 @@ import { formatDate, formatGs } from '../lib/format';
 import { Card, CardHeader } from '../components/ui/Card';
 import { StatTile } from '../components/ui/StatTile';
 import { ChartTooltip } from '../components/ui/ChartTooltip';
-import type { Modulo, Pantalla, PanelVentas, Producto, Stock, Tercero } from '../lib/types';
+import type { FacturaVencida, Modulo, Pantalla, PanelVentas, Producto, Stock, Tercero } from '../lib/types';
 
 const SECTIONS: { to: string; label: string; hint: string; modulo: Modulo; pantalla: Pantalla }[] = [
   { to: '/pos', label: 'Punto de venta', hint: 'Venta rápida de mostrador', modulo: 'VENTAS', pantalla: 'PUNTO_DE_VENTA' },
@@ -128,11 +128,17 @@ export default function DashboardPage() {
       (await api.get<PanelVentas>('/comprobantes/panel-ventas', { params: { empresaId, desde, hasta } })).data,
     enabled: puedeVer('VENTAS'),
   });
+  const facturasVencidas = useQuery({
+    queryKey: ['facturas-vencidas', empresaId],
+    queryFn: async () => (await api.get<FacturaVencida[]>('/comprobantes/vencidos', { params: { empresaId } })).data,
+    enabled: puedeVer('VENTAS'),
+  });
 
   const itemsBajoMinimo = (stockBajo.data ?? []).filter(
     (s) => s.producto.stockMinimo != null && Number(s.cantidad) <= Number(s.producto.stockMinimo),
   );
   const porFecha = (panelVentas.data?.porFecha ?? []).map((f) => ({ ...f, etiqueta: formatDate(f.fecha) }));
+  const totalVencido = (facturasVencidas.data ?? []).reduce((s, f) => s + f.saldoPendiente, 0);
 
   return (
     <div className="flex flex-col gap-8">
@@ -140,6 +146,22 @@ export default function DashboardPage() {
         <h1 className="text-xl font-semibold text-ink-900">Hola, {usuario?.nombre.split(' ')[0]}</h1>
         <p className="mt-1 text-sm text-ink-500">Resumen rápido de tu empresa.</p>
       </div>
+
+      {(facturasVencidas.data?.length ?? 0) > 0 && (
+        <Link
+          to="/cuentas-corrientes"
+          className="flex items-center justify-between rounded-lg border border-amber-300 bg-amber-50 px-5 py-4 transition-colors hover:bg-amber-100"
+        >
+          <div>
+            <p className="text-sm font-semibold text-amber-900">
+              {facturasVencidas.data!.length} factura{facturasVencidas.data!.length === 1 ? '' : 's'} a crédito
+              vencida{facturasVencidas.data!.length === 1 ? '' : 's'}
+            </p>
+            <p className="mt-0.5 text-sm text-amber-700">Total pendiente: {formatGs(totalVencido)} — ver cuentas corrientes</p>
+          </div>
+          <span className="text-amber-500">→</span>
+        </Link>
+      )}
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {puedeVer('VENTAS') && (
