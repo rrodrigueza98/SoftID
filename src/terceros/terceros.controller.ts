@@ -26,7 +26,12 @@ export class TercerosController {
 
   @Post()
   create(@Body() dto: CreateTerceroDto, @CurrentUser() usuario: AuthUser) {
-    this.verificarPantalla(usuario, this.pantallasParaTipo(dto.tipo));
+    // Un operador de Punto de Venta puede dar de alta un cliente al vuelo
+    // (consumidor final que pide factura, o via el buscador de DNIT) aunque
+    // no tenga la pantalla Clientes -- mismo criterio que abrir la lectura
+    // de Productos/Stock para Facturacion/POS.
+    const permitidas = dto.tipo === 'CLIENTE' ? ['CLIENTES', 'PUNTO_DE_VENTA'] : this.pantallasParaTipo(dto.tipo);
+    this.verificarPantalla(usuario, permitidas as Pantalla[]);
     return this.tercerosService.create(dto);
   }
 
@@ -37,15 +42,16 @@ export class TercerosController {
     @Query('tipo') tipo?: TipoTercero,
     @Query('search') search?: string,
   ) {
-    this.verificarPantalla(usuario, this.pantallasParaTipo(tipo));
+    const permitidas = tipo === 'CLIENTE' ? ['CLIENTES', 'PUNTO_DE_VENTA'] : this.pantallasParaTipo(tipo);
+    this.verificarPantalla(usuario, permitidas as Pantalla[]);
     return this.tercerosService.findAll({ empresaId, tipo, search });
   }
 
-  // Sin tipo asociado a mano -- se usa tanto desde el alta de Clientes como
-  // de Proveedores, alcanza con acceso a cualquiera de las dos pantallas.
+  // Sin tipo asociado a mano -- se usa desde el alta de Clientes, de
+  // Proveedores, y desde Punto de Venta (buscar/crear cliente al vuelo).
   @Get('buscar-ruc')
   buscarEnDnit(@Query('q') q: string, @CurrentUser() usuario: AuthUser) {
-    this.verificarPantalla(usuario, ['CLIENTES', 'PROVEEDORES']);
+    this.verificarPantalla(usuario, ['CLIENTES', 'PROVEEDORES', 'PUNTO_DE_VENTA']);
     return this.tercerosService.buscarEnDnit(q);
   }
 
