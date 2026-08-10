@@ -17,7 +17,8 @@ export type Pantalla =
   | 'COMPROBANTES_COMPRA'
   | 'PRODUCTOS'
   | 'STOCK'
-  | 'CONTABILIDAD';
+  | 'CONTABILIDAD'
+  | 'BANCOS';
 
 export interface Rol {
   id: string;
@@ -623,6 +624,47 @@ export interface PanelCompras {
   porcentajeCredito: number;
   porFecha: PanelComprasFilaFecha[];
   porProveedor: PanelComprasFilaProveedor[];
+}
+
+export type TipoCuentaBancaria = 'CUENTA_CORRIENTE' | 'CAJA_AHORRO';
+export type TipoMovimientoBancario = 'DEBITO' | 'CREDITO';
+
+export interface CuentaBancaria {
+  id: string;
+  empresaId: string;
+  banco: string;
+  nombre: string;
+  numeroCuenta: string;
+  tipoCuenta: TipoCuentaBancaria;
+  moneda: string;
+  cuentaContableId: string;
+  cuentaContable?: Pick<CuentaContable, 'codigo' | 'nombre'>;
+  saldoInicial: string;
+  fechaSaldoInicial: string;
+  activo: boolean;
+}
+
+export interface MovimientoBancario {
+  id: string;
+  cuentaBancariaId: string;
+  fecha: string;
+  concepto: string;
+  tipo: TipoMovimientoBancario;
+  monto: string;
+  referencia?: string | null;
+  conciliado: boolean;
+  fechaConciliacion?: string | null;
+}
+
+export interface ConciliacionBancaria {
+  id: string;
+  cuentaBancariaId: string;
+  fechaCorte: string;
+  saldoLibros: string;
+  saldoExtracto: string;
+  diferencia: string;
+  observacion?: string | null;
+  createdAt: string;
 }
 
 export interface Compra {

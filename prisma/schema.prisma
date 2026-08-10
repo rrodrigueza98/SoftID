@@ -261,6 +261,7 @@ model Empresa {
   compras           Compra[]
   cuentasContables  CuentaContable[]  @relation("EmpresaCuentas")
   asientosContables AsientoContable[] @relation("EmpresaAsientos")
+  cuentasBancarias  CuentaBancaria[]
 
   @@map("empresas")
 }
@@ -363,6 +364,7 @@ enum Pantalla {
   PRODUCTOS
   STOCK
   CONTABILIDAD
+  BANCOS
 }
 
 model Rol {
@@ -1121,6 +1123,7 @@ model CuentaContable {
   subcuentas  CuentaContable[]          @relation("JerarquiaCuentas")
   detalles    AsientoContableDetalle[]
   compras     Compra[]
+  cuentasBancarias CuentaBancaria[]
 
   @@unique([empresaId, codigo])
   @@map("cuentas_contables")
@@ -1160,4 +1163,78 @@ model AsientoContableDetalle {
   cuenta  CuentaContable  @relation(fields: [cuentaId], references: [id])
 
   @@map("asiento_contable_detalles")
+}
+
+enum TipoCuentaBancaria {
+  CUENTA_CORRIENTE
+  CAJA_AHORRO
+}
+
+enum TipoMovimientoBancario {
+  DEBITO // egreso -- sale dinero de la cuenta
+  CREDITO // ingreso -- entra dinero a la cuenta
+}
+
+model CuentaBancaria {
+  id                String             @id @default(cuid())
+  empresaId         String
+  banco             String
+  nombre            String // etiqueta propia, ej "Cta Cte USD Itau"
+  numeroCuenta      String
+  tipoCuenta        TipoCuentaBancaria @default(CUENTA_CORRIENTE)
+  moneda            String             @default("PYG")
+  // Cuenta del Plan de Cuentas que representa a este banco puntual -- a
+  // diferencia del rol generico "BANCO" del mapeo contable (que asume una
+  // sola cuenta de banco), cada cuenta bancaria real puede tener la suya.
+  cuentaContableId  String
+  saldoInicial      Decimal            @default(0) @db.Decimal(15, 2)
+  fechaSaldoInicial DateTime
+  activo            Boolean            @default(true)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  empresa        Empresa                 @relation(fields: [empresaId], references: [id])
+  cuentaContable CuentaContable          @relation(fields: [cuentaContableId], references: [id])
+  movimientos    MovimientoBancario[]
+  conciliaciones ConciliacionBancaria[]
+
+  @@unique([empresaId, numeroCuenta])
+  @@map("cuentas_bancarias")
+}
+
+model MovimientoBancario {
+  id                String                  @id @default(cuid())
+  cuentaBancariaId  String
+  fecha             DateTime
+  concepto          String
+  tipo              TipoMovimientoBancario
+  monto             Decimal                 @db.Decimal(15, 2)
+  referencia        String? // nro de cheque, nro de operacion, etc.
+  // Sin vinculo automatico a asientos contables (v1): es un registro propio
+  // para cotejar contra el extracto, no genera contabilidad por si solo.
+  conciliado        Boolean                 @default(false)
+  fechaConciliacion DateTime?
+  createdAt         DateTime                @default(now())
+
+  cuentaBancaria CuentaBancaria @relation(fields: [cuentaBancariaId], references: [id])
+
+  @@map("movimientos_bancarios")
+}
+
+// Snapshot historico de cada cierre de conciliacion -- deja constancia de
+// contra que saldo de extracto se concilio y que diferencia quedo, aunque
+// despues seudan marcar/desmarcar movimientos individuales.
+model ConciliacionBancaria {
+  id               String   @id @default(cuid())
+  cuentaBancariaId String
+  fechaCorte       DateTime
+  saldoLibros      Decimal  @db.Decimal(15, 2)
+  saldoExtracto    Decimal  @db.Decimal(15, 2)
+  diferencia       Decimal  @db.Decimal(15, 2)
+  observacion      String?
+  createdAt        DateTime @default(now())
+
+  cuentaBancaria CuentaBancaria @relation(fields: [cuentaBancariaId], references: [id])
+
+  @@map("conciliaciones_bancarias")
 }

@@ -23,6 +23,7 @@ import { ComprobantePagosModule } from './comprobante-pagos/comprobante-pagos.mo
 import { CajaModule } from './caja/caja.module';
 import { ContabilidadModule } from './contabilidad/contabilidad.module';
 import { ComprasModule } from './compras/compras.module';
+import { BancosModule } from './bancos/bancos.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { ComprasModule } from './compras/compras.module';
     CajaModule,
     ContabilidadModule,
     ComprasModule,
+    BancosModule,
   ],
 })
 export class AppModule {}

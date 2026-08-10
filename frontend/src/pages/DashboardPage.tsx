@@ -57,6 +57,13 @@ const SECTIONS: { to: string; label: string; hint: string; modulo: Modulo; panta
     modulo: 'CONTABILIDAD',
     pantalla: 'CONTABILIDAD',
   },
+  {
+    to: '/bancos',
+    label: 'Bancos',
+    hint: 'Cuentas bancarias y conciliación',
+    modulo: 'CONTABILIDAD',
+    pantalla: 'BANCOS',
+  },
 ];
 
 const BARRA = '#0078d4'; // brand-600

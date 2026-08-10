@@ -45,7 +45,10 @@ const NAV_SECTIONS: { title?: string; modulo?: Modulo; items: NavItem[] }[] = [
   {
     title: 'Contabilidad',
     modulo: 'CONTABILIDAD',
-    items: [{ to: '/contabilidad', label: 'Contabilidad', pantalla: 'CONTABILIDAD' }],
+    items: [
+      { to: '/contabilidad', label: 'Contabilidad', pantalla: 'CONTABILIDAD' },
+      { to: '/bancos', label: 'Bancos', pantalla: 'BANCOS' },
+    ],
   },
   {
     title: 'Configuración',

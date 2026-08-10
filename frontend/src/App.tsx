@@ -17,6 +17,7 @@ import StockPage from './pages/StockPage';
 import CuentasCorrientesPage from './pages/CuentasCorrientesPage';
 import ComprasPage from './pages/ComprasPage';
 import ContabilidadPage from './pages/ContabilidadPage';
+import BancosPage from './pages/BancosPage';
 import UsuariosPage from './pages/UsuariosPage';
 import EstablecimientosPage from './pages/EstablecimientosPage';
 import NuevaEmpresaPage from './pages/NuevaEmpresaPage';
@@ -55,6 +56,7 @@ export default function App() {
         <Route path="/compras" element={<ComprasPage />} />
         <Route path="/panel-compras" element={<PanelComprasPage />} />
         <Route path="/contabilidad" element={<ContabilidadPage />} />
+        <Route path="/bancos" element={<BancosPage />} />
         <Route path="/usuarios" element={<UsuariosPage />} />
         <Route path="/establecimientos" element={<EstablecimientosPage />} />
         <Route path="/empresas/nueva" element={<NuevaEmpresaPage />} />

@@ -37,7 +37,10 @@ const PANTALLAS_POR_MODULO: Record<Modulo, { value: Pantalla; label: string }[]>
     { value: 'PRODUCTOS', label: 'Productos' },
     { value: 'STOCK', label: 'Stock' },
   ],
-  CONTABILIDAD: [{ value: 'CONTABILIDAD', label: 'Contabilidad' }],
+  CONTABILIDAD: [
+    { value: 'CONTABILIDAD', label: 'Contabilidad' },
+    { value: 'BANCOS', label: 'Bancos' },
+  ],
 };
 
 const emptyForm = {
