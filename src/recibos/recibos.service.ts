@@ -22,6 +22,28 @@ export class RecibosService {
       );
     }
 
+    // Cada aplicacion se valida contra el saldo REAL pendiente del
+    // comprobante (su total menos lo ya aplicado por cualquier otro recibo
+    // anterior) -- sin esto, nada impedia aplicar cobros repetidos a la
+    // misma factura por mas de su monto total.
+    for (const aplicacion of aplicaciones) {
+      const comprobante = await this.prisma.comprobante.findUnique({ where: { id: aplicacion.comprobanteId } });
+      if (!comprobante) throw new NotFoundException(`Comprobante ${aplicacion.comprobanteId} no encontrado`);
+      if (comprobante.estado === 'ANULADO') {
+        throw new BadRequestException(`El comprobante Nº ${comprobante.numero} está anulado, no se le puede aplicar un cobro`);
+      }
+      const yaAplicado = await this.prisma.reciboAplicacion.aggregate({
+        where: { comprobanteId: aplicacion.comprobanteId },
+        _sum: { montoAplicado: true },
+      });
+      const saldoPendiente = Number(comprobante.total) - Number(yaAplicado._sum.montoAplicado ?? 0);
+      if (aplicacion.montoAplicado > saldoPendiente) {
+        throw new BadRequestException(
+          `El comprobante Nº ${comprobante.numero} tiene un saldo pendiente de ${saldoPendiente}, no se le pueden aplicar ${aplicacion.montoAplicado}`,
+        );
+      }
+    }
+
     const cuenta = await this.prisma.cuentaCorriente.findUnique({ where: { terceroId: dto.terceroId } });
     if (!cuenta) throw new NotFoundException(`El tercero ${dto.terceroId} no tiene cuenta corriente`);
 

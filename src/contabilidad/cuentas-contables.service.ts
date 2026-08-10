@@ -82,4 +82,20 @@ export class CuentasContablesService {
     await this.prisma.empresa.update({ where: { id: empresaId }, data: { mapeoContable: mapeo } });
     return this.obtenerMapeo(empresaId);
   }
+
+  async obtenerCierre(empresaId: string) {
+    const empresa = await this.prisma.empresa.findUniqueOrThrow({
+      where: { id: empresaId },
+      select: { fechaCierreContable: true },
+    });
+    return empresa;
+  }
+
+  async actualizarCierre(empresaId: string, fechaCierreContable: string | null) {
+    await this.prisma.empresa.update({
+      where: { id: empresaId },
+      data: { fechaCierreContable: fechaCierreContable ? new Date(fechaCierreContable) : null },
+    });
+    return this.obtenerCierre(empresaId);
+  }
 }

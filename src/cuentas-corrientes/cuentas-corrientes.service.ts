@@ -11,6 +11,7 @@ export interface RegistrarMovimientoCCParams {
   monto: number;
   concepto: string;
   comprobanteId?: string;
+  compraId?: string;
   reciboId?: string;
   ordenPagoId?: string;
   fechaVencimiento?: Date | string;
@@ -33,7 +34,7 @@ export class CuentasCorrientesService {
   findMovimientos(cuentaCorrienteId: string) {
     return this.prisma.movimientoCuentaCorriente.findMany({
       where: { cuentaCorrienteId },
-      include: { comprobante: true, recibo: true, ordenPago: true },
+      include: { comprobante: true, compra: true, recibo: true, ordenPago: true },
       orderBy: { fecha: 'desc' },
     });
   }
@@ -69,6 +70,7 @@ export class CuentasCorrientesService {
           saldoNuevo,
           concepto: params.concepto,
           comprobanteId: params.comprobanteId,
+          compraId: params.compraId,
           reciboId: params.reciboId,
           ordenPagoId: params.ordenPagoId,
           fechaVencimiento: params.fechaVencimiento ? new Date(params.fechaVencimiento) : undefined,

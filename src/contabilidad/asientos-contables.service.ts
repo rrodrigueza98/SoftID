@@ -22,8 +22,44 @@ export class AsientosContablesService {
       throw new BadRequestException('El asiento no puede tener todos los importes en cero');
     }
 
+    // Cada linea debe cargarse a un solo lado (nunca Debe y Haber a la vez,
+    // ni los dos en cero) -- es invalido contablemente y ademas rompe el
+    // criterio de signo que usa el resto del sistema (Libro Mayor, Estados
+    // Financieros) para calcular saldos.
+    for (const detalle of dto.detalles) {
+      if (detalle.debe > 0 && detalle.haber > 0) {
+        throw new BadRequestException('Cada línea del asiento va solo al Debe o solo al Haber, no a los dos a la vez');
+      }
+      if (detalle.debe === 0 && detalle.haber === 0) {
+        throw new BadRequestException('Cada línea del asiento necesita un importe mayor a cero, en Debe o en Haber');
+      }
+    }
+
+    // Las cuentas "de grupo" (no imputables, ej. "1-01- ACTIVO CORRIENTE")
+    // son encabezados de la jerarquia del Plan de Cuentas, no destinos
+    // validos de un movimiento -- postear ahi rompe el desglose que usan el
+    // Libro Mayor y los Estados Financieros.
+    const cuentaIds = [...new Set(dto.detalles.map((d) => d.cuentaId))];
+    const cuentas = await this.prisma.cuentaContable.findMany({ where: { id: { in: cuentaIds } } });
+    if (cuentas.length !== cuentaIds.length) {
+      throw new BadRequestException('Alguna de las cuentas del asiento no existe');
+    }
+    for (const cuenta of cuentas) {
+      if (cuenta.empresaId !== dto.empresaId) {
+        throw new BadRequestException(`La cuenta ${cuenta.codigo} no pertenece a esta empresa`);
+      }
+      if (!cuenta.imputable) {
+        throw new BadRequestException(
+          `La cuenta ${cuenta.codigo} ${cuenta.nombre} es una cuenta de grupo (no imputable) -- elegí una subcuenta de detalle`,
+        );
+      }
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const empresa = await tx.empresa.findUniqueOrThrow({ where: { id: dto.empresaId } });
+      const fecha = dto.fecha ? new Date(dto.fecha) : new Date();
+      this.verificarPeriodoAbierto(empresa, fecha);
+
       const numero = empresa.proximoNumeroAsiento;
       await tx.empresa.update({ where: { id: dto.empresaId }, data: { proximoNumeroAsiento: { increment: 1 } } });
 
@@ -31,7 +67,7 @@ export class AsientosContablesService {
         data: {
           empresaId: dto.empresaId,
           numero,
-          fecha: dto.fecha ? new Date(dto.fecha) : undefined,
+          fecha,
           concepto: dto.concepto,
           origen: OrigenAsiento.MANUAL,
           detalles: { create: dto.detalles.map((d) => ({ cuentaId: d.cuentaId, debe: d.debe, haber: d.haber, glosa: d.glosa })) },
@@ -39,6 +75,16 @@ export class AsientosContablesService {
         include: { detalles: { include: { cuenta: true } } },
       });
     });
+  }
+
+  // Ningun asiento (manual o automatico) puede postear con fecha igual o
+  // anterior al cierre de periodo de la empresa -- ver Empresa.fechaCierreContable.
+  private verificarPeriodoAbierto(empresa: { fechaCierreContable: Date | null }, fecha: Date) {
+    if (empresa.fechaCierreContable && fecha <= empresa.fechaCierreContable) {
+      throw new BadRequestException(
+        `El período contable está cerrado hasta el ${empresa.fechaCierreContable.toISOString().slice(0, 10)} -- no se pueden cargar movimientos con fecha igual o anterior a esa`,
+      );
+    }
   }
 
   findAll(params: { empresaId: string; desde?: string; hasta?: string }) {
@@ -315,6 +361,39 @@ export class AsientosContablesService {
     };
   }
 
+  // Genera el asiento inverso (storno) de uno ya posteado: mismas cuentas,
+  // debe y haber intercambiados. Se usa para revertir el efecto contable de
+  // anular un Comprobante/Compra -- nunca se edita ni se borra un asiento ya
+  // asentado, se contrarresta con uno nuevo, fechado el dia de la reversion
+  // (no el de la operacion original).
+  async generarContraAsiento(tx: TxClient, asientoId: string, concepto: string) {
+    const original = await tx.asientoContable.findUniqueOrThrow({
+      where: { id: asientoId },
+      include: { detalles: true },
+    });
+    const empresa = await tx.empresa.findUniqueOrThrow({ where: { id: original.empresaId } });
+    const fecha = new Date();
+    this.verificarPeriodoAbierto(empresa, fecha);
+
+    const numero = await this.siguienteNumero(tx, original.empresaId);
+    return tx.asientoContable.create({
+      data: {
+        empresaId: original.empresaId,
+        numero,
+        fecha,
+        concepto,
+        origen: original.origen,
+        comprobanteId: original.comprobanteId,
+        compraId: original.compraId,
+        reciboId: original.reciboId,
+        ordenPagoId: original.ordenPagoId,
+        detalles: {
+          create: original.detalles.map((d) => ({ cuentaId: d.cuentaId, debe: d.haber, haber: d.debe, glosa: d.glosa })),
+        },
+      },
+    });
+  }
+
   private async siguienteNumero(tx: TxClient, empresaId: string): Promise<number> {
     const empresa = await tx.empresa.findUniqueOrThrow({ where: { id: empresaId } });
     await tx.empresa.update({ where: { id: empresaId }, data: { proximoNumeroAsiento: { increment: 1 } } });
@@ -337,6 +416,7 @@ export class AsientosContablesService {
     formaPago: string | undefined,
   ) {
     const empresa = await tx.empresa.findUniqueOrThrow({ where: { id: comprobante.empresaId } });
+    this.verificarPeriodoAbierto(empresa, comprobante.fechaEmision);
     const mapeo = (empresa.mapeoContable as MapeoContable | null) ?? {};
 
     const total = Number(comprobante.total);
@@ -389,6 +469,7 @@ export class AsientosContablesService {
   //   Haber Clientes                            = monto
   async generarAsientoCobro(tx: TxClient, recibo: Recibo) {
     const empresa = await tx.empresa.findUniqueOrThrow({ where: { id: recibo.empresaId } });
+    this.verificarPeriodoAbierto(empresa, recibo.fecha);
     const mapeo = (empresa.mapeoContable as MapeoContable | null) ?? {};
 
     const cuentaOrigenId = esFormaPagoBancaria(recibo.formaPago) ? mapeo.BANCO : mapeo.CAJA;
@@ -420,6 +501,7 @@ export class AsientosContablesService {
   //   Haber Caja o Banco, segun si la Orden de Pago tiene cuentaBancariaId
   async generarAsientoPago(tx: TxClient, ordenPago: OrdenPago) {
     const empresa = await tx.empresa.findUniqueOrThrow({ where: { id: ordenPago.empresaId } });
+    this.verificarPeriodoAbierto(empresa, ordenPago.fecha);
     const mapeo = (empresa.mapeoContable as MapeoContable | null) ?? {};
 
     const cuentaDestinoId = ordenPago.cuentaBancariaId
@@ -456,6 +538,7 @@ export class AsientosContablesService {
   //   Haber Proveedores (credito) o Caja/Banco (contado)     = total
   async generarAsientoCompra(tx: TxClient, compra: Compra) {
     const empresa = await tx.empresa.findUniqueOrThrow({ where: { id: compra.empresaId } });
+    this.verificarPeriodoAbierto(empresa, compra.fechaEmision);
     const mapeo = (empresa.mapeoContable as MapeoContable | null) ?? {};
 
     const total = Number(compra.total);

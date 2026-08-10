@@ -247,6 +247,11 @@ model Empresa {
   // por cuenta para poder agregar roles nuevos sin migracion; las claves
   // validas viven en src/contabilidad/mapeo-contable.ts (CUENTA_ROL).
   mapeoContable     Json?
+  // Fecha de cierre de periodo contable: ningun asiento (manual o
+  // automatico de Venta/Cobro/Compra/Pago) puede postear con fecha igual o
+  // anterior a esta. Null = sin cierre, cualquier fecha vale (estado por
+  // defecto).
+  fechaCierreContable DateTime?
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
@@ -645,6 +650,7 @@ model MovimientoCuentaCorriente {
   saldoNuevo        Decimal                       @db.Decimal(15, 2)
   concepto          String
   comprobanteId     String?
+  compraId          String?
   reciboId          String?
   ordenPagoId       String?
   fecha             DateTime                      @default(now())
@@ -653,6 +659,7 @@ model MovimientoCuentaCorriente {
 
   cuentaCorriente CuentaCorriente @relation(fields: [cuentaCorrienteId], references: [id])
   comprobante     Comprobante?    @relation(fields: [comprobanteId], references: [id])
+  compra          Compra?         @relation(fields: [compraId], references: [id])
   recibo          Recibo?         @relation(fields: [reciboId], references: [id])
   ordenPago       OrdenPago?      @relation(fields: [ordenPagoId], references: [id])
 
@@ -1127,6 +1134,7 @@ model Compra {
   cuentaContable    CuentaContable    @relation(fields: [cuentaContableId], references: [id])
   asientosContables AsientoContable[]
   aplicacionesPago  OrdenPagoAplicacion[]
+  movimientosCC     MovimientoCuentaCorriente[]
 
   @@map("compras")
 }

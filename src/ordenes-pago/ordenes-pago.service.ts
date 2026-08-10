@@ -22,6 +22,27 @@ export class OrdenesPagoService {
       );
     }
 
+    // Mismo criterio que RecibosService: cada aplicacion se valida contra el
+    // saldo REAL pendiente de la compra (su total menos lo ya aplicado por
+    // cualquier otra orden de pago anterior).
+    for (const aplicacion of aplicaciones) {
+      const compra = await this.prisma.compra.findUnique({ where: { id: aplicacion.compraId } });
+      if (!compra) throw new NotFoundException(`Compra ${aplicacion.compraId} no encontrada`);
+      if (compra.estado === 'ANULADO') {
+        throw new BadRequestException(`La compra Nº ${compra.numeroComprobante} está anulada, no se le puede aplicar un pago`);
+      }
+      const yaAplicado = await this.prisma.ordenPagoAplicacion.aggregate({
+        where: { compraId: aplicacion.compraId },
+        _sum: { montoAplicado: true },
+      });
+      const saldoPendiente = Number(compra.total) - Number(yaAplicado._sum.montoAplicado ?? 0);
+      if (aplicacion.montoAplicado > saldoPendiente) {
+        throw new BadRequestException(
+          `La compra Nº ${compra.numeroComprobante} tiene un saldo pendiente de ${saldoPendiente}, no se le pueden aplicar ${aplicacion.montoAplicado}`,
+        );
+      }
+    }
+
     const cuenta = await this.prisma.cuentaCorriente.findUnique({ where: { terceroId: dto.proveedorId } });
     if (!cuenta) throw new NotFoundException(`El proveedor ${dto.proveedorId} no tiene cuenta corriente`);
 

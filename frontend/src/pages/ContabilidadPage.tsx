@@ -1,6 +1,7 @@
 import { Fragment, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, apiErrorMessage } from '../lib/api-client';
+import { useAuth } from '../lib/auth-context';
 import { useEmpresaId } from '../lib/hooks';
 import { formatDate, formatGs } from '../lib/format';
 import { Card, CardHeader } from '../components/ui/Card';
@@ -30,7 +31,13 @@ function hoy() {
   return new Date().toISOString().slice(0, 10);
 }
 
-const ORIGEN_LABEL: Record<string, string> = { MANUAL: 'Manual', VENTA: 'Venta', COBRO: 'Cobro' };
+const ORIGEN_LABEL: Record<string, string> = {
+  MANUAL: 'Manual',
+  VENTA: 'Venta',
+  COBRO: 'Cobro',
+  COMPRA: 'Compra',
+  PAGO: 'Pago',
+};
 
 const TABS = [
   { id: 'plan', label: 'Plan de Cuentas' },
@@ -133,6 +140,8 @@ function PlanDeCuentasTab() {
 
   return (
     <div className="flex flex-col gap-6">
+      <CierreContableCard empresaId={empresaId} />
+
       {roles && mapeo && (
         <Card>
           <CardHeader
@@ -189,6 +198,61 @@ function PlanDeCuentasTab() {
         </Table>
       </Card>
     </div>
+  );
+}
+
+function CierreContableCard({ empresaId }: { empresaId: string }) {
+  const { esAdmin } = useAuth();
+  const queryClient = useQueryClient();
+  const [fecha, setFecha] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const { data: cierre } = useQuery({
+    queryKey: ['cierre-contable', empresaId],
+    queryFn: async () =>
+      (await api.get<{ fechaCierreContable: string | null }>('/cuentas-contables/cierre', { params: { empresaId } })).data,
+  });
+
+  const actualizar = useMutation({
+    mutationFn: (fechaCierreContable: string | undefined) =>
+      api.put('/cuentas-contables/cierre', { fechaCierreContable }, { params: { empresaId } }),
+    onSuccess: () => {
+      setError(null);
+      setFecha('');
+      queryClient.invalidateQueries({ queryKey: ['cierre-contable', empresaId] });
+    },
+    onError: (err) => setError(apiErrorMessage(err)),
+  });
+
+  return (
+    <Card>
+      <CardHeader
+        title="Cierre de período contable"
+        subtitle="Bloquea cargar ventas, compras, cobros, pagos o asientos manuales con fecha igual o anterior a la elegida."
+      />
+      <div className="flex flex-wrap items-end gap-3 px-5 py-4">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-ink-500">Cerrado hasta</p>
+          <p className="mt-1 text-sm text-ink-900">
+            {cierre?.fechaCierreContable ? formatDate(cierre.fechaCierreContable) : 'Sin cierre — todas las fechas abiertas'}
+          </p>
+        </div>
+        {esAdmin && (
+          <>
+            <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="w-40" />
+            <Button variant="secondary" disabled={!fecha || actualizar.isPending} onClick={() => actualizar.mutate(fecha)}>
+              Cerrar hasta esta fecha
+            </Button>
+            {cierre?.fechaCierreContable && (
+              <Button variant="ghost" disabled={actualizar.isPending} onClick={() => actualizar.mutate(undefined)}>
+                Quitar cierre
+              </Button>
+            )}
+          </>
+        )}
+      </div>
+      {error && <div className="mx-5 mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+    </Card>
   );
 }
 

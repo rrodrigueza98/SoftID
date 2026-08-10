@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, TipoMovimientoBancario } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateMovimientoBancarioDto } from './dto/create-movimiento-bancario.dto';
@@ -49,8 +49,21 @@ export class MovimientosBancariosService {
     });
   }
 
+  // Un movimiento ya conciliado no se puede borrar sin mas -- dejaria el
+  // historial de ConciliacionBancaria imposible de reconstruir (el saldo
+  // segun libros que se guardo ahi ya no coincidiria con los movimientos
+  // reales). Tampoco uno generado automaticamente desde un Recibo/Orden de
+  // Pago -- borrarlo a mano dejaria ese cobro/pago sin su rastro bancario.
   async remove(id: string) {
-    await this.findOne(id);
+    const movimiento = await this.findOne(id);
+    if (movimiento.conciliado) {
+      throw new BadRequestException('Este movimiento ya está conciliado -- desconcilialo primero si necesitás borrarlo');
+    }
+    if (movimiento.reciboId || movimiento.ordenPagoId) {
+      throw new BadRequestException(
+        'Este movimiento se generó automáticamente desde un recibo o una orden de pago -- no se puede borrar a mano',
+      );
+    }
     return this.prisma.movimientoBancario.delete({ where: { id } });
   }
 }

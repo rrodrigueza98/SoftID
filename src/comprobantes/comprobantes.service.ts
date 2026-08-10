@@ -287,18 +287,73 @@ export class ComprobantesService {
     return comprobante;
   }
 
-  // Marca el comprobante como anulado. NO revierte automaticamente los
-  // movimientos de stock o cuenta corriente que genero -- eso requiere un
-  // criterio de negocio propio (nota de credito, contramovimiento manual,
-  // etc.) que todavia no esta definido. Queda como paso manual a proposito.
+  // Anular revierte automaticamente todo lo que genero el comprobante:
+  // stock (contramovimiento DEVOLUCION_VENTA), cuenta corriente
+  // (contramovimiento de signo opuesto) y el asiento contable (storno, ver
+  // generarContraAsiento). Se bloquea si ya tiene cobros aplicados (Recibo)
+  // -- primero hay que revertir esos recibos, porque anular por debajo de un
+  // cobro ya aplicado dejaria un pago huerfano sin factura valida detras.
   async anular(id: string) {
-    const comprobante = await this.findOne(id);
-    if (comprobante.estado === EstadoComprobante.ANULADO) {
-      throw new BadRequestException('El comprobante ya esta anulado');
-    }
-    return this.prisma.comprobante.update({
-      where: { id },
-      data: { estado: EstadoComprobante.ANULADO },
+    return this.prisma.$transaction(async (tx) => {
+      const comprobante = await tx.comprobante.findUnique({
+        where: { id },
+        include: { movimientosStock: true, movimientosCuentaCorriente: true, asientosContables: true },
+      });
+      if (!comprobante) throw new NotFoundException(`Comprobante ${id} no encontrado`);
+      if (comprobante.estado === EstadoComprobante.ANULADO) {
+        throw new BadRequestException('El comprobante ya esta anulado');
+      }
+
+      const aplicaciones = await tx.reciboAplicacion.count({ where: { comprobanteId: id } });
+      if (aplicaciones > 0) {
+        throw new BadRequestException(
+          'Este comprobante ya tiene cobros aplicados -- revertí esos recibos antes de anularlo',
+        );
+      }
+
+      for (const mov of comprobante.movimientosStock) {
+        if (mov.tipo !== TipoMovimientoStock.VENTA) continue;
+        await this.stockService.registrarMovimiento(
+          {
+            productoId: mov.productoId,
+            depositoId: mov.depositoId,
+            tipo: TipoMovimientoStock.DEVOLUCION_VENTA,
+            cantidad: Number(mov.cantidad),
+            comprobanteId: comprobante.id,
+            observacion: `Reversión por anulación de comprobante Nº ${comprobante.numero}`,
+          },
+          tx,
+        );
+      }
+
+      for (const mov of comprobante.movimientosCuentaCorriente) {
+        await this.cuentasCorrientesService.registrarMovimiento(
+          {
+            cuentaCorrienteId: mov.cuentaCorrienteId,
+            tipo:
+              mov.tipo === TipoMovimientoCuentaCorriente.DEBITO
+                ? TipoMovimientoCuentaCorriente.CREDITO
+                : TipoMovimientoCuentaCorriente.DEBITO,
+            monto: Number(mov.monto),
+            concepto: `Anulación Comprobante Nº ${comprobante.numero}`,
+            comprobanteId: comprobante.id,
+          },
+          tx,
+        );
+      }
+
+      for (const asiento of comprobante.asientosContables) {
+        await this.asientosContablesService.generarContraAsiento(
+          tx,
+          asiento.id,
+          `Anulación Comprobante Nº ${comprobante.numero}`,
+        );
+      }
+
+      return tx.comprobante.update({
+        where: { id },
+        data: { estado: EstadoComprobante.ANULADO },
+      });
     });
   }
 

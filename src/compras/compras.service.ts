@@ -66,6 +66,7 @@ export class ComprasService {
             tipo: TipoMovimientoCuentaCorriente.CREDITO,
             monto: total,
             concepto: `Compra Nº ${compra.numeroComprobante}`,
+            compraId: compra.id,
           },
           tx,
         );
@@ -156,15 +157,54 @@ export class ComprasService {
     };
   }
 
-  // No revierte automaticamente el movimiento de cuenta corriente ni el
-  // asiento contable que genero -- mismo criterio deliberado que anular() en
-  // ComprobantesService (requiere un contramovimiento manual con su propio
-  // criterio de negocio).
+  // Anular revierte automaticamente lo que genero la compra: cuenta
+  // corriente del proveedor (contramovimiento de signo opuesto) y el
+  // asiento contable (storno, ver generarContraAsiento). Compras no toca
+  // stock (a diferencia de Comprobantes), asi que no hay nada que revertir
+  // ahi. Se bloquea si ya tiene pagos aplicados (Orden de Pago) -- primero
+  // hay que revertir esas ordenes de pago.
   async anular(id: string) {
-    const compra = await this.findOne(id);
-    if (compra.estado === EstadoComprobante.ANULADO) {
-      throw new BadRequestException('La compra ya esta anulada');
-    }
-    return this.prisma.compra.update({ where: { id }, data: { estado: EstadoComprobante.ANULADO } });
+    return this.prisma.$transaction(async (tx) => {
+      const compra = await tx.compra.findUnique({
+        where: { id },
+        include: { movimientosCC: true, asientosContables: true },
+      });
+      if (!compra) throw new NotFoundException(`Compra ${id} no encontrada`);
+      if (compra.estado === EstadoComprobante.ANULADO) {
+        throw new BadRequestException('La compra ya esta anulada');
+      }
+
+      const aplicaciones = await tx.ordenPagoAplicacion.count({ where: { compraId: id } });
+      if (aplicaciones > 0) {
+        throw new BadRequestException(
+          'Esta compra ya tiene pagos aplicados -- revertí esas órdenes de pago antes de anularla',
+        );
+      }
+
+      for (const mov of compra.movimientosCC) {
+        await this.cuentasCorrientesService.registrarMovimiento(
+          {
+            cuentaCorrienteId: mov.cuentaCorrienteId,
+            tipo:
+              mov.tipo === TipoMovimientoCuentaCorriente.CREDITO
+                ? TipoMovimientoCuentaCorriente.DEBITO
+                : TipoMovimientoCuentaCorriente.CREDITO,
+            monto: Number(mov.monto),
+            concepto: `Anulación Compra Nº ${compra.numeroComprobante}`,
+          },
+          tx,
+        );
+      }
+
+      for (const asiento of compra.asientosContables) {
+        await this.asientosContablesService.generarContraAsiento(
+          tx,
+          asiento.id,
+          `Anulación Compra Nº ${compra.numeroComprobante}`,
+        );
+      }
+
+      return tx.compra.update({ where: { id }, data: { estado: EstadoComprobante.ANULADO } });
+    });
   }
 }

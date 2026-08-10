@@ -500,11 +500,12 @@ export interface Empresa {
   // en el encabezado de comprobantes y recibos impresos.
   logoUrl?: string | null;
   proximoNumeroRecibo: number;
+  fechaCierreContable?: string | null;
 }
 
 export type TipoCuentaContable = 'ACTIVO' | 'PASIVO' | 'PATRIMONIO' | 'INGRESO' | 'EGRESO';
 export type NaturalezaCuenta = 'DEUDORA' | 'ACREEDORA';
-export type OrigenAsiento = 'MANUAL' | 'VENTA' | 'COBRO' | 'COMPRA';
+export type OrigenAsiento = 'MANUAL' | 'VENTA' | 'COBRO' | 'COMPRA' | 'PAGO';
 
 export interface CuentaContable {
   id: string;
