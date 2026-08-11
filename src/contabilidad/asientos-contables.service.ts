@@ -414,6 +414,7 @@ export class AsientosContablesService {
     tx: TxClient,
     comprobante: Comprobante & { items: ComprobanteItem[] },
     formaPago: string | undefined,
+    cuentaBancariaId?: string,
   ) {
     const empresa = await tx.empresa.findUniqueOrThrow({ where: { id: comprobante.empresaId } });
     this.verificarPeriodoAbierto(empresa, comprobante.fechaEmision);
@@ -423,12 +424,19 @@ export class AsientosContablesService {
     const neto = round2(Number(comprobante.subtotalExenta) + Number(comprobante.subtotalGravada10) + Number(comprobante.subtotalGravada5));
     const iva = round2(Number(comprobante.iva10) + Number(comprobante.iva5));
 
-    const cuentaContrapartidaId =
-      comprobante.condicionVenta === 'CREDITO'
-        ? mapeo.CLIENTES
-        : esFormaPagoBancaria(formaPago)
-          ? mapeo.BANCO
-          : mapeo.CAJA;
+    // Si se eligio una cuenta bancaria puntual (transferencia a un banco
+    // especifico), se postea a SU cuenta contable en vez de la generica
+    // mapeo.BANCO -- mismo criterio que generarAsientoCobro/generarAsientoPago.
+    let cuentaContrapartidaId: string | undefined;
+    if (comprobante.condicionVenta === 'CREDITO') {
+      cuentaContrapartidaId = mapeo.CLIENTES;
+    } else if (esFormaPagoBancaria(formaPago)) {
+      cuentaContrapartidaId = cuentaBancariaId
+        ? (await tx.cuentaBancaria.findUnique({ where: { id: cuentaBancariaId } }))?.cuentaContableId
+        : mapeo.BANCO;
+    } else {
+      cuentaContrapartidaId = mapeo.CAJA;
+    }
 
     const detalles: { cuentaId: string; debe: number; haber: number }[] = [];
     if (cuentaContrapartidaId) detalles.push({ cuentaId: cuentaContrapartidaId, debe: total, haber: 0 });

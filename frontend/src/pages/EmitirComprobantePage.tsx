@@ -25,6 +25,7 @@ import type {
   CondicionCredito,
   CondicionVenta,
   Comprobante,
+  CuentaBancaria,
   Deposito,
   Empresa,
   Establecimiento,
@@ -81,6 +82,11 @@ const FORMAS_PAGO: { value: FormaPago; label: string }[] = [
   { value: 'BILLETERA_ELECTRONICA', label: 'Billetera electrónica' },
   { value: 'OTRO', label: 'Otro' },
 ];
+
+// Formas de pago que entran por una cuenta bancaria real -- mismo criterio
+// que ReciboFormDialog: para estas se ofrece elegir la cuenta bancaria
+// puntual y asi generar el movimiento en Bancos listo para conciliar.
+const FORMAS_PAGO_BANCARIAS = new Set<FormaPago>(['TRANSFERENCIA', 'CHEQUE', 'BILLETERA_ELECTRONICA']);
 
 const TIPO_DOC_TRANSPORTISTA: { value: TipoDocumentoIdentidad; label: string }[] = [
   { value: 'CEDULA_PARAGUAYA', label: 'Cédula paraguaya' },
@@ -236,6 +242,7 @@ export default function EmitirComprobantePage() {
   const [proveedorId, setProveedorId] = useState('');
   const [condicionVenta, setCondicionVenta] = useState<CondicionVenta>('CONTADO');
   const [formaPago, setFormaPago] = useState<FormaPago>('EFECTIVO');
+  const [cuentaBancariaId, setCuentaBancariaId] = useState('');
   const [condicionCredito, setCondicionCredito] = useState<CondicionCredito>('PLAZO');
   const [plazoCredito, setPlazoCredito] = useState('');
   const [cantidadCuotas, setCantidadCuotas] = useState('');
@@ -265,6 +272,7 @@ export default function EmitirComprobantePage() {
     setProveedorId('');
     setCondicionVenta('CONTADO');
     setFormaPago('EFECTIVO');
+    setCuentaBancariaId('');
     setCondicionCredito('PLAZO');
     setPlazoCredito('');
     setCantidadCuotas('');
@@ -281,6 +289,21 @@ export default function EmitirComprobantePage() {
     queryKey: ['empresa', empresaId],
     queryFn: async () => (await api.get<Empresa>(`/empresas/${empresaId}`)).data,
   });
+
+  const esFormaPagoBancaria = FORMAS_PAGO_BANCARIAS.has(formaPago);
+  // Se ofrece elegir la cuenta bancaria solo para formas de pago bancarias.
+  // Si la consulta falla (ej. operador sin acceso a Bancos), simplemente no
+  // se muestra el selector y la venta se registra igual, sin enlazar banco.
+  const { data: cuentasBancarias } = useQuery({
+    queryKey: ['cuentas-bancarias', empresaId],
+    queryFn: async () => (await api.get<CuentaBancaria[]>('/cuentas-bancarias', { params: { empresaId } })).data,
+    enabled: esFormaPagoBancaria,
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (!esFormaPagoBancaria) setCuentaBancariaId('');
+  }, [esFormaPagoBancaria]);
 
   const [establecimientoId, setEstablecimientoId] = useState('');
   const [puntoExpedicionId, setPuntoExpedicionId] = useState('');
@@ -546,6 +569,10 @@ export default function EmitirComprobantePage() {
           proveedorId: esAutofactura ? proveedorId || undefined : undefined,
           condicionVenta,
           formaPago: requiereCondicionOperacion && condicionVenta === 'CONTADO' ? formaPago : undefined,
+          cuentaBancariaId:
+            requiereCondicionOperacion && condicionVenta === 'CONTADO' && esFormaPagoBancaria && cuentaBancariaId
+              ? cuentaBancariaId
+              : undefined,
           condicionCredito: requiereCondicionOperacion && condicionVenta === 'CREDITO' ? condicionCredito : undefined,
           plazoCredito:
             requiereCondicionOperacion && condicionVenta === 'CREDITO' && condicionCredito === 'PLAZO'
@@ -880,6 +907,23 @@ export default function EmitirComprobantePage() {
                 </Select>
               </FormField>
             )}
+
+            {requiereCondicionOperacion &&
+              condicionVenta === 'CONTADO' &&
+              esFormaPagoBancaria &&
+              cuentasBancarias &&
+              cuentasBancarias.length > 0 && (
+                <FormField label="Cuenta bancaria (opcional, para reflejar el cobro en Bancos)">
+                  <Select value={cuentaBancariaId} onChange={(e) => setCuentaBancariaId(e.target.value)}>
+                    <option value="">No registrar en Bancos</option>
+                    {cuentasBancarias.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.nombre} — {c.banco} · {c.numeroCuenta}
+                      </option>
+                    ))}
+                  </Select>
+                </FormField>
+              )}
 
             {requiereCondicionOperacion && condicionVenta === 'CREDITO' && (
               <div className="grid grid-cols-2 gap-4">

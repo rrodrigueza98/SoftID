@@ -198,7 +198,7 @@ export class ComprobantesService {
       // arriba (solo Factura Electronica = venta real), pero sin requerir
       // depositoId -- la contabilidad no depende de si se controla stock.
       if (dto.tipoDocumento === TipoDocumentoElectronico.FACTURA_ELECTRONICA) {
-        await this.asientosContablesService.generarAsientoVenta(tx, comprobante, dto.formaPago);
+        await this.asientosContablesService.generarAsientoVenta(tx, comprobante, dto.formaPago, dto.cuentaBancariaId);
       }
 
       // SIFEN exige informar la forma de pago (E606) cuando la operacion es
@@ -210,14 +210,32 @@ export class ComprobantesService {
         dto.tipoDocumento === TipoDocumentoElectronico.FACTURA_ELECTRONICA ||
         dto.tipoDocumento === TipoDocumentoElectronico.AUTOFACTURA_ELECTRONICA;
       if (esFacturaOAutofactura && comprobante.condicionVenta === CondicionVenta.CONTADO && dto.formaPago) {
-        await tx.comprobantePago.create({
+        const comprobantePago = await tx.comprobantePago.create({
           data: {
             comprobanteId: comprobante.id,
             formaPago: dto.formaPago,
             monto: subtotales.total,
             fecha: comprobante.fechaEmision,
+            cuentaBancariaId: dto.cuentaBancariaId,
           },
         });
+
+        // Igual que en Recibos: si se eligio una cuenta bancaria puntual, el
+        // cobro tambien queda como movimiento en Bancos, listo para
+        // conciliar contra el extracto.
+        if (dto.cuentaBancariaId) {
+          await tx.movimientoBancario.create({
+            data: {
+              cuentaBancariaId: dto.cuentaBancariaId,
+              fecha: comprobante.fechaEmision,
+              concepto: `Venta ${dto.tipoDocumento} Nº ${numero}`,
+              tipo: 'CREDITO',
+              monto: subtotales.total,
+              referencia: numero,
+              comprobantePagoId: comprobantePago.id,
+            },
+          });
+        }
       }
 
       if (dto.clienteId && dto.condicionVenta === CondicionVenta.CREDITO) {
@@ -312,7 +330,12 @@ export class ComprobantesService {
     return this.prisma.$transaction(async (tx) => {
       const comprobante = await tx.comprobante.findUnique({
         where: { id },
-        include: { movimientosStock: true, movimientosCuentaCorriente: true, asientosContables: true },
+        include: {
+          movimientosStock: true,
+          movimientosCuentaCorriente: true,
+          asientosContables: true,
+          pagos: { include: { movimientoBancario: true } },
+        },
       });
       if (!comprobante) throw new NotFoundException(`Comprobante ${id} no encontrado`);
       if (comprobante.estado === EstadoComprobante.ANULADO) {
@@ -324,6 +347,22 @@ export class ComprobantesService {
         throw new BadRequestException(
           'Este comprobante ya tiene cobros aplicados -- revertí esos recibos antes de anularlo',
         );
+      }
+
+      // Si el cobro contado quedo enlazado a un movimiento bancario, no se
+      // puede anular el comprobante dejandolo huerfano -- mismo criterio que
+      // borrar un movimiento a mano (MovimientosBancariosService.remove): si
+      // ya esta conciliado contra el extracto real, primero hay que
+      // desconciliarlo. Si no esta conciliado, se borra junto con la
+      // anulacion (el dinero nunca llego a formar parte de una venta real).
+      for (const pago of comprobante.pagos) {
+        if (!pago.movimientoBancario) continue;
+        if (pago.movimientoBancario.conciliado) {
+          throw new BadRequestException(
+            'El cobro de este comprobante ya esta conciliado en Bancos -- desconcilialo antes de anular',
+          );
+        }
+        await tx.movimientoBancario.delete({ where: { id: pago.movimientoBancario.id } });
       }
 
       for (const mov of comprobante.movimientosStock) {

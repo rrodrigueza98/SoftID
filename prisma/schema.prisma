@@ -216,44 +216,44 @@ enum TipoEventoDocumentoElectronico {
 // ─────────────────────────────────────────────────────────────────────────
 
 model Empresa {
-  id                String            @id @default(cuid())
-  ruc               String            @unique
-  dvRuc             String // digito verificador del RUC
-  razonSocial       String
-  nombreFantasia    String?
-  tipoContribuyente TipoContribuyente
-  regimenTributario RegimenTributario @default(IRE_GENERAL)
-  regimenEspecialSifen RegimenEspecialSifen? // solo si opera bajo un regimen especial (Tabla 1 SIFEN); la mayoria lo deja vacio
-  direccion         String
-  ciudad            String
-  departamento      String
-  telefono          String?
-  email             String?
-  logoUrl           String?
-  activo            Boolean           @default(true)
+  id                     String                @id @default(cuid())
+  ruc                    String                @unique
+  dvRuc                  String // digito verificador del RUC
+  razonSocial            String
+  nombreFantasia         String?
+  tipoContribuyente      TipoContribuyente
+  regimenTributario      RegimenTributario     @default(IRE_GENERAL)
+  regimenEspecialSifen   RegimenEspecialSifen? // solo si opera bajo un regimen especial (Tabla 1 SIFEN); la mayoria lo deja vacio
+  direccion              String
+  ciudad                 String
+  departamento           String
+  telefono               String?
+  email                  String?
+  logoUrl                String?
+  activo                 Boolean               @default(true)
   // Recibo no es un Documento Electronico SIFEN (no usa timbrado), pero
   // igual necesita numeracion correlativa propia -- un contador simple por
   // empresa alcanza, sin la jerarquia de establecimiento/punto de expedicion.
-  proximoNumeroRecibo Int             @default(1)
+  proximoNumeroRecibo    Int                   @default(1)
   // Orden de Pago (pago a proveedor): mismo criterio que Recibo, serie
   // correlativa propia por empresa, tampoco es un documento SIFEN.
-  proximoNumeroOrdenPago Int          @default(1)
+  proximoNumeroOrdenPago Int                   @default(1)
   // Correlativo del Libro Diario -- mismo criterio simple que el de Recibo
   // (no es un documento SIFEN, solo necesita ser unico y consecutivo).
-  proximoNumeroAsiento Int            @default(1)
+  proximoNumeroAsiento   Int                   @default(1)
   // Mapeo de "roles" contables (que cuenta usar para Caja, Clientes, Ventas,
   // IVA Debito Fiscal, Costo de Venta, Inventario...) a un id de
   // CuentaContable. Se guarda como JSON en vez de columnas/relaciones fijas
   // por cuenta para poder agregar roles nuevos sin migracion; las claves
   // validas viven en src/contabilidad/mapeo-contable.ts (CUENTA_ROL).
-  mapeoContable     Json?
+  mapeoContable          Json?
   // Fecha de cierre de periodo contable: ningun asiento (manual o
   // automatico de Venta/Cobro/Compra/Pago) puede postear con fecha igual o
   // anterior a esta. Null = sin cierre, cualquier fecha vale (estado por
   // defecto).
-  fechaCierreContable DateTime?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  fechaCierreContable    DateTime?
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
 
   establecimientos  Establecimiento[]
   usuarios          Usuario[]
@@ -268,44 +268,44 @@ model Empresa {
   ordenesPago       OrdenPago[]
   sesionesCaja      SesionCaja[]
   compras           Compra[]
-  cuentasContables  CuentaContable[]  @relation("EmpresaCuentas")
-  asientosContables AsientoContable[] @relation("EmpresaAsientos")
+  cuentasContables  CuentaContable[]    @relation("EmpresaCuentas")
+  asientosContables AsientoContable[]   @relation("EmpresaAsientos")
   cuentasBancarias  CuentaBancaria[]
 
   @@map("empresas")
 }
 
 model Establecimiento {
-  id            String   @id @default(cuid())
-  empresaId     String
-  codigo        String // "001" — 3 digitos segun SIFEN
-  nombre        String
-  direccion     String
-  ciudad        String
-  departamento  String
-  telefono      String?
-  email         String?
-  esCasaMatriz  Boolean  @default(false)
-  activo        Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           String   @id @default(cuid())
+  empresaId    String
+  codigo       String // "001" — 3 digitos segun SIFEN
+  nombre       String
+  direccion    String
+  ciudad       String
+  departamento String
+  telefono     String?
+  email        String?
+  esCasaMatriz Boolean  @default(false)
+  activo       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  empresa           Empresa           @relation(fields: [empresaId], references: [id])
-  puntosExpedicion  PuntoExpedicion[]
-  depositos         Deposito[]
+  empresa          Empresa           @relation(fields: [empresaId], references: [id])
+  puntosExpedicion PuntoExpedicion[]
+  depositos        Deposito[]
 
   @@unique([empresaId, codigo])
   @@map("establecimientos")
 }
 
 model PuntoExpedicion {
-  id                 String   @id @default(cuid())
-  establecimientoId  String
-  codigo             String // "001" — 3 digitos segun SIFEN
-  descripcion        String
-  activo             Boolean  @default(true)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                String   @id @default(cuid())
+  establecimientoId String
+  codigo            String // "001" — 3 digitos segun SIFEN
+  descripcion       String
+  activo            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   establecimiento Establecimiento @relation(fields: [establecimientoId], references: [id])
   timbrados       Timbrado[]
@@ -317,23 +317,23 @@ model PuntoExpedicion {
 }
 
 model Timbrado {
-  id                    String                   @id @default(cuid())
-  puntoExpedicionId     String
-  numeroTimbrado        String // 8 digitos otorgados por la SET
-  tipoDocumento         TipoDocumentoElectronico
+  id                  String                   @id @default(cuid())
+  puntoExpedicionId   String
+  numeroTimbrado      String // 8 digitos otorgados por la SET
+  tipoDocumento       TipoDocumentoElectronico
   // false = timbrado tradicional (preimpreso/virtual, sin DTE): el
   // comprobante es solo numerado, sin las exigencias de SIFEN (CDC, firma
   // digital, bloques de transporte/vendedor, motivo de emision, etc).
   // Conviven ambos regimenes dentro de una misma empresa segun el timbrado.
-  esElectronico         Boolean                  @default(true)
-  numeroDesde           Int
-  numeroHasta           Int
-  proximoNumero         Int                      @default(1)
-  fechaInicioVigencia   DateTime
-  fechaFinVigencia      DateTime?
-  activo                Boolean                  @default(true)
-  createdAt             DateTime                 @default(now())
-  updatedAt             DateTime                 @updatedAt
+  esElectronico       Boolean                  @default(true)
+  numeroDesde         Int
+  numeroHasta         Int
+  proximoNumero       Int                      @default(1)
+  fechaInicioVigencia DateTime
+  fechaFinVigencia    DateTime?
+  activo              Boolean                  @default(true)
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
 
   puntoExpedicion PuntoExpedicion @relation(fields: [puntoExpedicionId], references: [id])
   comprobantes    Comprobante[]
@@ -392,34 +392,34 @@ model Rol {
 }
 
 model Usuario {
-  id           String   @id @default(cuid())
-  empresaId    String
-  rolId        String
-  nombre       String
-  email        String   @unique
-  passwordHash String
-  activo       Boolean  @default(true)
+  id                         String     @id @default(cuid())
+  empresaId                  String
+  rolId                      String
+  nombre                     String
+  email                      String     @unique
+  passwordHash               String
+  activo                     Boolean    @default(true)
   // Administra CUALQUIER empresa, no solo la propia (empresaId/rolId siguen
   // siendo su "casa" nominal, pero RolesGuard/TenantGuard lo dejan pasar en
   // todas). Reservado al operador de la plataforma -- las empresas de
   // clientes nunca deberian tener un usuario con esto en true.
-  esSuperAdmin Boolean  @default(false)
+  esSuperAdmin               Boolean    @default(false)
   // Vacio (default) = sin restriccion, ve todos los modulos que su RolTipo
   // permita -- asi ningun operador existente pierde acceso al agregar esto.
   // Solo se evalua para OPERADOR; ADMIN y superadmin siempre ven todo.
-  modulosPermitidos Modulo[] @default([])
+  modulosPermitidos          Modulo[]   @default([])
   // Vacio (default) = sin restriccion, opera en cualquier punto de
   // expedicion de la empresa. Si tiene valores, solo puede emitir/ver
   // comprobantes y abrir caja en esos puntos de expedicion puntuales.
   // Solo se evalua para OPERADOR; ADMIN y superadmin no se restringen.
-  puntosExpedicionPermitidos String[] @default([])
+  puntosExpedicionPermitidos String[]   @default([])
   // Vacio (default) = sin restriccion adicional, opera en cualquier
   // pantalla del modulo que tenga permitido. Si tiene valores, se acota
   // ademas a esas pantallas puntuales (ej. Ventas pero solo Punto de venta).
   // Solo se evalua para OPERADOR; ADMIN y superadmin no se restringen.
-  pantallasPermitidas Pantalla[] @default([])
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  pantallasPermitidas        Pantalla[] @default([])
+  createdAt                  DateTime   @default(now())
+  updatedAt                  DateTime   @updatedAt
 
   empresa Empresa @relation(fields: [empresaId], references: [id])
   rol     Rol     @relation(fields: [rolId], references: [id])
@@ -456,15 +456,15 @@ model Tercero {
   createdAt         DateTime               @default(now())
   updatedAt         DateTime               @updatedAt
 
-  empresa                Empresa                @relation(fields: [empresaId], references: [id])
-  condicionPago           CondicionPago?         @relation(fields: [condicionPagoId], references: [id])
-  contactos               ContactoTercero[]
-  cuentaCorriente         CuentaCorriente?
-  comprobantesComoCliente Comprobante[]          @relation("ComprobanteCliente")
-  comprobantesComoProveedor Comprobante[]        @relation("ComprobanteProveedor")
-  recibos                 Recibo[]
-  compras                 Compra[]
-  ordenesPago             OrdenPago[]
+  empresa                   Empresa           @relation(fields: [empresaId], references: [id])
+  condicionPago             CondicionPago?    @relation(fields: [condicionPagoId], references: [id])
+  contactos                 ContactoTercero[]
+  cuentaCorriente           CuentaCorriente?
+  comprobantesComoCliente   Comprobante[]     @relation("ComprobanteCliente")
+  comprobantesComoProveedor Comprobante[]     @relation("ComprobanteProveedor")
+  recibos                   Recibo[]
+  compras                   Compra[]
+  ordenesPago               OrdenPago[]
 
   // El mismo RUC puede existir como Cliente y como Proveedor a la vez (son
   // roles distintos en el sistema) -- por eso "tipo" entra en la clave unica,
@@ -499,10 +499,10 @@ model CategoriaProducto {
   categoriaPadreId String?
   createdAt        DateTime @default(now())
 
-  empresa         Empresa             @relation(fields: [empresaId], references: [id])
-  categoriaPadre  CategoriaProducto?  @relation("SubCategorias", fields: [categoriaPadreId], references: [id])
-  subcategorias   CategoriaProducto[] @relation("SubCategorias")
-  productos       Producto[]
+  empresa        Empresa             @relation(fields: [empresaId], references: [id])
+  categoriaPadre CategoriaProducto?  @relation("SubCategorias", fields: [categoriaPadreId], references: [id])
+  subcategorias  CategoriaProducto[] @relation("SubCategorias")
+  productos      Producto[]
 
   @@map("categorias_producto")
 }
@@ -536,11 +536,11 @@ model Producto {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
-  empresa        Empresa           @relation(fields: [empresaId], references: [id])
-  categoria      CategoriaProducto? @relation(fields: [categoriaId], references: [id])
-  unidadMedida   UnidadMedida      @relation(fields: [unidadMedidaId], references: [id])
-  stocks         Stock[]
-  movimientos    MovimientoStock[]
+  empresa          Empresa            @relation(fields: [empresaId], references: [id])
+  categoria        CategoriaProducto? @relation(fields: [categoriaId], references: [id])
+  unidadMedida     UnidadMedida       @relation(fields: [unidadMedidaId], references: [id])
+  stocks           Stock[]
+  movimientos      MovimientoStock[]
   comprobanteItems ComprobanteItem[]
 
   @@unique([empresaId, codigo])
@@ -558,9 +558,9 @@ model Deposito {
   activo            Boolean  @default(true)
   createdAt         DateTime @default(now())
 
-  empresa         Empresa           @relation(fields: [empresaId], references: [id])
-  establecimiento Establecimiento?  @relation(fields: [establecimientoId], references: [id])
-  stocks          Stock[]
+  empresa            Empresa           @relation(fields: [empresaId], references: [id])
+  establecimiento    Establecimiento?  @relation(fields: [establecimientoId], references: [id])
+  stocks             Stock[]
   movimientosOrigen  MovimientoStock[] @relation("DepositoOrigen")
   movimientosDestino MovimientoStock[] @relation("DepositoDestino")
 
@@ -568,11 +568,11 @@ model Deposito {
 }
 
 model Stock {
-  id          String   @id @default(cuid())
-  productoId  String
-  depositoId  String
-  cantidad    Decimal  @default(0) @db.Decimal(15, 3)
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(cuid())
+  productoId String
+  depositoId String
+  cantidad   Decimal  @default(0) @db.Decimal(15, 3)
+  updatedAt  DateTime @updatedAt
 
   producto Producto @relation(fields: [productoId], references: [id])
   deposito Deposito @relation(fields: [depositoId], references: [id])
@@ -597,10 +597,10 @@ model MovimientoStock {
   usuarioId         String?
   observacion       String?
 
-  producto         Producto     @relation(fields: [productoId], references: [id])
-  deposito         Deposito     @relation("DepositoOrigen", fields: [depositoId], references: [id])
-  depositoDestino  Deposito?    @relation("DepositoDestino", fields: [depositoDestinoId], references: [id])
-  comprobante      Comprobante? @relation(fields: [comprobanteId], references: [id])
+  producto        Producto     @relation(fields: [productoId], references: [id])
+  deposito        Deposito     @relation("DepositoOrigen", fields: [depositoId], references: [id])
+  depositoDestino Deposito?    @relation("DepositoDestino", fields: [depositoDestinoId], references: [id])
+  comprobante     Comprobante? @relation(fields: [comprobanteId], references: [id])
 
   @@index([productoId, depositoId, fecha])
   @@map("movimientos_stock")
@@ -611,12 +611,12 @@ model MovimientoStock {
 // ─────────────────────────────────────────────────────────────────────────
 
 model CondicionPago {
-  id              String   @id @default(cuid())
-  empresaId       String
-  nombre          String // ej "Contado", "30 dias", "3 cuotas 30-60-90"
-  diasPlazo       Int      @default(0)
-  cantidadCuotas  Int      @default(1)
-  createdAt       DateTime @default(now())
+  id             String   @id @default(cuid())
+  empresaId      String
+  nombre         String // ej "Contado", "30 dias", "3 cuotas 30-60-90"
+  diasPlazo      Int      @default(0)
+  cantidadCuotas Int      @default(1)
+  createdAt      DateTime @default(now())
 
   empresa      Empresa       @relation(fields: [empresaId], references: [id])
   terceros     Tercero[]
@@ -669,28 +669,28 @@ model MovimientoCuentaCorriente {
 
 /// Recibo de cobro/pago, aplicable a uno o varios comprobantes (pagos parciales o combinados).
 model Recibo {
-  id          String    @id @default(cuid())
-  empresaId   String
-  terceroId   String
-  numero      String
-  fecha       DateTime  @default(now())
-  monto       Decimal   @db.Decimal(15, 2)
-  formaPago   FormaPago
-  observacion String?
+  id               String    @id @default(cuid())
+  empresaId        String
+  terceroId        String
+  numero           String
+  fecha            DateTime  @default(now())
+  monto            Decimal   @db.Decimal(15, 2)
+  formaPago        FormaPago
+  observacion      String?
   // Solo se completa cuando el cobro entra por una cuenta bancaria real
   // (transferencia, deposito, etc.) -- si esta presente, se genera un
   // MovimientoBancario CREDITO enlazado para que aparezca en Bancos listo
   // para conciliar. No reemplaza el asiento contable automatico (que sigue
   // usando el rol generico "BANCO" del mapeo contable).
   cuentaBancariaId String?
-  createdAt   DateTime  @default(now())
+  createdAt        DateTime  @default(now())
 
-  empresa      Empresa                     @relation(fields: [empresaId], references: [id])
-  tercero      Tercero                     @relation(fields: [terceroId], references: [id])
-  cuentaBancaria CuentaBancaria?           @relation(fields: [cuentaBancariaId], references: [id])
-  aplicaciones ReciboAplicacion[]
-  movimientosCC MovimientoCuentaCorriente[]
-  asientosContables AsientoContable[]
+  empresa            Empresa                     @relation(fields: [empresaId], references: [id])
+  tercero            Tercero                     @relation(fields: [terceroId], references: [id])
+  cuentaBancaria     CuentaBancaria?             @relation(fields: [cuentaBancariaId], references: [id])
+  aplicaciones       ReciboAplicacion[]
+  movimientosCC      MovimientoCuentaCorriente[]
+  asientosContables  AsientoContable[]
   movimientoBancario MovimientoBancario?
 
   @@unique([empresaId, numero])
@@ -698,10 +698,10 @@ model Recibo {
 }
 
 model ReciboAplicacion {
-  id             String  @id @default(cuid())
-  reciboId       String
-  comprobanteId  String
-  montoAplicado  Decimal @db.Decimal(15, 2)
+  id            String  @id @default(cuid())
+  reciboId      String
+  comprobanteId String
+  montoAplicado Decimal @db.Decimal(15, 2)
 
   recibo      Recibo      @relation(fields: [reciboId], references: [id])
   comprobante Comprobante @relation(fields: [comprobanteId], references: [id])
@@ -712,27 +712,27 @@ model ReciboAplicacion {
 /// Orden de pago a un proveedor -- espejo de Recibo (cobro), aplicable a
 /// una o varias Compras pendientes (pagos parciales o combinados).
 model OrdenPago {
-  id          String    @id @default(cuid())
-  empresaId   String
-  proveedorId String
-  numero      String
-  fecha       DateTime  @default(now())
-  monto       Decimal   @db.Decimal(15, 2)
-  formaPago   FormaPago
-  observacion String?
+  id               String    @id @default(cuid())
+  empresaId        String
+  proveedorId      String
+  numero           String
+  fecha            DateTime  @default(now())
+  monto            Decimal   @db.Decimal(15, 2)
+  formaPago        FormaPago
+  observacion      String?
   // Solo se completa cuando el pago sale por una cuenta bancaria real
   // (transferencia, cheque, etc.) -- si esta presente, se genera un
   // MovimientoBancario DEBITO enlazado. Si se deja vacio, se asume que
   // salio de Caja (efectivo).
   cuentaBancariaId String?
-  createdAt   DateTime  @default(now())
+  createdAt        DateTime  @default(now())
 
-  empresa        Empresa                     @relation(fields: [empresaId], references: [id])
-  proveedor      Tercero                     @relation(fields: [proveedorId], references: [id])
-  cuentaBancaria CuentaBancaria?             @relation(fields: [cuentaBancariaId], references: [id])
-  aplicaciones   OrdenPagoAplicacion[]
-  movimientosCC  MovimientoCuentaCorriente[]
-  asientosContables AsientoContable[]
+  empresa            Empresa                     @relation(fields: [empresaId], references: [id])
+  proveedor          Tercero                     @relation(fields: [proveedorId], references: [id])
+  cuentaBancaria     CuentaBancaria?             @relation(fields: [cuentaBancariaId], references: [id])
+  aplicaciones       OrdenPagoAplicacion[]
+  movimientosCC      MovimientoCuentaCorriente[]
+  asientosContables  AsientoContable[]
   movimientoBancario MovimientoBancario?
 
   @@unique([empresaId, numero])
@@ -760,61 +760,61 @@ model OrdenPagoAplicacion {
 /// efectivo contado vs. lo que deberia haber segun las ventas en efectivo
 /// del turno). No es un concepto de SIFEN -- es control interno del negocio.
 model SesionCaja {
-  id                  String           @id @default(cuid())
-  empresaId           String
-  puntoExpedicionId   String
-  usuarioAperturaId   String
-  usuarioCierreId     String?
+  id                String  @id @default(cuid())
+  empresaId         String
+  puntoExpedicionId String
+  usuarioAperturaId String
+  usuarioCierreId   String?
 
-  montoInicial        Decimal          @db.Decimal(15, 2)
+  montoInicial        Decimal  @db.Decimal(15, 2)
   // Se completan recien al cerrar -- ver CajaService.cerrarSesion().
-  montoFinalDeclarado Decimal?         @db.Decimal(15, 2) // lo que el cajero contó físicamente
-  montoFinalCalculado Decimal?         @db.Decimal(15, 2) // montoInicial + ventas en efectivo del turno
-  diferencia          Decimal?         @db.Decimal(15, 2) // declarado - calculado (sobrante/faltante)
+  montoFinalDeclarado Decimal? @db.Decimal(15, 2) // lo que el cajero contó físicamente
+  montoFinalCalculado Decimal? @db.Decimal(15, 2) // montoInicial + ventas en efectivo del turno
+  diferencia          Decimal? @db.Decimal(15, 2) // declarado - calculado (sobrante/faltante)
 
-  estado              EstadoSesionCaja @default(ABIERTA)
-  fechaApertura       DateTime         @default(now())
-  fechaCierre         DateTime?
-  observacionCierre   String?
+  estado            EstadoSesionCaja @default(ABIERTA)
+  fechaApertura     DateTime         @default(now())
+  fechaCierre       DateTime?
+  observacionCierre String?
 
-  empresa           Empresa         @relation(fields: [empresaId], references: [id])
-  puntoExpedicion   PuntoExpedicion @relation(fields: [puntoExpedicionId], references: [id])
-  usuarioApertura   Usuario         @relation("SesionCajaApertura", fields: [usuarioAperturaId], references: [id])
-  usuarioCierre     Usuario?        @relation("SesionCajaCierre", fields: [usuarioCierreId], references: [id])
-  ventas            Comprobante[]
+  empresa         Empresa         @relation(fields: [empresaId], references: [id])
+  puntoExpedicion PuntoExpedicion @relation(fields: [puntoExpedicionId], references: [id])
+  usuarioApertura Usuario         @relation("SesionCajaApertura", fields: [usuarioAperturaId], references: [id])
+  usuarioCierre   Usuario?        @relation("SesionCajaCierre", fields: [usuarioCierreId], references: [id])
+  ventas          Comprobante[]
 
   @@map("sesiones_caja")
 }
 
 model Comprobante {
-  id                  String                   @id @default(cuid())
-  empresaId           String
-  puntoExpedicionId   String
-  timbradoId          String
-  tipoDocumento       TipoDocumentoElectronico
-  numero              String // correlativo de 7 digitos dentro del timbrado
-  fechaEmision        DateTime                 @default(now())
+  id                String                   @id @default(cuid())
+  empresaId         String
+  puntoExpedicionId String
+  timbradoId        String
+  tipoDocumento     TipoDocumentoElectronico
+  numero            String // correlativo de 7 digitos dentro del timbrado
+  fechaEmision      DateTime                 @default(now())
 
-  clienteId           String? // para ventas
-  proveedorId         String? // para compras / autofactura
+  clienteId   String? // para ventas
+  proveedorId String? // para compras / autofactura
 
-  condicionVenta      CondicionVenta           @default(CONTADO)
-  condicionPagoId     String?
+  condicionVenta   CondicionVenta    @default(CONTADO)
+  condicionPagoId  String?
   // E641/E643/E644 (Manual Tecnico SIFEN v150, pag. 84) -- obligatorios
   // cuando condicionVenta = CREDITO: si es a Plazo se informa plazoCredito
   // ("30 dias", "12 meses"), si es a Cuota se informa cantidadCuotas.
-  condicionCredito    CondicionCredito?
-  plazoCredito        String?
-  cantidadCuotas      Int?
-  moneda              String                   @default("PYG")
-  tipoCambio          Decimal?                 @db.Decimal(15, 4)
+  condicionCredito CondicionCredito?
+  plazoCredito     String?
+  cantidadCuotas   Int?
+  moneda           String            @default("PYG")
+  tipoCambio       Decimal?          @db.Decimal(15, 4)
 
-  subtotalExenta      Decimal                  @default(0) @db.Decimal(15, 2)
-  subtotalGravada10   Decimal                  @default(0) @db.Decimal(15, 2)
-  subtotalGravada5    Decimal                  @default(0) @db.Decimal(15, 2)
-  iva10               Decimal                  @default(0) @db.Decimal(15, 2)
-  iva5                Decimal                  @default(0) @db.Decimal(15, 2)
-  total               Decimal                  @db.Decimal(15, 2)
+  subtotalExenta    Decimal @default(0) @db.Decimal(15, 2)
+  subtotalGravada10 Decimal @default(0) @db.Decimal(15, 2)
+  subtotalGravada5  Decimal @default(0) @db.Decimal(15, 2)
+  iva10             Decimal @default(0) @db.Decimal(15, 2)
+  iva5              Decimal @default(0) @db.Decimal(15, 2)
+  total             Decimal @db.Decimal(15, 2)
 
   comprobanteAsociadoId String? // NC/ND referenciando la factura original
   motivoEmision         MotivoEmisionNotaCD? // obligatorio si tipoDocumento es NC/ND (catalogo cerrado SIFEN)
@@ -823,32 +823,32 @@ model Comprobante {
   // sesion de caja abierta en ese momento -- asi el cierre de caja puede
   // sumar el efectivo esperado. Las facturas cargadas desde el flujo de
   // Facturacion normal no pasan por una sesion y quedan en null.
-  sesionCajaId        String?
+  sesionCajaId String?
 
-  estado              EstadoComprobante        @default(BORRADOR)
-  observacion         String?
-  createdAt           DateTime                 @default(now())
-  updatedAt           DateTime                 @updatedAt
+  estado      EstadoComprobante @default(BORRADOR)
+  observacion String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
 
-  empresa           Empresa            @relation(fields: [empresaId], references: [id])
-  puntoExpedicion   PuntoExpedicion    @relation(fields: [puntoExpedicionId], references: [id])
-  timbrado          Timbrado           @relation(fields: [timbradoId], references: [id])
-  cliente           Tercero?           @relation("ComprobanteCliente", fields: [clienteId], references: [id])
-  proveedor         Tercero?           @relation("ComprobanteProveedor", fields: [proveedorId], references: [id])
-  condicionPago     CondicionPago?     @relation(fields: [condicionPagoId], references: [id])
-  comprobanteAsociado   Comprobante?   @relation("ComprobantesRelacionados", fields: [comprobanteAsociadoId], references: [id])
-  comprobantesRelacionados Comprobante[] @relation("ComprobantesRelacionados")
-  sesionCaja            SesionCaja?    @relation(fields: [sesionCajaId], references: [id])
+  empresa                  Empresa         @relation(fields: [empresaId], references: [id])
+  puntoExpedicion          PuntoExpedicion @relation(fields: [puntoExpedicionId], references: [id])
+  timbrado                 Timbrado        @relation(fields: [timbradoId], references: [id])
+  cliente                  Tercero?        @relation("ComprobanteCliente", fields: [clienteId], references: [id])
+  proveedor                Tercero?        @relation("ComprobanteProveedor", fields: [proveedorId], references: [id])
+  condicionPago            CondicionPago?  @relation(fields: [condicionPagoId], references: [id])
+  comprobanteAsociado      Comprobante?    @relation("ComprobantesRelacionados", fields: [comprobanteAsociadoId], references: [id])
+  comprobantesRelacionados Comprobante[]   @relation("ComprobantesRelacionados")
+  sesionCaja               SesionCaja?     @relation(fields: [sesionCajaId], references: [id])
 
-  items                       ComprobanteItem[]
-  documentoElectronico        DocumentoElectronico?
-  movimientosStock            MovimientoStock[]
-  movimientosCuentaCorriente  MovimientoCuentaCorriente[]
-  pagos                       ComprobantePago[]
-  reciboAplicaciones          ReciboAplicacion[]
-  asientosContables           AsientoContable[]
-  datosTransporteRemision     DatosTransporteRemision?
-  datosVendedorAutofactura    DatosVendedorAutofactura?
+  items                      ComprobanteItem[]
+  documentoElectronico       DocumentoElectronico?
+  movimientosStock           MovimientoStock[]
+  movimientosCuentaCorriente MovimientoCuentaCorriente[]
+  pagos                      ComprobantePago[]
+  reciboAplicaciones         ReciboAplicacion[]
+  asientosContables          AsientoContable[]
+  datosTransporteRemision    DatosTransporteRemision?
+  datosVendedorAutofactura   DatosVendedorAutofactura?
 
   // La numeracion es propia de cada timbrado, no del par puntoExpedicion+tipo
   // -- dos timbrados del mismo tipo de documento (ej. uno electronico y otro
@@ -860,30 +860,30 @@ model Comprobante {
 }
 
 model ComprobanteItem {
-  id              String        @id @default(cuid())
-  comprobanteId   String
-  productoId      String?
-  descripcion     String
-  cantidad        Decimal       @db.Decimal(15, 3)
-  unidadMedidaId  String
-  precioUnitario  Decimal       @db.Decimal(15, 2)
-  descuento       Decimal       @default(0) @db.Decimal(15, 2)
-  afectacionIva   AfectacionIVA
-  tasaIva         Int           @default(10) // 0, 5 o 10 -- ver E734 dTasaIVA
-  proporcionGravada Decimal?    @db.Decimal(5, 2) // solo si afectacionIva = GRAVADO_PARCIAL (E733 dPropIVA)
-  montoExenta     Decimal       @default(0) @db.Decimal(15, 2)
-  montoGravado    Decimal       @default(0) @db.Decimal(15, 2)
-  liquidacionIva  Decimal       @default(0) @db.Decimal(15, 2)
-  total           Decimal       @db.Decimal(15, 2)
+  id                String        @id @default(cuid())
+  comprobanteId     String
+  productoId        String?
+  descripcion       String
+  cantidad          Decimal       @db.Decimal(15, 3)
+  unidadMedidaId    String
+  precioUnitario    Decimal       @db.Decimal(15, 2)
+  descuento         Decimal       @default(0) @db.Decimal(15, 2)
+  afectacionIva     AfectacionIVA
+  tasaIva           Int           @default(10) // 0, 5 o 10 -- ver E734 dTasaIVA
+  proporcionGravada Decimal?      @db.Decimal(5, 2) // solo si afectacionIva = GRAVADO_PARCIAL (E733 dPropIVA)
+  montoExenta       Decimal       @default(0) @db.Decimal(15, 2)
+  montoGravado      Decimal       @default(0) @db.Decimal(15, 2)
+  liquidacionIva    Decimal       @default(0) @db.Decimal(15, 2)
+  total             Decimal       @db.Decimal(15, 2)
   // Snapshot del precioCosto del producto al momento de la venta -- asi el
   // reporte de rentabilidad no queda mal si despues cambia el costo del
   // producto. Null en items libres (sin productoId) o si el producto no
   // tenia costo cargado.
-  costoUnitario   Decimal?      @db.Decimal(15, 2)
+  costoUnitario     Decimal?      @db.Decimal(15, 2)
 
-  comprobante  Comprobante   @relation(fields: [comprobanteId], references: [id])
-  producto     Producto?     @relation(fields: [productoId], references: [id])
-  unidadMedida UnidadMedida  @relation(fields: [unidadMedidaId], references: [id])
+  comprobante  Comprobante  @relation(fields: [comprobanteId], references: [id])
+  producto     Producto?    @relation(fields: [productoId], references: [id])
+  unidadMedida UnidadMedida @relation(fields: [unidadMedidaId], references: [id])
 
   @@map("comprobante_items")
 }
@@ -977,14 +977,14 @@ model DatosTransporteRemision {
   fechaFinTraslado    DateTime
 
   // E10.1 -- local de salida
-  direccionSalida     String
-  numeroCasaSalida     String
-  ciudadSalida        String
-  departamentoSalida  String
+  direccionSalida    String
+  numeroCasaSalida   String
+  ciudadSalida       String
+  departamentoSalida String
 
   // E10.2 -- local de entrega
   direccionEntrega    String
-  numeroCasaEntrega    String
+  numeroCasaEntrega   String
   ciudadEntrega       String
   departamentoEntrega String
 
@@ -1023,14 +1023,14 @@ model DatosVendedorAutofactura {
   comprobanteId String @unique
 
   // E4 -- datos del vendedor (E300-E315)
-  naturalezaVendedor       NaturalezaVendedorAutofactura
-  tipoDocIdentidadVendedor TipoDocumentoIdentidad
+  naturalezaVendedor         NaturalezaVendedorAutofactura
+  tipoDocIdentidadVendedor   TipoDocumentoIdentidad
   numeroDocIdentidadVendedor String
-  nombreVendedor           String
-  direccionVendedor        String
-  numeroCasaVendedor       String
-  ciudadVendedor           String
-  departamentoVendedor     String
+  nombreVendedor             String
+  direccionVendedor          String
+  numeroCasaVendedor         String
+  ciudadVendedor             String
+  departamentoVendedor       String
 
   // E4 -- lugar donde se realizo la transaccion (E316-E322), relevante
   // sobre todo cuando el vendedor es extranjero
@@ -1044,55 +1044,62 @@ model DatosVendedorAutofactura {
 }
 
 model ComprobantePago {
-  id            String    @id @default(cuid())
-  comprobanteId String
-  formaPago     FormaPago
-  monto         Decimal   @db.Decimal(15, 2)
-  banco         String?
-  numeroCheque  String?
-  fecha         DateTime  @default(now())
+  id               String    @id @default(cuid())
+  comprobanteId    String
+  formaPago        FormaPago
+  monto            Decimal   @db.Decimal(15, 2)
+  banco            String?
+  numeroCheque     String?
+  fecha            DateTime  @default(now())
+  // Cuenta bancaria puntual que recibió el pago (cuando formaPago es
+  // bancaria) -- distinta del campo "banco" de arriba, que es solo texto
+  // libre para el dato informativo de SIFEN. Con esto el pago genera su
+  // MovimientoBancario y postea al Plan de Cuentas de ese banco especifico.
+  cuentaBancariaId String?
 
-  comprobante Comprobante @relation(fields: [comprobanteId], references: [id])
+  comprobante        Comprobante         @relation(fields: [comprobanteId], references: [id])
+  cuentaBancaria     CuentaBancaria?     @relation(fields: [cuentaBancariaId], references: [id])
+  movimientoBancario MovimientoBancario?
 
   @@map("comprobante_pagos")
 }
 
 /// Representacion del Documento Electronico (DE) enviado a SIFEN para un comprobante.
 model DocumentoElectronico {
-  id                     String                     @id @default(cuid())
-  comprobanteId          String                     @unique
-  cdc                    String                     @unique // Codigo de Control, 44 caracteres
-  codigoSeguridad        String // 9 digitos aleatorios usados para generar el CDC
-  tipoEmision            TipoEmisionDE              @default(NORMAL) // forma parte del CDC (campo B002)
-  xmlGenerado            String?                    @db.Text
-  xmlFirmado             String?                    @db.Text
-  xmlRespuestaSet        String?                    @db.Text
-  estado                 EstadoDocumentoElectronico @default(BORRADOR)
-  numeroLote             String?
-  protocoloAutorizacion  String?
-  motivoRechazo          String?
-  qrUrl                  String?
-  fechaFirma             DateTime?
-  fechaEnvio             DateTime?
-  fechaProceso           DateTime?
-  createdAt              DateTime                   @default(now())
-  updatedAt              DateTime                   @updatedAt
+  id                    String                     @id @default(cuid())
+  comprobanteId         String                     @unique
+  cdc                   String                     @unique // Codigo de Control, 44 caracteres
+  codigoSeguridad       String // 9 digitos aleatorios usados para generar el CDC
+  tipoEmision           TipoEmisionDE              @default(NORMAL) // forma parte del CDC (campo B002)
+  xmlGenerado           String?                    @db.Text
+  xmlFirmado            String?                    @db.Text
+  xmlRespuestaSet       String?                    @db.Text
+  estado                EstadoDocumentoElectronico @default(BORRADOR)
+  numeroLote            String?
+  protocoloAutorizacion String?
+  motivoRechazo         String?
+  qrUrl                 String?
+  fechaFirma            DateTime?
+  fechaEnvio            DateTime?
+  fechaProceso          DateTime?
+  createdAt             DateTime                   @default(now())
+  updatedAt             DateTime                   @updatedAt
 
-  comprobante Comprobante                   @relation(fields: [comprobanteId], references: [id])
+  comprobante Comprobante                  @relation(fields: [comprobanteId], references: [id])
   eventos     EventoDocumentoElectronico[]
 
   @@map("documentos_electronicos")
 }
 
 model EventoDocumentoElectronico {
-  id                       String                          @id @default(cuid())
-  documentoElectronicoId   String
-  tipo                     TipoEventoDocumentoElectronico
-  fecha                    DateTime                        @default(now())
-  motivo                   String?
-  xmlEvento                String?                          @db.Text
-  xmlRespuesta             String?                          @db.Text
-  createdAt                DateTime                         @default(now())
+  id                     String                         @id @default(cuid())
+  documentoElectronicoId String
+  tipo                   TipoEventoDocumentoElectronico
+  fecha                  DateTime                       @default(now())
+  motivo                 String?
+  xmlEvento              String?                        @db.Text
+  xmlRespuesta           String?                        @db.Text
+  createdAt              DateTime                       @default(now())
 
   documentoElectronico DocumentoElectronico @relation(fields: [documentoElectronicoId], references: [id])
 
@@ -1129,9 +1136,9 @@ model Compra {
   estado            EstadoComprobante @default(EMITIDO)
   createdAt         DateTime          @default(now())
 
-  empresa           Empresa           @relation(fields: [empresaId], references: [id])
-  proveedor         Tercero           @relation(fields: [proveedorId], references: [id])
-  cuentaContable    CuentaContable    @relation(fields: [cuentaContableId], references: [id])
+  empresa           Empresa                     @relation(fields: [empresaId], references: [id])
+  proveedor         Tercero                     @relation(fields: [proveedorId], references: [id])
+  cuentaContable    CuentaContable              @relation(fields: [cuentaContableId], references: [id])
   asientosContables AsientoContable[]
   aplicacionesPago  OrdenPagoAplicacion[]
   movimientosCC     MovimientoCuentaCorriente[]
@@ -1185,11 +1192,11 @@ model CuentaContable {
   activo        Boolean            @default(true)
   createdAt     DateTime           @default(now())
 
-  empresa     Empresa                   @relation("EmpresaCuentas", fields: [empresaId], references: [id])
-  cuentaPadre CuentaContable?           @relation("JerarquiaCuentas", fields: [cuentaPadreId], references: [id])
-  subcuentas  CuentaContable[]          @relation("JerarquiaCuentas")
-  detalles    AsientoContableDetalle[]
-  compras     Compra[]
+  empresa          Empresa                  @relation("EmpresaCuentas", fields: [empresaId], references: [id])
+  cuentaPadre      CuentaContable?          @relation("JerarquiaCuentas", fields: [cuentaPadreId], references: [id])
+  subcuentas       CuentaContable[]         @relation("JerarquiaCuentas")
+  detalles         AsientoContableDetalle[]
+  compras          Compra[]
   cuentasBancarias CuentaBancaria[]
 
   @@unique([empresaId, codigo])
@@ -1262,41 +1269,46 @@ model CuentaBancaria {
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
-  empresa        Empresa                 @relation(fields: [empresaId], references: [id])
-  cuentaContable CuentaContable          @relation(fields: [cuentaContableId], references: [id])
-  movimientos    MovimientoBancario[]
-  conciliaciones ConciliacionBancaria[]
-  recibos        Recibo[]
-  ordenesPago    OrdenPago[]
+  empresa          Empresa                @relation(fields: [empresaId], references: [id])
+  cuentaContable   CuentaContable         @relation(fields: [cuentaContableId], references: [id])
+  movimientos      MovimientoBancario[]
+  conciliaciones   ConciliacionBancaria[]
+  recibos          Recibo[]
+  ordenesPago      OrdenPago[]
+  comprobantePagos ComprobantePago[]
 
   @@unique([empresaId, numeroCuenta])
   @@map("cuentas_bancarias")
 }
 
 model MovimientoBancario {
-  id                String                  @id @default(cuid())
+  id                String                 @id @default(cuid())
   cuentaBancariaId  String
   fecha             DateTime
   concepto          String
   tipo              TipoMovimientoBancario
-  monto             Decimal                 @db.Decimal(15, 2)
+  monto             Decimal                @db.Decimal(15, 2)
   referencia        String? // nro de cheque, nro de operacion, etc.
   // Sin vinculo automatico a asientos contables (v1): es un registro propio
   // para cotejar contra el extracto, no genera contabilidad por si solo.
-  conciliado        Boolean                 @default(false)
+  conciliado        Boolean                @default(false)
   fechaConciliacion DateTime?
   // Si este movimiento se genero solo al registrar un cobro (Recibo) por
   // transferencia/deposito, queda enlazado aca -- permite mostrar el origen
   // en Bancos y evita generarlo dos veces para el mismo recibo.
-  reciboId          String?                 @unique
+  reciboId          String?                @unique
   // Idem, pero cuando el movimiento sale de una Orden de Pago a proveedor
   // (egreso) en vez de un cobro.
-  ordenPagoId       String?                 @unique
-  createdAt         DateTime                @default(now())
+  ordenPagoId       String?                @unique
+  // Idem, pero cuando el movimiento sale de un pago de venta al contado
+  // (Comprobante) por transferencia/deposito.
+  comprobantePagoId String?                @unique
+  createdAt         DateTime               @default(now())
 
-  cuentaBancaria CuentaBancaria @relation(fields: [cuentaBancariaId], references: [id])
-  recibo         Recibo?        @relation(fields: [reciboId], references: [id])
-  ordenPago      OrdenPago?     @relation(fields: [ordenPagoId], references: [id])
+  cuentaBancaria  CuentaBancaria   @relation(fields: [cuentaBancariaId], references: [id])
+  recibo          Recibo?          @relation(fields: [reciboId], references: [id])
+  comprobantePago ComprobantePago? @relation(fields: [comprobantePagoId], references: [id])
+  ordenPago       OrdenPago?       @relation(fields: [ordenPagoId], references: [id])
 
   @@map("movimientos_bancarios")
 }

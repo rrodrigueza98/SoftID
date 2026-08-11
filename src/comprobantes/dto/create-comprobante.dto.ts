@@ -155,6 +155,14 @@ export class CreateComprobanteDto {
   @IsEnum(FormaPago)
   formaPago?: FormaPago;
 
+  // Cuenta bancaria puntual que recibio el pago -- solo tiene sentido cuando
+  // formaPago es bancaria (transferencia, cheque, billetera). Genera el
+  // MovimientoBancario en Bancos y postea el asiento a la cuenta contable de
+  // ese banco especifico en vez de la generica del mapeo.
+  @IsOptional()
+  @IsString()
+  cuentaBancariaId?: string;
+
   // Obligatorio si tipoDocumento es NOTA_REMISION_ELECTRONICA (grupos E6/E10
   // del Manual Tecnico SIFEN v150).
   @IsOptional()

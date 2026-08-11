@@ -14,6 +14,7 @@ import { RucSearchBox, type ResultadoBusquedaRuc } from '../components/RucSearch
 import type {
   AfectacionIVA,
   Comprobante,
+  CuentaBancaria,
   Deposito,
   Establecimiento,
   FormaPago,
@@ -33,6 +34,11 @@ const FORMAS_PAGO: { value: FormaPago; label: string }[] = [
 ];
 
 const FORMA_PAGO_LABEL: Record<string, string> = Object.fromEntries(FORMAS_PAGO.map((f) => [f.value, f.label]));
+
+// Mismo criterio que en Recibos/Facturación: para estas formas de pago se
+// ofrece elegir la cuenta bancaria puntual y asi generar el movimiento en
+// Bancos listo para conciliar.
+const FORMAS_PAGO_BANCARIAS = new Set<FormaPago>(['TRANSFERENCIA', 'BILLETERA_ELECTRONICA']);
 
 interface CartItem {
   key: string;
@@ -59,6 +65,7 @@ export default function PosPage() {
   const [clienteId, setClienteId] = useState('');
   const [depositoId, setDepositoId] = useState('');
   const [formaPago, setFormaPago] = useState<FormaPago>('EFECTIVO');
+  const [cuentaBancariaId, setCuentaBancariaId] = useState('');
   const [montoRecibido, setMontoRecibido] = useState('');
   const [ventaConfirmada, setVentaConfirmada] = useState<{ id: string; numero: string; total: number } | null>(null);
 
@@ -156,6 +163,20 @@ export default function PosPage() {
     }
   }, [depositos, depositoId]);
 
+  const esFormaPagoBancaria = FORMAS_PAGO_BANCARIAS.has(formaPago);
+  // Se ofrece elegir la cuenta bancaria solo para formas de pago bancarias.
+  // Si la consulta falla (ej. operador sin acceso a Bancos), simplemente no
+  // se muestra el selector y la venta se registra igual, sin enlazar banco.
+  const { data: cuentasBancarias } = useQuery({
+    queryKey: ['cuentas-bancarias', empresaId],
+    queryFn: async () => (await api.get<CuentaBancaria[]>('/cuentas-bancarias', { params: { empresaId } })).data,
+    enabled: esFormaPagoBancaria,
+    retry: false,
+  });
+  useEffect(() => {
+    if (!esFormaPagoBancaria) setCuentaBancariaId('');
+  }, [esFormaPagoBancaria]);
+
   const { data: clientes } = useQuery({
     queryKey: ['terceros-select', empresaId, 'CLIENTE'],
     queryFn: async () => (await api.get<Tercero[]>('/terceros', { params: { empresaId, tipo: 'CLIENTE' } })).data,
@@ -252,6 +273,7 @@ export default function PosPage() {
     setCart([]);
     setClienteId('');
     setFormaPago('EFECTIVO');
+    setCuentaBancariaId('');
     setMontoRecibido('');
     setVentaConfirmada(null);
     setError(null);
@@ -276,6 +298,10 @@ export default function PosPage() {
 
   const cobrarMutation = useMutation({
     mutationFn: async () => {
+      // El ComprobantePago (E606) lo genera ComprobantesService.create() solo
+      // -- antes ademas se creaba a mano aca con un POST separado, duplicando
+      // el pago (y por lo tanto duplicando el "total cobrado" en el arqueo
+      // de cierre de caja, que suma ComprobantePago.monto).
       const comprobante = (
         await api.post<Comprobante>('/comprobantes', {
           empresaId,
@@ -287,6 +313,7 @@ export default function PosPage() {
           depositoId: depositoId || undefined,
           sesionCajaId: sesion!.id,
           formaPago,
+          cuentaBancariaId: esFormaPagoBancaria && cuentaBancariaId ? cuentaBancariaId : undefined,
           items: cart.map((row) => ({
             productoId: row.productoId,
             descripcion: row.descripcion,
@@ -298,11 +325,6 @@ export default function PosPage() {
           })),
         })
       ).data;
-      await api.post('/comprobante-pagos', {
-        comprobanteId: comprobante.id,
-        formaPago,
-        monto: Number(comprobante.total),
-      });
       return comprobante;
     },
     onSuccess: (comprobante) => {
@@ -619,6 +641,19 @@ export default function PosPage() {
                     ))}
                   </Select>
                 </FormField>
+
+                {esFormaPagoBancaria && cuentasBancarias && cuentasBancarias.length > 0 && (
+                  <FormField label="Cuenta bancaria (opcional, para reflejar el cobro en Bancos)">
+                    <Select value={cuentaBancariaId} onChange={(e) => setCuentaBancariaId(e.target.value)}>
+                      <option value="">No registrar en Bancos</option>
+                      {cuentasBancarias.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.nombre} — {c.banco} · {c.numeroCuenta}
+                        </option>
+                      ))}
+                    </Select>
+                  </FormField>
+                )}
 
                 {formaPago === 'EFECTIVO' && (
                   <FormField label="Monto recibido (₲)">
