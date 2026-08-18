@@ -1,4 +1,8 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Post, Query, Res, StreamableFile, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
+import type { Response } from 'express';
+import { TipoTercero } from '@prisma/client';
 import { CuentasCorrientesService } from './cuentas-corrientes.service';
 import { CreateMovimientoCCDto } from './dto/create-movimiento-cc.dto';
 import { RequireModulo } from '../auth/decorators/modulo.decorator';
@@ -26,5 +30,37 @@ export class CuentasCorrientesController {
   @Post('movimientos-cuenta-corriente')
   registrarMovimiento(@Body() dto: CreateMovimientoCCDto) {
     return this.cuentasCorrientesService.registrarMovimientoManual(dto);
+  }
+
+  @Get('cuentas-corrientes/plantilla-saldos-iniciales')
+  async plantillaSaldosIniciales(
+    @Query('empresaId') empresaId: string,
+    @Query('tipo') tipo: TipoTercero,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const buffer = await this.cuentasCorrientesService.generarPlantillaSaldosIniciales(empresaId, this.tipoImportable(tipo));
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="plantilla-saldos-iniciales-${tipo === 'CLIENTE' ? 'clientes' : 'proveedores'}.xlsx"`,
+    });
+    return new StreamableFile(buffer);
+  }
+
+  @Post('cuentas-corrientes/importar-saldos-iniciales')
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } }))
+  importarSaldosIniciales(
+    @Query('empresaId') empresaId: string,
+    @Query('tipo') tipo: TipoTercero,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    if (!file) throw new BadRequestException('No se recibió ningún archivo.');
+    return this.cuentasCorrientesService.importarSaldosIniciales(empresaId, this.tipoImportable(tipo), file.buffer);
+  }
+
+  private tipoImportable(tipo: TipoTercero): 'CLIENTE' | 'PROVEEDOR' {
+    if (tipo !== 'CLIENTE' && tipo !== 'PROVEEDOR') {
+      throw new BadRequestException('Elegí Clientes o Proveedores para importar.');
+    }
+    return tipo;
   }
 }

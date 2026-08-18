@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -8,7 +9,14 @@ import {
   Patch,
   Post,
   Query,
+  Res,
+  StreamableFile,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
+import type { Response } from 'express';
 import { Pantalla, TipoTercero } from '@prisma/client';
 import { TercerosService } from './terceros.service';
 import { CreateTerceroDto } from './dto/create-tercero.dto';
@@ -55,6 +63,35 @@ export class TercerosController {
     return this.tercerosService.buscarEnDnit(q);
   }
 
+  @Get('plantilla-excel')
+  async plantillaExcel(
+    @Query('empresaId') empresaId: string,
+    @Query('tipo') tipo: TipoTercero,
+    @CurrentUser() usuario: AuthUser,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    this.verificarPantalla(usuario, this.pantallasParaTipo(tipo));
+    const buffer = await this.tercerosService.generarPlantillaExcel(empresaId, this.tipoImportable(tipo));
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="plantilla-${tipo === 'CLIENTE' ? 'clientes' : 'proveedores'}.xlsx"`,
+    });
+    return new StreamableFile(buffer);
+  }
+
+  @Post('importar-excel')
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } }))
+  importarExcel(
+    @Query('empresaId') empresaId: string,
+    @Query('tipo') tipo: TipoTercero,
+    @CurrentUser() usuario: AuthUser,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    this.verificarPantalla(usuario, this.pantallasParaTipo(tipo));
+    if (!file) throw new BadRequestException('No se recibió ningún archivo.');
+    return this.tercerosService.importarExcel(empresaId, this.tipoImportable(tipo), file.buffer);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string, @CurrentUser() usuario: AuthUser) {
     this.verificarPantalla(usuario, ['CLIENTES', 'PROVEEDORES']);
@@ -71,6 +108,16 @@ export class TercerosController {
   remove(@Param('id') id: string, @CurrentUser() usuario: AuthUser) {
     this.verificarPantalla(usuario, ['CLIENTES', 'PROVEEDORES']);
     return this.tercerosService.remove(id);
+  }
+
+  // La importacion masiva siempre se hace desde la pantalla de Clientes o de
+  // Proveedores (nunca "AMBOS", que es un caso raro de alta manual) -- asi
+  // la plantilla y el parser saben en que hoja/tabla buscar.
+  private tipoImportable(tipo: TipoTercero): 'CLIENTE' | 'PROVEEDOR' {
+    if (tipo !== 'CLIENTE' && tipo !== 'PROVEEDOR') {
+      throw new BadRequestException('Elegí Clientes o Proveedores para importar.');
+    }
+    return tipo;
   }
 
   private pantallasParaTipo(tipo?: TipoTercero): Pantalla[] {
