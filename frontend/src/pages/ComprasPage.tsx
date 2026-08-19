@@ -11,7 +11,7 @@ import { Badge } from '../components/ui/Badge';
 import { PageSpinner } from '../components/ui/Spinner';
 import { EmptyState, Table, Thead, Th, Tr, Td } from '../components/ui/Table';
 import { RucSearchBox, type ResultadoBusquedaRuc } from '../components/RucSearch';
-import type { Compra, CondicionVenta, CuentaContable, FormaPago, Tercero } from '../lib/types';
+import type { AtribucionCreditoF120, Compra, CondicionVenta, CuentaContable, FormaPago, Tercero } from '../lib/types';
 
 const FORMAS_PAGO: { value: FormaPago; label: string }[] = [
   { value: 'EFECTIVO', label: 'Efectivo' },
@@ -20,6 +20,16 @@ const FORMAS_PAGO: { value: FormaPago; label: string }[] = [
   { value: 'TARJETA_CREDITO', label: 'Tarjeta de crédito' },
   { value: 'TARJETA_DEBITO', label: 'Tarjeta de débito' },
   { value: 'OTRO', label: 'Otro' },
+];
+
+// Formulario 120, Rubro 3: a que se atribuye el credito fiscal de esta
+// compra. DIRECTA_GRAVADA es el caso normal (la gran mayoria de compras de
+// un negocio que solo vende gravado); las otras dos solo aplican si la
+// empresa tambien tiene ventas exoneradas/exentas.
+const ATRIBUCIONES_CREDITO: { value: AtribucionCreditoF120; label: string }[] = [
+  { value: 'DIRECTA_GRAVADA', label: 'Directa a ventas gravadas (caso normal)' },
+  { value: 'INDISTINTA', label: 'Uso indistinto (se prorratea)' },
+  { value: 'VINCULADA_EXONERADA', label: 'Vinculada a ventas exoneradas (sin crédito fiscal)' },
 ];
 
 const emptyForm = {
@@ -34,6 +44,7 @@ const emptyForm = {
   montoExenta: '',
   montoGravada10: '',
   montoGravada5: '',
+  atribucionCredito: 'DIRECTA_GRAVADA' as AtribucionCreditoF120,
   observacion: '',
 };
 
@@ -119,6 +130,7 @@ export default function ComprasPage() {
         montoExenta: form.montoExenta ? Number(form.montoExenta) : 0,
         montoGravada10: form.montoGravada10 ? Number(form.montoGravada10) : 0,
         montoGravada5: form.montoGravada5 ? Number(form.montoGravada5) : 0,
+        atribucionCredito: tieneGravada ? form.atribucionCredito : undefined,
         observacion: form.observacion || undefined,
       }),
     onSuccess: () => {
@@ -139,6 +151,7 @@ export default function ComprasPage() {
     (Number(form.montoExenta) || 0) +
     (Number(form.montoGravada10) || 0) * 1.1 +
     (Number(form.montoGravada5) || 0) * 1.05;
+  const tieneGravada = (Number(form.montoGravada10) || 0) > 0 || (Number(form.montoGravada5) || 0) > 0;
 
   const puedeRegistrar = form.proveedorId && form.numeroComprobante && form.concepto && form.cuentaContableId && totalPreview > 0;
 
@@ -286,6 +299,21 @@ export default function ComprasPage() {
               <Input type="number" min="0" value={form.montoGravada5} onChange={(e) => setForm({ ...form, montoGravada5: e.target.value })} />
             </FormField>
           </div>
+
+          {tieneGravada && (
+            <FormField label="Atribución del crédito fiscal (Formulario 120)">
+              <Select
+                value={form.atribucionCredito}
+                onChange={(e) => setForm({ ...form, atribucionCredito: e.target.value as AtribucionCreditoF120 })}
+              >
+                {ATRIBUCIONES_CREDITO.map((a) => (
+                  <option key={a.value} value={a.value}>
+                    {a.label}
+                  </option>
+                ))}
+              </Select>
+            </FormField>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <FormField label="Condición" required>

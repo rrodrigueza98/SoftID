@@ -1,4 +1,4 @@
-import { CondicionVenta, FormaPago } from '@prisma/client';
+import { AtribucionCreditoF120, CondicionVenta, FormaPago } from '@prisma/client';
 import { IsDateString, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 
 export class CreateCompraDto {
@@ -56,4 +56,10 @@ export class CreateCompraDto {
   @IsOptional()
   @IsString()
   observacion?: string;
+
+  // Formulario 120, Rubro 3: a que se atribuye el credito fiscal de esta
+  // compra. Sin valor -> el service usa DIRECTA_GRAVADA (el caso normal).
+  @IsOptional()
+  @IsEnum(AtribucionCreditoF120)
+  atribucionCredito?: AtribucionCreditoF120;
 }

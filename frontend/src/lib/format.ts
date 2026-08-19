@@ -26,3 +26,14 @@ export function formatDateTime(value: string) {
     minute: '2-digit',
   });
 }
+
+const MESES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+];
+
+// periodoTributario llega como "YYYY-MM" -> "Agosto 2026".
+export function periodoLabel(periodoTributario: string) {
+  const [anio, mes] = periodoTributario.split('-').map(Number);
+  return `${MESES[mes - 1]} ${anio}`;
+}

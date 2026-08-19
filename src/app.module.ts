@@ -25,6 +25,8 @@ import { ContabilidadModule } from './contabilidad/contabilidad.module';
 import { ComprasModule } from './compras/compras.module';
 import { BancosModule } from './bancos/bancos.module';
 import { OrdenesPagoModule } from './ordenes-pago/ordenes-pago.module';
+import { RetencionesModule } from './retenciones/retenciones.module';
+import { F120Module } from './f120/f120.module';
 
 @Module({
   imports: [
@@ -54,6 +56,8 @@ import { OrdenesPagoModule } from './ordenes-pago/ordenes-pago.module';
     ComprasModule,
     BancosModule,
     OrdenesPagoModule,
+    RetencionesModule,
+    F120Module,
   ],
 })
 export class AppModule {}

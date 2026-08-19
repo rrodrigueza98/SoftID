@@ -23,6 +23,8 @@ import EstablecimientosPage from './pages/EstablecimientosPage';
 import NuevaEmpresaPage from './pages/NuevaEmpresaPage';
 import ComprobantePrintPage from './pages/ComprobantePrintPage';
 import ReciboPrintPage from './pages/ReciboPrintPage';
+import F120Page from './pages/F120Page';
+import F120PrintPage from './pages/F120PrintPage';
 
 function ProtectedShell() {
   const { usuario, loading } = useAuth();
@@ -40,6 +42,7 @@ export default function App() {
       {/* Fuera del AppShell a proposito: es una hoja para imprimir, no necesita sidebar. */}
       <Route path="/imprimir/comprobantes/:id" element={<ComprobantePrintPage />} />
       <Route path="/imprimir/recibos/:id" element={<ReciboPrintPage />} />
+      <Route path="/imprimir/f120/:id" element={<F120PrintPage />} />
       <Route element={<ProtectedShell />}>
         <Route path="/" element={<DashboardPage />} />
         <Route path="/facturacion" element={<ComprobantesPage />} />
@@ -57,6 +60,7 @@ export default function App() {
         <Route path="/compras/cuentas-corrientes" element={<CuentasCorrientesPage tipo="PROVEEDOR" />} />
         <Route path="/panel-compras" element={<PanelComprasPage />} />
         <Route path="/contabilidad" element={<ContabilidadPage />} />
+        <Route path="/formulario-120" element={<F120Page />} />
         <Route path="/bancos" element={<BancosPage />} />
         <Route path="/usuarios" element={<UsuariosPage />} />
         <Route path="/establecimientos" element={<EstablecimientosPage />} />

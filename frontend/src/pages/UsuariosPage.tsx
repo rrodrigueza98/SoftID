@@ -40,6 +40,7 @@ const PANTALLAS_POR_MODULO: Record<Modulo, { value: Pantalla; label: string }[]>
   CONTABILIDAD: [
     { value: 'CONTABILIDAD', label: 'Contabilidad' },
     { value: 'BANCOS', label: 'Bancos' },
+    { value: 'FORMULARIO_120', label: 'Formulario 120' },
   ],
 };
 

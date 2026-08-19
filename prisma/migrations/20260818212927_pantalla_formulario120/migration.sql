@@ -1,0 +1,3 @@
+-- AlterEnum
+ALTER TYPE "Pantalla" ADD VALUE 'FORMULARIO_120';
+

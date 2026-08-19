@@ -18,7 +18,8 @@ export type Pantalla =
   | 'PRODUCTOS'
   | 'STOCK'
   | 'CONTABILIDAD'
-  | 'BANCOS';
+  | 'BANCOS'
+  | 'FORMULARIO_120';
 
 export interface Rol {
   id: string;
@@ -785,4 +786,94 @@ export interface Compra {
   total: string;
   observacion?: string | null;
   estado: 'BORRADOR' | 'EMITIDO' | 'ANULADO';
+  atribucionCredito: AtribucionCreditoF120;
+}
+
+export type AtribucionCreditoF120 = 'DIRECTA_GRAVADA' | 'INDISTINTA' | 'VINCULADA_EXONERADA';
+
+export type TipoRetencionIva = 'IVA' | 'PERCEPCION_IVA';
+
+export interface RetencionIva {
+  id: string;
+  empresaId: string;
+  tipo: TipoRetencionIva;
+  fecha: string;
+  periodoTributario: string;
+  agenteRetentorRuc: string;
+  agenteRetentorNombre: string;
+  numeroComprobanteRetencion?: string | null;
+  monto: string;
+  comprobanteId?: string | null;
+  observacion?: string | null;
+  createdAt: string;
+}
+
+export type TipoDeclaracionF120 = 'ORIGINAL' | 'RECTIFICATIVA';
+export type EstadoDeclaracionF120 = 'GENERADA' | 'ANULADA';
+
+interface RubroMontoIva {
+  monto: number;
+  iva: number;
+}
+
+export interface DetalleF120 {
+  rubro1: {
+    a: RubroMontoIva;
+    b: RubroMontoIva;
+    c: RubroMontoIva;
+    d: { monto: number };
+    e: { monto: number };
+    f: { monto: number };
+    g: { monto: number };
+    h: RubroMontoIva;
+    i: RubroMontoIva;
+    j: RubroMontoIva;
+    k: { monto: number };
+    totalMontoColI: number;
+    totalIvaDebito5: number;
+    totalIvaDebito10: number;
+  };
+  rubro2: { a: number; b: number; c: number; d: number; e: number; f: number; g: number; h: number; i: number };
+  rubro3: {
+    a: { monto5: number; monto10: number; iva: number };
+    b: { monto5: number; monto10: number; iva: number };
+    c: number;
+    d: number;
+    e: { monto5: number; monto10: number; iva: number };
+    f: number;
+  };
+  rubro6: { a: RubroMontoIva; b: RubroMontoIva; f: number; g: number; cd: number };
+}
+
+export interface DeclaracionF120 {
+  id: string;
+  empresaId: string;
+  empresa?: Empresa;
+  periodoTributario: string;
+  tipoDeclaracion: TipoDeclaracionF120;
+  numeroOrdenRectificada?: number | null;
+  estado: EstadoDeclaracionF120;
+  ivaDebito: string;
+  ivaCredito: string;
+  saldoTecnicoFavorAnterior: string;
+  saldoTecnicoFavorContrib: string;
+  saldoTecnicoRemitidoFisco: string;
+  saldoTecnicoFavorTrasladar: string;
+  saldoTecnicoFavorFisco: string;
+  ivaCreditoExportacionUsado: string;
+  deduccionDiscapacidad: string;
+  impuestoDeterminado: string;
+  saldoFinancieroFavorAnterior: string;
+  retencionesComputables: string;
+  percepcionesComputables: string;
+  multa: string;
+  subtotalFavorContribuyente: string;
+  subtotalFavorFisco: string;
+  saldoFinancieroFavorContrib: string;
+  saldoAPagarFisco: string;
+  detalleJson: DetalleF120;
+  generadaEn?: string | null;
+  generadaPorUsuarioId?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }

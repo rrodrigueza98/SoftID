@@ -50,6 +50,7 @@ export class ComprasService {
           total,
           observacion: dto.observacion,
           estado: EstadoComprobante.EMITIDO,
+          atribucionCredito: dto.atribucionCredito,
         },
       });
 

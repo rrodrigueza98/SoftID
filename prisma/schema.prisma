@@ -216,44 +216,52 @@ enum TipoEventoDocumentoElectronico {
 // ─────────────────────────────────────────────────────────────────────────
 
 model Empresa {
-  id                     String                @id @default(cuid())
-  ruc                    String                @unique
-  dvRuc                  String // digito verificador del RUC
-  razonSocial            String
-  nombreFantasia         String?
-  tipoContribuyente      TipoContribuyente
-  regimenTributario      RegimenTributario     @default(IRE_GENERAL)
-  regimenEspecialSifen   RegimenEspecialSifen? // solo si opera bajo un regimen especial (Tabla 1 SIFEN); la mayoria lo deja vacio
-  direccion              String
-  ciudad                 String
-  departamento           String
-  telefono               String?
-  email                  String?
-  logoUrl                String?
-  activo                 Boolean               @default(true)
+  id                              String                @id @default(cuid())
+  ruc                             String                @unique
+  dvRuc                           String // digito verificador del RUC
+  razonSocial                     String
+  nombreFantasia                  String?
+  tipoContribuyente               TipoContribuyente
+  regimenTributario               RegimenTributario     @default(IRE_GENERAL)
+  regimenEspecialSifen            RegimenEspecialSifen? // solo si opera bajo un regimen especial (Tabla 1 SIFEN); la mayoria lo deja vacio
+  direccion                       String
+  ciudad                          String
+  departamento                    String
+  telefono                        String?
+  email                           String?
+  logoUrl                         String?
+  activo                          Boolean               @default(true)
   // Recibo no es un Documento Electronico SIFEN (no usa timbrado), pero
   // igual necesita numeracion correlativa propia -- un contador simple por
   // empresa alcanza, sin la jerarquia de establecimiento/punto de expedicion.
-  proximoNumeroRecibo    Int                   @default(1)
+  proximoNumeroRecibo             Int                   @default(1)
   // Orden de Pago (pago a proveedor): mismo criterio que Recibo, serie
   // correlativa propia por empresa, tampoco es un documento SIFEN.
-  proximoNumeroOrdenPago Int                   @default(1)
+  proximoNumeroOrdenPago          Int                   @default(1)
   // Correlativo del Libro Diario -- mismo criterio simple que el de Recibo
   // (no es un documento SIFEN, solo necesita ser unico y consecutivo).
-  proximoNumeroAsiento   Int                   @default(1)
+  proximoNumeroAsiento            Int                   @default(1)
   // Mapeo de "roles" contables (que cuenta usar para Caja, Clientes, Ventas,
   // IVA Debito Fiscal, Costo de Venta, Inventario...) a un id de
   // CuentaContable. Se guarda como JSON en vez de columnas/relaciones fijas
   // por cuenta para poder agregar roles nuevos sin migracion; las claves
   // validas viven en src/contabilidad/mapeo-contable.ts (CUENTA_ROL).
-  mapeoContable          Json?
+  mapeoContable                   Json?
   // Fecha de cierre de periodo contable: ningun asiento (manual o
   // automatico de Venta/Cobro/Compra/Pago) puede postear con fecha igual o
   // anterior a esta. Null = sin cierre, cualquier fecha vale (estado por
   // defecto).
-  fechaCierreContable    DateTime?
-  createdAt              DateTime              @default(now())
-  updatedAt              DateTime              @updatedAt
+  fechaCierreContable             DateTime?
+  // Formulario 120 (IVA General): si la empresa ya venia declarando antes de
+  // migrar a SoftID, estos valores arrancan la cadena de arrastre del primer
+  // periodo declarado ACA (ver F120Service.generar) -- las dos cadenas
+  // (saldo tecnico del Rubro 4, saldo financiero del Rubro 5) son
+  // independientes entre si, igual que en el formulario oficial.
+  periodoInicialF120              String? // "YYYY-MM"
+  saldoTecnicoFavorInicialF120    Decimal               @default(0) @db.Decimal(15, 2)
+  saldoFinancieroFavorInicialF120 Decimal               @default(0) @db.Decimal(15, 2)
+  createdAt                       DateTime              @default(now())
+  updatedAt                       DateTime              @updatedAt
 
   establecimientos  Establecimiento[]
   usuarios          Usuario[]
@@ -271,6 +279,8 @@ model Empresa {
   cuentasContables  CuentaContable[]    @relation("EmpresaCuentas")
   asientosContables AsientoContable[]   @relation("EmpresaAsientos")
   cuentasBancarias  CuentaBancaria[]
+  retenciones       RetencionIva[]
+  declaracionesF120 DeclaracionF120[]
 
   @@map("empresas")
 }
@@ -374,6 +384,7 @@ enum Pantalla {
   STOCK
   CONTABILIDAD
   BANCOS
+  FORMULARIO_120
 }
 
 model Rol {
@@ -849,6 +860,7 @@ model Comprobante {
   asientosContables          AsientoContable[]
   datosTransporteRemision    DatosTransporteRemision?
   datosVendedorAutofactura   DatosVendedorAutofactura?
+  retencionesIva             RetencionIva[]
 
   // La numeracion es propia de cada timbrado, no del par puntoExpedicion+tipo
   // -- dos timbrados del mismo tipo de documento (ej. uno electronico y otro
@@ -1116,25 +1128,30 @@ model EventoDocumentoElectronico {
 // ─────────────────────────────────────────────────────────────────────────
 
 model Compra {
-  id                String            @id @default(cuid())
+  id                String                @id @default(cuid())
   empresaId         String
   proveedorId       String
   numeroComprobante String // tal cual figura en la factura del proveedor
   timbradoProveedor String?
-  fechaEmision      DateTime          @default(now())
+  fechaEmision      DateTime              @default(now())
   concepto          String
   cuentaContableId  String // cuenta de gasto/activo que corresponde (elegida del Plan de Cuentas)
-  condicionCompra   CondicionVenta    @default(CONTADO)
+  condicionCompra   CondicionVenta        @default(CONTADO)
   formaPago         FormaPago?
-  montoExenta       Decimal           @default(0) @db.Decimal(15, 2)
-  montoGravada10    Decimal           @default(0) @db.Decimal(15, 2)
-  montoGravada5     Decimal           @default(0) @db.Decimal(15, 2)
-  iva10             Decimal           @default(0) @db.Decimal(15, 2)
-  iva5              Decimal           @default(0) @db.Decimal(15, 2)
-  total             Decimal           @db.Decimal(15, 2)
+  montoExenta       Decimal               @default(0) @db.Decimal(15, 2)
+  montoGravada10    Decimal               @default(0) @db.Decimal(15, 2)
+  montoGravada5     Decimal               @default(0) @db.Decimal(15, 2)
+  iva10             Decimal               @default(0) @db.Decimal(15, 2)
+  iva5              Decimal               @default(0) @db.Decimal(15, 2)
+  total             Decimal               @db.Decimal(15, 2)
   observacion       String?
-  estado            EstadoComprobante @default(EMITIDO)
-  createdAt         DateTime          @default(now())
+  estado            EstadoComprobante     @default(EMITIDO)
+  // Formulario 120, Rubro 3: a que se atribuye el credito fiscal de esta
+  // compra. DIRECTA_GRAVADA (el caso normal) entra entero; INDISTINTA se
+  // prorratea (F120Service); VINCULADA_EXONERADA no genera credito fiscal,
+  // solo informa el Rubro 6.
+  atribucionCredito AtribucionCreditoF120 @default(DIRECTA_GRAVADA)
+  createdAt         DateTime              @default(now())
 
   empresa           Empresa                     @relation(fields: [empresaId], references: [id])
   proveedor         Tercero                     @relation(fields: [proveedorId], references: [id])
@@ -1144,6 +1161,106 @@ model Compra {
   movimientosCC     MovimientoCuentaCorriente[]
 
   @@map("compras")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Formulario 120 (IVA General, declaracion jurada mensual, SET) -- se
+// calcula a partir de los Comprobante/Compra que la empresa ya carga para
+// facturar/comprar, sin un libro de ventas/compras aparte. Logica de calculo
+// (Rubros 1 a 6) portada de un proyecto hermano ya probado con datos reales
+// (ver src/f120/f120.util.ts); DeclaracionF120 es el snapshot congelado de
+// cada periodo, con la misma numeracion de casillas que el instructivo
+// oficial del SET.
+// ─────────────────────────────────────────────────────────────────────────
+
+enum AtribucionCreditoF120 {
+  DIRECTA_GRAVADA
+  INDISTINTA
+  VINCULADA_EXONERADA
+}
+
+enum TipoRetencionIva {
+  IVA
+  PERCEPCION_IVA // casilla 169 del F.120 -- percepciones de despachantes de aduana (Art. 32 Decreto 3.107/2019)
+}
+
+enum TipoDeclaracionF120 {
+  ORIGINAL
+  RECTIFICATIVA
+}
+
+enum EstadoDeclaracionF120 {
+  GENERADA
+  ANULADA
+}
+
+model RetencionIva {
+  id                         String           @id @default(cuid())
+  empresaId                  String
+  tipo                       TipoRetencionIva
+  fecha                      DateTime
+  periodoTributario          String // "YYYY-MM" -- que F.120 la computa
+  agenteRetentorRuc          String
+  agenteRetentorNombre       String
+  numeroComprobanteRetencion String?
+  monto                      Decimal          @db.Decimal(15, 2)
+  comprobanteId              String? // opcional: retencion vinculada a una venta puntual
+  observacion                String?
+  createdAt                  DateTime         @default(now())
+
+  empresa     Empresa      @relation(fields: [empresaId], references: [id])
+  comprobante Comprobante? @relation(fields: [comprobanteId], references: [id])
+
+  @@map("retenciones_iva")
+}
+
+model DeclaracionF120 {
+  id                     String                @id @default(cuid())
+  empresaId              String
+  periodoTributario      String // "YYYY-MM"
+  tipoDeclaracion        TipoDeclaracionF120   @default(ORIGINAL)
+  numeroOrdenRectificada Int? // solo si tipoDeclaracion = RECTIFICATIVA
+  estado                 EstadoDeclaracionF120 @default(GENERADA)
+
+  // ── Rubro 4: determinacion del impuesto o del saldo tecnico ──
+  // Cadena de arrastre 1: casilla 46 de este periodo = casilla 47 del anterior.
+  ivaDebito                  Decimal @default(0) @db.Decimal(15, 2) // 44
+  ivaCredito                 Decimal @default(0) @db.Decimal(15, 2) // 45
+  saldoTecnicoFavorAnterior  Decimal @default(0) @db.Decimal(15, 2) // 46
+  saldoTecnicoFavorContrib   Decimal @default(0) @db.Decimal(15, 2) // 166
+  saldoTecnicoRemitidoFisco  Decimal @default(0) @db.Decimal(15, 2) // 167
+  saldoTecnicoFavorTrasladar Decimal @default(0) @db.Decimal(15, 2) // 47 -- viaja al 46 del proximo periodo
+  saldoTecnicoFavorFisco     Decimal @default(0) @db.Decimal(15, 2) // 48
+  ivaCreditoExportacionUsado Decimal @default(0) @db.Decimal(15, 2) // 49
+  deduccionDiscapacidad      Decimal @default(0) @db.Decimal(15, 2) // 168
+  impuestoDeterminado        Decimal @default(0) @db.Decimal(15, 2) // 50
+
+  // ── Rubro 5: impuesto determinado y/o saldo financiero a favor del contribuyente ──
+  // Cadena de arrastre 2, INDEPENDIENTE de la anterior: casilla 51 de este
+  // periodo = casilla 54 del anterior ("no trasladable al Rubro 4").
+  saldoFinancieroFavorAnterior Decimal @default(0) @db.Decimal(15, 2) // 51
+  retencionesComputables       Decimal @default(0) @db.Decimal(15, 2) // 52
+  percepcionesComputables      Decimal @default(0) @db.Decimal(15, 2) // 169
+  multa                        Decimal @default(0) @db.Decimal(15, 2) // 56
+  subtotalFavorContribuyente   Decimal @default(0) @db.Decimal(15, 2) // 53
+  subtotalFavorFisco           Decimal @default(0) @db.Decimal(15, 2) // 57
+  saldoFinancieroFavorContrib  Decimal @default(0) @db.Decimal(15, 2) // 54 -- viaja al 51 del proximo periodo
+  saldoAPagarFisco             Decimal @default(0) @db.Decimal(15, 2) // 58 -- resultado final
+
+  // Rubro 1 (a-k), Rubro 2 (a-i), Rubro 3 (a,b,c,e,f), Rubro 6 (a,b,cd,f,g):
+  // desglose completo por inciso/casilla, solo para la pagina de impresion.
+  // Forma exacta documentada en f120.util.ts.
+  detalleJson Json
+
+  generadaEn           DateTime?
+  generadaPorUsuarioId String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  empresa Empresa @relation(fields: [empresaId], references: [id])
+
+  @@unique([empresaId, periodoTributario])
+  @@map("declaraciones_f120")
 }
 
 // ─────────────────────────────────────────────────────────────────────────
