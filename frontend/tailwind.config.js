@@ -4,34 +4,36 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Neutro suave con un leve sesgo azulado (hacia brand), en vez de un
+        // gris puro -- asi el fondo se siente elegido, no default.
         ink: {
-          50: '#f4f6f6',
-          100: '#e4e9e8',
-          200: '#c8d2d0',
-          300: '#a2b1ae',
-          400: '#748a86',
-          500: '#57706c',
-          600: '#455a57',
-          700: '#394947',
-          800: '#2c3937',
-          900: '#1b2523',
-          950: '#0f1615',
+          50: '#f6f7f8',
+          100: '#ecedf0',
+          200: '#dde1e5',
+          300: '#bfc7cd',
+          400: '#98a2aa',
+          500: '#76828a',
+          600: '#59656d',
+          700: '#434e56',
+          800: '#2c343a',
+          900: '#202a35',
+          950: '#161b21',
         },
-        // Azul estilo Fluent Design / Microsoft 365 (mismo tono que usa
-        // Dynamics 365, Teams, etc. -- brand-600 es el "Communication Blue"
-        // #0078D4 de Microsoft).
+        // Azul calmado (slate/steel) -- mas apagado que el "Communication
+        // Blue" de Fluent que tenia antes, para una estetica menos
+        // corporativa y mas tranquila.
         brand: {
-          50: '#eff6fc',
-          100: '#deecf9',
-          200: '#c7e0f4',
-          300: '#71afe5',
-          400: '#4a9cdc',
-          500: '#2b88d8',
-          600: '#0078d4',
-          700: '#005a9e',
-          800: '#003966',
-          900: '#002050',
-          950: '#001233',
+          50: '#eef2f6',
+          100: '#dde5ec',
+          200: '#c1cfdb',
+          300: '#9bb0c2',
+          400: '#7191a8',
+          500: '#5a7c96',
+          600: '#4c6b8a',
+          700: '#3a5570',
+          800: '#2c4256',
+          900: '#1f303f',
+          950: '#141f29',
         },
       },
       fontFamily: {

@@ -10,9 +10,9 @@ import { StatTile } from '../components/ui/StatTile';
 import { ChartTooltip } from '../components/ui/ChartTooltip';
 import type { Deposito, Producto, Stock } from '../lib/types';
 
-const BARRA = '#0078d4'; // brand-600
-const CURSOR = 'rgba(0,120,212,0.06)';
-const GRILLA = '#e4e9e8'; // ink-100
+const BARRA = '#4c6b8a'; // brand-600
+const CURSOR = 'rgba(76,107,138,0.06)';
+const GRILLA = '#ecedf0'; // ink-100
 
 function valorFila(s: Stock) {
   return Number(s.cantidad) * Number(s.producto.precioCosto);

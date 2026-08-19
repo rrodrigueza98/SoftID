@@ -31,9 +31,9 @@ function hoy() {
 
 // Colores en un solo lugar: una sola serie de "monto" en ambos graficos, asi
 // que no hace falta leyenda (el titulo de cada tarjeta ya dice que se grafica).
-const BARRA = '#0078d4'; // brand-600
-const CURSOR = 'rgba(0,120,212,0.06)'; // brand-600 al 6%
-const GRILLA = '#e4e9e8'; // ink-100
+const BARRA = '#4c6b8a'; // brand-600
+const CURSOR = 'rgba(76,107,138,0.06)'; // brand-600 al 6%
+const GRILLA = '#ecedf0'; // ink-100
 
 export default function PanelVentasPage() {
   const empresaId = useEmpresaId();

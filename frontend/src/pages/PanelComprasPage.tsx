@@ -29,9 +29,9 @@ function hoy() {
   return new Date().toISOString().slice(0, 10);
 }
 
-const BARRA = '#0078d4'; // brand-600
-const CURSOR = 'rgba(0,120,212,0.06)';
-const GRILLA = '#e4e9e8'; // ink-100
+const BARRA = '#4c6b8a'; // brand-600
+const CURSOR = 'rgba(76,107,138,0.06)';
+const GRILLA = '#ecedf0'; // ink-100
 
 export default function PanelComprasPage() {
   const empresaId = useEmpresaId();
