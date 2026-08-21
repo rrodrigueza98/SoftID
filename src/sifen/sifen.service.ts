@@ -161,7 +161,14 @@ export class SifenService {
     // gCamFuFD va DESPUES de ds:Signature dentro de <rDE> (hermano de <DE>,
     // no parte de lo firmado) -- se agrega recien aca, sobre el XML ya
     // firmado, sin invalidar ninguna referencia de la firma.
-    const gCamFuFD = `<gCamFuFD><dCarQR>${qrUrl}</dCarQR></gCamFuFD>`;
+    //
+    // dCarQR es la URL del QR con "&" separando los query params -- un "&"
+    // suelto no es XML valido como contenido de texto (tiene que ir como
+    // entidad &amp;). Se escapa antes de insertarlo: esto reprodujo el
+    // mismo "XML Mal Formado" que ya se habia corregido antes, encontrado
+    // en la siguiente ronda de pruebas contra SIFEN real.
+    const qrUrlEscapado = qrUrl.replace(/&/g, '&amp;');
+    const gCamFuFD = `<gCamFuFD><dCarQR>${qrUrlEscapado}</dCarQR></gCamFuFD>`;
     const xmlFirmado = xmlFirmadoSinQr.replace(/(<\/rDE>)/, `${gCamFuFD}$1`);
 
     await this.prisma.documentoElectronico.update({
