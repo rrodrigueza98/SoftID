@@ -154,6 +154,18 @@ export class SifenService {
     );
     const digestValueDe = digestMatch?.[1] ?? '';
 
+    // En TEST no hay CSC propio -- SIFEN publica un CSC Generico comun a
+    // todos los contribuyentes para el ambiente de pruebas (DNIT, "Guia de
+    // Pruebas Fase de Voluntariedad Abierta para el SIFEN"): IdCSC=1,
+    // CSC=ABCD0000000000000000000000000000. Sin esto, el hash del QR
+    // (cHashQR) nunca podia coincidir del lado de SIFEN -- rechazo real:
+    // "Cadena de caracteres correspondiente al codigo QR no es coincidente
+    // con el archivo XML" (se mandaba con CSC/IdCSC vacios).
+    const CSC_GENERICO_TEST = 'ABCD0000000000000000000000000000';
+    const ID_CSC_GENERICO_TEST = '0001';
+    const csc = credenciales.ambiente === 'PRODUCCION' ? (credenciales.csc ?? '') : CSC_GENERICO_TEST;
+    const idCsc = credenciales.ambiente === 'PRODUCCION' ? (credenciales.idCsc ?? '') : ID_CSC_GENERICO_TEST;
+
     const qrUrl = buildQrUrl(
       {
         cdc,
@@ -163,8 +175,8 @@ export class SifenService {
         totalIva: Number(comprobante.iva5) + Number(comprobante.iva10),
         cantidadItems: comprobante.items.length,
         digestValueDe,
-        csc: credenciales.csc ?? '',
-        idCsc: credenciales.idCsc ?? '',
+        csc,
+        idCsc,
       },
       credenciales.ambiente === 'PRODUCCION',
     );

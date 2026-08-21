@@ -20,10 +20,12 @@ export interface DatosGEmis {
 }
 
 // Texto fijo que SIFEN exige en dNomEmi para todo DE emitido en ambiente de
-// TEST/homologacion -- confirmado 2026-08-21 contra un DE real ya aprobado
-// para esta misma empresa (mismo RUC/establecimiento), donde dNomEmi trae
-// este literal y la razon social real va en dNomFanEmi en su lugar.
-const NOMBRE_EMISOR_AMBIENTE_TEST = 'DE generado en ambiente de prueba - sin valor comercial ni fiscal';
+// TEST/homologacion -- el literal exacto sale de la fuente oficial (DNIT,
+// "Guia de Pruebas Fase de Voluntariedad Abierta para el SIFEN", seccion
+// "Set de datos de prueba: Datos del emisor"), no de aproximarlo contra un
+// DE real (que traia una redaccion parecida pero no identica). La razon
+// social real va en dNomFanEmi en su lugar.
+const NOMBRE_EMISOR_AMBIENTE_TEST = 'DOCUMENTO ELECTRÓNICO SIN VALOR COMERCIAL NI FISCAL - GENERADO EN AMBIENTE DE PRUEBA';
 
 // gEmis -- datos del emisor (Manual Tecnico SIFEN v150, E3).
 //
