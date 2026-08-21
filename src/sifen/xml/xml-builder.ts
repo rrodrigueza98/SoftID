@@ -57,8 +57,17 @@ export function buildXmlDe(params: BuildXmlDeParams): string {
     throw new Error(`buildXmlDe: comprobante ${comprobante.id} no tiene cliente ni proveedor asociado`);
   }
 
+  // xmlns:xsi + xsi:schemaLocation son obligatorios en <rDE> -- confirmado
+  // 2026-08-21 contra "Recomendaciones y mejores practicas para SIFEN, Guia
+  // para el desarrollador" (DNIT, octubre 2024), que muestra literalmente
+  // este encabezado como el formato esperado. Sin este atributo SIFEN
+  // rechaza con "0140 Firma difiere del estandar. No se informo el schema
+  // en el XML" (error real recibido en una ronda de pruebas contra
+  // homologacion).
   const doc = create({ version: '1.0', encoding: 'UTF-8' }).ele('rDE', {
     xmlns: 'http://ekuatia.set.gov.py/sifen/xsd',
+    'xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
+    'xsi:schemaLocation': 'http://ekuatia.set.gov.py/sifen/xsd siRecepDE_v150.xsd',
   });
 
   doc.ele('dVerFor').txt('150').up();
