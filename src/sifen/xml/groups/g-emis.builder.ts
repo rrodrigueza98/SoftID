@@ -1,5 +1,5 @@
-import type { Empresa, Establecimiento } from '@prisma/client';
-import { codigoDepartamento, ITIPCONT_POR_TIPO } from '../catalogos';
+import type { AmbienteSifen, Empresa, Establecimiento } from '@prisma/client';
+import { codigoDepartamento, codigoDistritoCiudad, ITIPCONT_POR_TIPO } from '../catalogos';
 import { type XmlNode } from './xml-node';
 
 export interface DatosGEmis {
@@ -16,23 +16,20 @@ export interface DatosGEmis {
     | 'actividadEconomicaDescripcion'
   >;
   establecimiento: Pick<Establecimiento, 'direccion' | 'ciudad' | 'departamento' | 'telefono' | 'email'>;
+  ambiente: AmbienteSifen;
 }
+
+// Texto fijo que SIFEN exige en dNomEmi para todo DE emitido en ambiente de
+// TEST/homologacion -- confirmado 2026-08-21 contra un DE real ya aprobado
+// para esta misma empresa (mismo RUC/establecimiento), donde dNomEmi trae
+// este literal y la razon social real va en dNomFanEmi en su lugar.
+const NOMBRE_EMISOR_AMBIENTE_TEST = 'DE generado en ambiente de prueba - sin valor comercial ni fiscal';
 
 // gEmis -- datos del emisor (Manual Tecnico SIFEN v150, E3).
 //
-// cDepEmi ya sale de la Tabla de Departamentos real de SIFEN (ver
-// catalogos.ts, codigoDepartamento) -- confirmado 2026-08-21 tras un
-// rechazo real de SIFEN ("El valor 0 del elemento: cDepEmi es invalido").
-//
-// PENDIENTE: cCiuEmi (codigo de CIUDAD, tabla distinta a la de
-// departamentos, no publicada como XSD/enum por SIFEN) sigue con un
-// placeholder -- Establecimiento solo guarda "ciudad" como texto libre y
-// todavia no se encontro/incorporo el catalogo real. Se usa "1" (el minimo
-// que el XSD acepta, tcCiuEmi exige >= 1) en vez de "0" para no fallar la
-// validacion de formato con certeza, pero NO es el codigo real de la
-// ciudad -- ver plan de implementacion, "Cosas a verificar". gActEco
-// (actividad economica) tampoco esta modelado en Empresa todavia y se omite
-// -- tambien pendiente.
+// cDepEmi/cCiuEmi/cDisEmi salen de catalogos reales de SIFEN (ver
+// catalogos.ts) -- confirmado 2026-08-21 tras rechazos reales de SIFEN y
+// contra un DE real ya aprobado para esta empresa.
 export function buildGEmis(parent: XmlNode, datos: DatosGEmis): void {
   const gEmis = parent
     .ele('gEmis')
@@ -46,12 +43,15 @@ export function buildGEmis(parent: XmlNode, datos: DatosGEmis): void {
     .txt(ITIPCONT_POR_TIPO[datos.empresa.tipoContribuyente])
     .up()
     .ele('dNomEmi')
-    .txt(datos.empresa.razonSocial)
+    .txt(datos.ambiente === 'TEST' ? NOMBRE_EMISOR_AMBIENTE_TEST : datos.empresa.razonSocial)
     .up();
 
-  if (datos.empresa.nombreFantasia) {
-    gEmis.ele('dNomFanEmi').txt(datos.empresa.nombreFantasia).up();
+  const nombreFantasia = datos.ambiente === 'TEST' ? datos.empresa.razonSocial : datos.empresa.nombreFantasia;
+  if (nombreFantasia) {
+    gEmis.ele('dNomFanEmi').txt(nombreFantasia).up();
   }
+
+  const { distrito, ciudad } = codigoDistritoCiudad(datos.establecimiento.ciudad);
 
   gEmis
     .ele('dDirEmi')
@@ -66,8 +66,14 @@ export function buildGEmis(parent: XmlNode, datos: DatosGEmis): void {
     .ele('dDesDepEmi')
     .txt(datos.establecimiento.departamento)
     .up()
+    .ele('cDisEmi')
+    .txt(distrito)
+    .up()
+    .ele('dDesDisEmi')
+    .txt(datos.establecimiento.ciudad)
+    .up()
     .ele('cCiuEmi')
-    .txt('1') // PENDIENTE: catalogo Tabla de Ciudades SIFEN, ver comentario arriba
+    .txt(ciudad)
     .up()
     .ele('dDesCiuEmi')
     .txt(datos.establecimiento.ciudad)

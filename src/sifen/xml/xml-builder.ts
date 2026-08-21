@@ -1,7 +1,9 @@
 import { create } from 'xmlbuilder2';
 import type {
+  AmbienteSifen,
   Comprobante,
   ComprobanteItem,
+  ComprobantePago,
   DatosTransporteRemision,
   DatosVendedorAutofactura,
   Empresa,
@@ -27,6 +29,7 @@ export type ComprobanteParaXml = Comprobante & {
     unidadMedida: Pick<UnidadMedida, 'codigoSifen' | 'descripcion'>;
     producto: Pick<Producto, 'codigo'> | null;
   })[];
+  pagos: Pick<ComprobantePago, 'formaPago' | 'monto'>[];
   timbrado: Timbrado & { puntoExpedicion: PuntoExpedicion & { establecimiento: Establecimiento & { empresa: Empresa } } };
   cliente: Tercero | null;
   proveedor: Tercero | null;
@@ -39,6 +42,7 @@ export interface BuildXmlDeParams {
   cdc: string;
   codigoSeguridad: string;
   cdcComprobanteAsociado?: string; // requerido si es NC/ND (comprobanteAsociadoId apunta a una factura ya aprobada)
+  ambiente: AmbienteSifen;
 }
 
 // Arma el XML del rDE (Documento Electronico) sin firmar, siguiendo el
@@ -106,7 +110,7 @@ export function buildXmlDe(params: BuildXmlDeParams): string {
     fechaEmision: comprobante.fechaEmision,
     moneda: comprobante.moneda,
     tipoCambio: comprobante.tipoCambio ? Number(comprobante.tipoCambio) : null,
-    emisor: { empresa, establecimiento },
+    emisor: { empresa, establecimiento, ambiente: params.ambiente },
     receptor: { tercero: receptor },
   });
 
@@ -137,6 +141,8 @@ export function buildXmlDe(params: BuildXmlDeParams): string {
     condicionCredito: comprobante.condicionCredito,
     plazoCredito: comprobante.plazoCredito,
     cantidadCuotas: comprobante.cantidadCuotas,
+    moneda: comprobante.moneda,
+    pagos: comprobante.pagos,
   });
 
   buildGCamItem(gDtipDE, comprobante.items as ItemConUnidad[]);

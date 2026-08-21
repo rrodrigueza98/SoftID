@@ -22,6 +22,7 @@ const TIPOS_CON_DE_SOPORTADOS: TipoDocumentoElectronico[] = [
 
 const INCLUDE_COMPROBANTE_PARA_XML = {
   items: { include: { unidadMedida: true, producto: { select: { codigo: true } } } },
+  pagos: { select: { formaPago: true, monto: true } },
   timbrado: { include: { puntoExpedicion: { include: { establecimiento: { include: { empresa: true } } } } } },
   cliente: true,
   proveedor: true,
@@ -100,20 +101,25 @@ export class SifenService {
       });
     }
 
+    // Credenciales (y por lo tanto el ambiente) se resuelven ANTES de armar
+    // el XML: en TEST, dNomEmi tiene que salir con el texto fijo que exige
+    // SIFEN para ambiente de pruebas (ver comentario en buildXmlDe), asi que
+    // buildXmlDe necesita saber el ambiente de antemano.
+    let credenciales;
+    try {
+      credenciales = await this.certificadosSifenService.obtenerCredenciales(empresa.id);
+    } catch (err) {
+      await this.marcarPendiente(documentoElectronico.id, '');
+      throw err;
+    }
+
     const xmlSinFirmar = buildXmlDe({
       comprobante: comprobante as ComprobanteParaXml,
       cdc,
       codigoSeguridad,
       cdcComprobanteAsociado,
+      ambiente: credenciales.ambiente,
     });
-
-    let credenciales;
-    try {
-      credenciales = await this.certificadosSifenService.obtenerCredenciales(empresa.id);
-    } catch (err) {
-      await this.marcarPendiente(documentoElectronico.id, xmlSinFirmar);
-      throw err;
-    }
 
     // gCamFuFD/dCarQR (el QR) es OBLIGATORIO en el propio XML que se manda a
     // SIFEN (verificado contra DE_v150.xsd el 2026-08-21) -- no es solo un

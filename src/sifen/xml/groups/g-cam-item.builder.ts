@@ -66,6 +66,11 @@ export function buildGCamItem(parent: XmlNode, items: ItemConUnidad[]): void {
     if (Number(item.descuento) > 0) {
       gValorRestaItem.ele('dDescItem').txt(num(item.descuento, 2)).up();
     }
+    // dAntGloPreUniIt (anticipo global aplicado al precio unitario) resulto
+    // obligatorio en la practica -- confirmado contra un DE real ya
+    // aprobado para esta empresa, que lo trae en "0" aun sin anticipo.
+    // SoftID no maneja anticipos todavia, siempre sale en 0.
+    gValorRestaItem.ele('dAntGloPreUniIt').txt('0').up();
     gValorRestaItem.ele('dTotOpeItem').txt(num(item.total, 2)).up();
     gValorRestaItem.up();
 
@@ -80,9 +85,10 @@ export function buildGCamItem(parent: XmlNode, items: ItemConUnidad[]): void {
       .txt(DESC_AFECIVA_POR_TIPO[item.afectacionIva])
       .up();
 
-    if (item.proporcionGravada != null) {
-      gCamIVA.ele('dPropIVA').txt(num(item.proporcionGravada, 2)).up();
-    }
+    // dPropIVA resulto obligatorio siempre, no solo para GRAVADO_PARCIAL --
+    // confirmado contra un DE real ya aprobado para esta empresa, que lo
+    // trae en 100 para un item GRAVADO comun (100% de la base es gravada).
+    gCamIVA.ele('dPropIVA').txt(num(item.proporcionGravada ?? 100, 2)).up();
     gCamIVA
       .ele('dTasaIVA')
       .txt(String(item.tasaIva))

@@ -1,4 +1,4 @@
-import { TipoContribuyente, TipoDocumentoElectronico, TipoEmisionDE } from '@prisma/client';
+import { FormaPago, TipoContribuyente, TipoDocumentoElectronico, TipoEmisionDE } from '@prisma/client';
 
 // Catalogos cerrados del Manual Tecnico SIFEN v150 -- cada campo codificado
 // "iXxx" va acompanado de un campo de texto "dDesXxx" con la descripcion
@@ -102,3 +102,78 @@ export function codigoDepartamento(nombreDepartamento: string): string {
   }
   return codigo;
 }
+
+// Tabla de Ciudades/Distritos de SIFEN -- NO publicada como XSD/enum (a
+// diferencia de Departamentos). Confirmada por ahora solo para LUQUE (159 de
+// distrito, 5946 de ciudad), tomado de un DE real ya generado para esta
+// misma empresa de prueba (RUC 3801574-9, establecimiento 001). Faltan el
+// resto de los ~250 distritos de Paraguay -- agregar aca a medida que se
+// facturen otras ciudades. Ver tambien la tarea de fondo sobre reconciliar
+// el catalogo de Unidades de Medida, mismo tipo de brecha.
+const CODIGO_DISTRITO_CIUDAD: Record<string, { distrito: string; ciudad: string }> = {
+  LUQUE: { distrito: '159', ciudad: '5946' },
+};
+
+export function codigoDistritoCiudad(nombreCiudad: string): { distrito: string; ciudad: string } {
+  const codigos = CODIGO_DISTRITO_CIUDAD[normalizarNombreGeografico(nombreCiudad)];
+  if (!codigos) {
+    throw new Error(
+      `codigoDistritoCiudad: "${nombreCiudad}" no esta todavia en el catalogo de Ciudades/Distritos SIFEN (catalogo parcial, ver comentario)`,
+    );
+  }
+  return codigos;
+}
+
+// Forma de pago (E606 iTiPago) -- FormaPago.EFECTIVO=1 tiene comentarios con
+// el codigo SIFEN inline en el enum (ver schema.prisma), pero el salto de
+// 21 a 99 (OTRO) rompe el patron posicional de codigoPorPosicion, asi que va
+// como mapa explicito.
+export const ITIPAGO_POR_FORMA: Record<FormaPago, string> = {
+  EFECTIVO: '1',
+  CHEQUE: '2',
+  TARJETA_CREDITO: '3',
+  TARJETA_DEBITO: '4',
+  TRANSFERENCIA: '5',
+  GIRO: '6',
+  BILLETERA_ELECTRONICA: '7',
+  TARJETA_EMPRESARIAL: '8',
+  VALE: '9',
+  RETENCION: '10',
+  PAGO_ANTICIPO: '11',
+  VALOR_FISCAL: '12',
+  VALOR_COMERCIAL: '13',
+  COMPENSACION: '14',
+  PERMUTA: '15',
+  PAGO_BANCARIO: '16',
+  PAGO_MOVIL: '17',
+  DONACION: '18',
+  PROMOCION: '19',
+  CONSUMO_INTERNO: '20',
+  PAGO_ELECTRONICO: '21',
+  OTRO: '99',
+};
+
+export const DESC_TIPAGO_POR_FORMA: Record<FormaPago, string> = {
+  EFECTIVO: 'Efectivo',
+  CHEQUE: 'Cheque',
+  TARJETA_CREDITO: 'Tarjeta de crédito',
+  TARJETA_DEBITO: 'Tarjeta de débito',
+  TRANSFERENCIA: 'Transferencia',
+  GIRO: 'Giro',
+  BILLETERA_ELECTRONICA: 'Billetera electrónica',
+  TARJETA_EMPRESARIAL: 'Tarjeta empresarial',
+  VALE: 'Vale',
+  RETENCION: 'Retención',
+  PAGO_ANTICIPO: 'Pago anticipado',
+  VALOR_FISCAL: 'Valor fiscal',
+  VALOR_COMERCIAL: 'Valor comercial',
+  COMPENSACION: 'Compensación',
+  PERMUTA: 'Permuta',
+  PAGO_BANCARIO: 'Pago bancario',
+  PAGO_MOVIL: 'Pago móvil',
+  DONACION: 'Donación',
+  PROMOCION: 'Promoción',
+  CONSUMO_INTERNO: 'Consumo interno',
+  PAGO_ELECTRONICO: 'Pago electrónico',
+  OTRO: 'Otro',
+};

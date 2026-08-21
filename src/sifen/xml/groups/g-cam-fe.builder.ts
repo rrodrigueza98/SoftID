@@ -1,5 +1,6 @@
-import type { CondicionCredito, CondicionVenta, MotivoEmisionNotaCD } from '@prisma/client';
-import { type XmlNode } from './xml-node';
+import type { ComprobantePago, CondicionCredito, CondicionVenta, MotivoEmisionNotaCD } from '@prisma/client';
+import { DESC_TIPAGO_POR_FORMA, ITIPAGO_POR_FORMA } from '../catalogos';
+import { type XmlNode, num } from './xml-node';
 
 const IMOTEMI_POR_MOTIVO: Record<MotivoEmisionNotaCD, string> = {
   DEVOLUCION_Y_AJUSTE_PRECIOS: '1',
@@ -27,12 +28,19 @@ export interface DatosGCamCond {
   condicionCredito?: CondicionCredito | null;
   plazoCredito?: string | null;
   cantidadCuotas?: number | null;
+  moneda: string;
+  pagos: Pick<ComprobantePago, 'formaPago' | 'monto'>[];
 }
 
 // gCamCond -- condicion de la operacion: contado o credito (Manual Tecnico
 // SIFEN v150). Verificado contra DE_v150.xsd el 2026-08-21 -- iCondOpe/
 // dDCondOpe/gPagCred viven aca, NO dentro de gCamFE (error anterior, ya
 // corregido).
+//
+// gPaConEIni (un nodo por cada ComprobantePago) resulto obligatorio en la
+// practica para condicionVenta=CONTADO -- confirmado contra un DE real ya
+// aprobado para esta empresa. El XSD lo marca opcional (igual que dTelEmi/
+// dEmailE/gActEco, ver esos comentarios), pero SIFEN lo exige igual.
 export function buildGCamCond(parent: XmlNode, datos: DatosGCamCond): void {
   const gCamCond = parent.ele('gCamCond');
   const esCredito = datos.condicionVenta === 'CREDITO';
@@ -44,6 +52,29 @@ export function buildGCamCond(parent: XmlNode, datos: DatosGCamCond): void {
     .ele('dDCondOpe')
     .txt(esCredito ? 'Crédito' : 'Contado')
     .up();
+
+  if (!esCredito) {
+    for (const pago of datos.pagos) {
+      gCamCond
+        .ele('gPaConEIni')
+        .ele('iTiPago')
+        .txt(ITIPAGO_POR_FORMA[pago.formaPago])
+        .up()
+        .ele('dDesTiPag')
+        .txt(DESC_TIPAGO_POR_FORMA[pago.formaPago])
+        .up()
+        .ele('dMonTiPag')
+        .txt(num(pago.monto, 2))
+        .up()
+        .ele('cMoneTiPag')
+        .txt(datos.moneda)
+        .up()
+        .ele('dDMoneTiPag')
+        .txt(datos.moneda === 'PYG' ? 'Guarani' : datos.moneda)
+        .up()
+        .up();
+    }
+  }
 
   if (esCredito && datos.condicionCredito) {
     const gPagCred = gCamCond.ele('gPagCred').ele('iCondCred').txt(datos.condicionCredito === 'PLAZO' ? '1' : '2').up();
