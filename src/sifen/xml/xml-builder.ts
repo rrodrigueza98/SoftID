@@ -12,6 +12,7 @@ import type {
   UnidadMedida,
 } from '@prisma/client';
 import { DESC_TIPEMI_POR_TIPO, ITIPEMI_POR_TIPO } from './catalogos';
+import { fechaHoraSifen } from './groups/xml-node';
 import { buildGCamAe } from './groups/g-cam-ae.builder';
 import { buildGCamCond, buildGCamFE, buildGCamNcde } from './groups/g-cam-fe.builder';
 import { buildGCamItem, type ItemConUnidad } from './groups/g-cam-item.builder';
@@ -75,7 +76,7 @@ export function buildXmlDe(params: BuildXmlDeParams): string {
   const de = doc.ele('DE', { Id: cdc });
 
   de.ele('dDVId').txt(cdc.slice(-1)).up();
-  de.ele('dFecFirma').txt(new Date().toISOString()).up();
+  de.ele('dFecFirma').txt(fechaHoraSifen(new Date())).up();
   de.ele('dSisFact').txt('1').up();
 
   de.ele('gOpeDE')

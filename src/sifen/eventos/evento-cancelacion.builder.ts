@@ -1,4 +1,5 @@
 import { create } from 'xmlbuilder2';
+import { fechaHoraSifen } from '../xml/groups/xml-node';
 
 export interface DatosEventoCancelacion {
   cdc: string;
@@ -31,7 +32,7 @@ export function buildXmlEventoCancelacion(datos: DatosEventoCancelacion): string
   const gGroupTiEvt = doc.ele('gGroupTiEvt');
   const rEve = gGroupTiEvt.ele('rEve', { Id: eventoId });
 
-  rEve.ele('dFecFirma').txt(new Date().toISOString()).up();
+  rEve.ele('dFecFirma').txt(fechaHoraSifen(new Date())).up();
   rEve.ele('dVerFor').txt('150').up();
 
   const gGroupGesEve = rEve.ele('gGroupGesEve');

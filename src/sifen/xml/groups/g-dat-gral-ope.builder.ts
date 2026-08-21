@@ -1,6 +1,6 @@
 import { buildGDatRec, type DatosGDatRec } from './g-dat-rec.builder';
 import { buildGEmis, type DatosGEmis } from './g-emis.builder';
-import { type XmlNode, num } from './xml-node';
+import { type XmlNode, fechaHoraSifen, num } from './xml-node';
 
 export interface DatosGDatGralOpe {
   fechaEmision: Date;
@@ -18,7 +18,7 @@ export function buildGDatGralOpe(parent: XmlNode, datos: DatosGDatGralOpe): void
   const gDatGralOpe = parent
     .ele('gDatGralOpe')
     .ele('dFeEmiDE')
-    .txt(datos.fechaEmision.toISOString())
+    .txt(fechaHoraSifen(datos.fechaEmision))
     .up();
 
   const esExtranjera = datos.moneda !== 'PYG';
