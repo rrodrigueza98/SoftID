@@ -27,6 +27,7 @@ import { BancosModule } from './bancos/bancos.module';
 import { OrdenesPagoModule } from './ordenes-pago/ordenes-pago.module';
 import { RetencionesModule } from './retenciones/retenciones.module';
 import { F120Module } from './f120/f120.module';
+import { SifenModule } from './sifen/sifen.module';
 
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { F120Module } from './f120/f120.module';
     OrdenesPagoModule,
     RetencionesModule,
     F120Module,
+    SifenModule,
   ],
 })
 export class AppModule {}

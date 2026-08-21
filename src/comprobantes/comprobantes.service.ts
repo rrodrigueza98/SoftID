@@ -1,7 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import {
   CondicionVenta,
   EstadoComprobante,
+  EstadoDocumentoElectronico,
   TipoDocumentoElectronico,
   TipoMovimientoCuentaCorriente,
   TipoMovimientoStock,
@@ -11,6 +12,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { StockService } from '../stock/stock.service';
 import { CuentasCorrientesService } from '../cuentas-corrientes/cuentas-corrientes.service';
 import { AsientosContablesService } from '../contabilidad/asientos-contables.service';
+import { SifenService } from '../sifen/sifen.service';
 import { CreateComprobanteDto } from './dto/create-comprobante.dto';
 import { calcularItem, calcularSubtotales } from './comprobantes.util';
 
@@ -32,11 +34,14 @@ const TIPO_DOCUMENTO_ABREVIADO: Record<TipoDocumentoElectronico, string> = {
 
 @Injectable()
 export class ComprobantesService {
+  private readonly logger = new Logger(ComprobantesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly stockService: StockService,
     private readonly cuentasCorrientesService: CuentasCorrientesService,
     private readonly asientosContablesService: AsientosContablesService,
+    private readonly sifenService: SifenService,
   ) {}
 
   async create(dto: CreateComprobanteDto) {
@@ -75,7 +80,7 @@ export class ComprobantesService {
       : [];
     const costoPorProducto = new Map(productos.map((p) => [p.id, p.precioCosto]));
 
-    return this.prisma.$transaction(async (tx) => {
+    const comprobanteCreado = await this.prisma.$transaction(async (tx) => {
       if (dto.sesionCajaId) {
         const sesion = await tx.sesionCaja.findUniqueOrThrow({ where: { id: dto.sesionCajaId } });
         if (sesion.estado !== 'ABIERTA') {
@@ -275,6 +280,23 @@ export class ComprobantesService {
         include: { items: true, cliente: true, proveedor: true },
       });
     });
+
+    // El envío a SIFEN va DESPUÉS de la transacción (nunca dentro -- una
+    // llamada de red no pertenece a una transacción de DB) y en
+    // best-effort: si SIFEN esta caido o tarda, la venta local ya quedo
+    // hecha (stock, cuenta corriente, asiento, pago) y no hay infraestructura
+    // de colas para reintentar en segundo plano -- SifenService.generarYEnviar
+    // ya deja el DocumentoElectronico en PENDIENTE_ENVIO para reintentar
+    // despues a mano (PATCH /comprobantes/:id/reintentar-sifen).
+    if (timbrado.esElectronico) {
+      this.sifenService.generarYEnviar(comprobanteCreado.id).catch((err) => {
+        this.logger.warn(
+          `Envío a SIFEN falló para comprobante ${comprobanteCreado.id}: ${err instanceof Error ? err.message : err}`,
+        );
+      });
+    }
+
+    return comprobanteCreado;
   }
 
   findAll(params: {
@@ -294,7 +316,16 @@ export class ComprobantesService {
         ...(tipoDocumento ? { tipoDocumento } : {}),
         ...(puntosExpedicionPermitidos ? { puntoExpedicionId: { in: puntosExpedicionPermitidos } } : {}),
       },
-      include: { items: true, cliente: true, proveedor: true },
+      include: {
+        items: true,
+        cliente: true,
+        proveedor: true,
+        timbrado: { select: { esElectronico: true } },
+        // Select acotado a proposito -- el listado puede tener muchas filas y
+        // los campos de XML (xmlGenerado/xmlFirmado/xmlRespuestaSet) son
+        // Text potencialmente grandes que solo hacen falta en el detalle.
+        documentoElectronico: { select: { estado: true, cdc: true, motivoRechazo: true } },
+      },
       orderBy: { fechaEmision: 'desc' },
     });
   }
@@ -327,6 +358,26 @@ export class ComprobantesService {
   // -- primero hay que revertir esos recibos, porque anular por debajo de un
   // cobro ya aplicado dejaria un pago huerfano sin factura valida detras.
   async anular(id: string) {
+    // Si el comprobante es electronico y su DE ya fue APROBADO por SIFEN, no
+    // alcanza con anularlo localmente -- primero hay que mandar un Evento de
+    // Cancelacion. Esto va ANTES (y fuera) de la transaccion de reversion:
+    // si SIFEN lo rechaza (ej. fuera de la ventana de tiempo permitida), la
+    // anulacion local no debe proceder, para no divergir del estado real en
+    // SIFEN. Si el DE nunca llego a APROBADO (BORRADOR/PENDIENTE_ENVIO/
+    // RECHAZADO), no hay nada que cancelar en SIFEN y se sigue como siempre.
+    const paraVerificarDe = await this.prisma.comprobante.findUnique({
+      where: { id },
+      include: { documentoElectronico: true, timbrado: true },
+    });
+    if (!paraVerificarDe) throw new NotFoundException(`Comprobante ${id} no encontrado`);
+
+    if (paraVerificarDe.timbrado.esElectronico && paraVerificarDe.documentoElectronico) {
+      const estadoDe = paraVerificarDe.documentoElectronico.estado;
+      if (estadoDe === EstadoDocumentoElectronico.APROBADO || estadoDe === EstadoDocumentoElectronico.APROBADO_CON_OBSERVACION) {
+        await this.sifenService.cancelar(paraVerificarDe.documentoElectronico.id, `Anulación de comprobante Nº ${paraVerificarDe.numero}`);
+      }
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const comprobante = await tx.comprobante.findUnique({
         where: { id },

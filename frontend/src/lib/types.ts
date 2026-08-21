@@ -432,6 +432,44 @@ export interface Comprobante {
   timbrado?: Timbrado;
   datosTransporteRemision?: DatosTransporteRemision | null;
   datosVendedorAutofactura?: DatosVendedorAutofactura | null;
+  documentoElectronico?: DocumentoElectronico | null;
+}
+
+export type EstadoDocumentoElectronico =
+  | 'BORRADOR'
+  | 'PENDIENTE_ENVIO'
+  | 'ENVIADO'
+  | 'APROBADO'
+  | 'APROBADO_CON_OBSERVACION'
+  | 'RECHAZADO'
+  | 'CANCELADO'
+  | 'INUTILIZADO';
+
+export interface DocumentoElectronico {
+  id: string;
+  comprobanteId: string;
+  cdc: string;
+  codigoSeguridad: string;
+  estado: EstadoDocumentoElectronico;
+  protocoloAutorizacion?: string | null;
+  motivoRechazo?: string | null;
+  qrUrl?: string | null;
+  fechaFirma?: string | null;
+  fechaEnvio?: string | null;
+  fechaProceso?: string | null;
+}
+
+export type AmbienteSifen = 'TEST' | 'PRODUCCION';
+
+export interface CertificadoSifenMetadata {
+  ambiente: AmbienteSifen;
+  subjectCn?: string | null;
+  numeroSerie?: string | null;
+  fechaEmisionCert?: string | null;
+  fechaVencimiento?: string | null;
+  tieneCsc: boolean;
+  activo: boolean;
+  updatedAt: string;
 }
 
 export interface ComprobantePago {

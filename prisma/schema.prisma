@@ -281,6 +281,7 @@ model Empresa {
   cuentasBancarias  CuentaBancaria[]
   retenciones       RetencionIva[]
   declaracionesF120 DeclaracionF120[]
+  certificadoSifen  CertificadoSifen?
 
   @@map("empresas")
 }
@@ -1446,4 +1447,57 @@ model ConciliacionBancaria {
   cuentaBancaria CuentaBancaria @relation(fields: [cuentaBancariaId], references: [id])
 
   @@map("conciliaciones_bancarias")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// SIFEN -- certificado digital propio de cada empresa para firmar sus
+// Documentos Electronicos. Tabla separada de Empresa (no columnas ahi)
+// porque Empresa se lee en casi cada request (JWT, dashboards) y Prisma no
+// tiene forma de excluir una columna por default en cada query -- esta
+// tabla solo se toca al firmar un DE o al administrar el certificado.
+// ─────────────────────────────────────────────────────────────────────────
+enum AmbienteSifen {
+  TEST
+  PRODUCCION
+}
+
+model CertificadoSifen {
+  id        String        @id @default(cuid())
+  empresaId String        @unique
+  ambiente  AmbienteSifen @default(TEST)
+
+  // El .p12 y su contrasena se cifran con AES-256-GCM (ver
+  // src/common/crypto/encryption.util.ts) usando ENCRYPTION_KEY -- nunca se
+  // guardan en texto plano ni se vuelven a exponer al frontend.
+  p12Cifrado      Bytes
+  p12Iv           Bytes
+  p12AuthTag      Bytes
+  passwordCifrada Bytes
+  passwordIv      Bytes
+  passwordAuthTag Bytes
+
+  // CSC (Codigo de Seguridad del Contribuyente, emitido por SET) -- se usa
+  // para construir el hash del QR del KUDE. Mismo tratamiento que la
+  // contrasena del certificado. idCsc es solo un identificador (no
+  // sensible), queda en texto plano.
+  cscCifrado  Bytes?
+  cscIv       Bytes?
+  cscAuthTag  Bytes?
+  idCsc       String?
+
+  // Metadata de solo lectura para mostrar en la UI sin volver a descifrar
+  // ni exponer el .p12 -- se completa al parsear el certificado en el
+  // momento del upload.
+  subjectCn        String?
+  numeroSerie      String?
+  fechaEmisionCert DateTime?
+  fechaVencimiento DateTime?
+
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  empresa Empresa @relation(fields: [empresaId], references: [id])
+
+  @@map("certificados_sifen")
 }

@@ -20,6 +20,7 @@ import ContabilidadPage from './pages/ContabilidadPage';
 import BancosPage from './pages/BancosPage';
 import UsuariosPage from './pages/UsuariosPage';
 import EstablecimientosPage from './pages/EstablecimientosPage';
+import ConfiguracionSifenPage from './pages/ConfiguracionSifenPage';
 import NuevaEmpresaPage from './pages/NuevaEmpresaPage';
 import ComprobantePrintPage from './pages/ComprobantePrintPage';
 import ReciboPrintPage from './pages/ReciboPrintPage';
@@ -64,6 +65,7 @@ export default function App() {
         <Route path="/bancos" element={<BancosPage />} />
         <Route path="/usuarios" element={<UsuariosPage />} />
         <Route path="/establecimientos" element={<EstablecimientosPage />} />
+        <Route path="/sifen" element={<ConfiguracionSifenPage />} />
         <Route path="/empresas/nueva" element={<NuevaEmpresaPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

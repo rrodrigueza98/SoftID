@@ -1,4 +1,5 @@
 import { formatDate, formatGs } from '../lib/format';
+import { QrCode } from '../components/ui/QrCode';
 import {
   MODALIDAD_TRANSPORTE_LABEL,
   MOTIVO_REMISION_LABEL,
@@ -14,6 +15,7 @@ import type {
   CondicionVenta,
   DatosTransporteRemision,
   DatosVendedorAutofactura,
+  EstadoDocumentoElectronico,
   TipoDocumentoElectronico,
 } from '../lib/types';
 
@@ -65,6 +67,9 @@ export interface ComprobanteVisualData {
   esElectronico: boolean;
   datosTransporteRemision?: DatosTransporteRemision | null;
   datosVendedorAutofactura?: DatosVendedorAutofactura | null;
+  cdc?: string | null;
+  qrUrl?: string | null;
+  estadoDocumentoElectronico?: EstadoDocumentoElectronico | null;
 }
 
 // Componente presentacional puro -- lo usan tanto la pagina de impresion
@@ -302,11 +307,31 @@ export function ComprobanteVisual({ data }: { data: ComprobanteVisualData }) {
         </div>
       )}
 
-      {data.esElectronico && (
-        <div className="mt-8 border border-dashed border-ink-400 p-3 text-center text-[10px] leading-snug text-ink-500">
-          Documento interno generado por el sistema. No constituye Documento Tributario Electrónico válido ante la DNIT
-          hasta contar con Código de Control (CDC), firma digital y aprobación de SIFEN.
-        </div>
+      {data.esElectronico &&
+        (data.estadoDocumentoElectronico === 'APROBADO' || data.estadoDocumentoElectronico === 'APROBADO_CON_OBSERVACION') &&
+        data.cdc ? (
+          <div className="mt-8 flex items-center gap-4 border-t border-ink-200 pt-4">
+            {data.qrUrl && <QrCode value={data.qrUrl} size={90} />}
+            <div className="flex-1 text-[10px] leading-snug text-ink-600">
+              <p className="font-semibold text-ink-800">
+                {data.estadoDocumentoElectronico === 'APROBADO_CON_OBSERVACION'
+                  ? 'Documento Electrónico aprobado por SIFEN, con observación'
+                  : 'Documento Electrónico aprobado por SIFEN'}
+              </p>
+              <p className="mt-1 font-mono tracking-wide">CDC: {data.cdc}</p>
+              <p className="mt-1">Consulte este documento en: ekuatia.set.gov.py</p>
+            </div>
+          </div>
+        ) : (
+        data.esElectronico && (
+          <div className="mt-8 border border-dashed border-ink-400 p-3 text-center text-[10px] leading-snug text-ink-500">
+            {data.estadoDocumentoElectronico === 'RECHAZADO'
+              ? 'Este documento fue RECHAZADO por SIFEN -- no constituye un Documento Tributario Electrónico válido. Revisá y volvé a emitir.'
+              : data.estadoDocumentoElectronico === 'PENDIENTE_ENVIO'
+                ? 'Documento pendiente de envío a SIFEN. No constituye Documento Tributario Electrónico válido hasta su aprobación.'
+                : 'Documento interno generado por el sistema. No constituye Documento Tributario Electrónico válido ante la DNIT hasta contar con Código de Control (CDC), firma digital y aprobación de SIFEN.'}
+          </div>
+        )
       )}
     </div>
   );

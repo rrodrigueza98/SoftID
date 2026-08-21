@@ -57,6 +57,7 @@ const NAV_SECTIONS: { title?: string; modulo?: Modulo; items: NavItem[] }[] = [
     items: [
       { to: '/usuarios', label: 'Usuarios', soloAdmin: true },
       { to: '/establecimientos', label: 'Establecimientos', soloAdmin: true },
+      { to: '/sifen', label: 'Firma digital SIFEN', soloAdmin: true },
       { to: '/empresas/nueva', label: 'Nueva empresa', soloAdmin: true },
     ],
   },

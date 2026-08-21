@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { api } from '../lib/api-client';
+import { api, apiErrorMessage } from '../lib/api-client';
 import { useEmpresaId } from '../lib/hooks';
 import { formatDate, formatGs } from '../lib/format';
 import { Card, CardHeader } from '../components/ui/Card';
@@ -12,7 +12,29 @@ import { PageSpinner } from '../components/ui/Spinner';
 import { EmptyState, Table, Thead, Th, Tr, Td } from '../components/ui/Table';
 import { ComprobanteDetailDialog } from './ComprobanteDetailDialog';
 import { TIPO_DOCUMENTO_ABREVIADO, TIPO_DOCUMENTO_LABEL } from './comprobante-labels';
-import type { Comprobante, TipoDocumentoElectronico } from '../lib/types';
+import type { Comprobante, EstadoDocumentoElectronico, TipoDocumentoElectronico } from '../lib/types';
+
+const SIFEN_ESTADO_LABEL: Record<EstadoDocumentoElectronico, string> = {
+  BORRADOR: 'Borrador',
+  PENDIENTE_ENVIO: 'Pendiente de envío',
+  ENVIADO: 'Enviado',
+  APROBADO: 'Aprobado',
+  APROBADO_CON_OBSERVACION: 'Aprobado c/ observación',
+  RECHAZADO: 'Rechazado',
+  CANCELADO: 'Cancelado',
+  INUTILIZADO: 'Inutilizado',
+};
+
+const SIFEN_ESTADO_TONE: Record<EstadoDocumentoElectronico, 'success' | 'warning' | 'danger' | 'neutral'> = {
+  BORRADOR: 'neutral',
+  PENDIENTE_ENVIO: 'warning',
+  ENVIADO: 'warning',
+  APROBADO: 'success',
+  APROBADO_CON_OBSERVACION: 'success',
+  RECHAZADO: 'danger',
+  CANCELADO: 'neutral',
+  INUTILIZADO: 'neutral',
+};
 
 // YYYY-MM-DD del primer dia del mes actual y de hoy, para precargar el
 // rango de exportacion con el mes en curso (el caso de uso mas comun).
@@ -26,11 +48,22 @@ function hoy() {
 
 export default function ComprobantesPage() {
   const empresaId = useEmpresaId();
+  const queryClient = useQueryClient();
   const [tipoDocumento, setTipoDocumento] = useState<TipoDocumentoElectronico | ''>('');
   const [detailId, setDetailId] = useState<string | null>(null);
   const [desde, setDesde] = useState(primerDiaDelMes());
   const [hasta, setHasta] = useState(hoy());
   const [exportando, setExportando] = useState(false);
+  const [errorSifen, setErrorSifen] = useState<string | null>(null);
+
+  const reintentarSifen = useMutation({
+    mutationFn: (comprobanteId: string) => api.patch(`/comprobantes/${comprobanteId}/reintentar-sifen`),
+    onSuccess: () => {
+      setErrorSifen(null);
+      queryClient.invalidateQueries({ queryKey: ['comprobantes'] });
+    },
+    onError: (err) => setErrorSifen(apiErrorMessage(err)),
+  });
 
   const handleExportar = async () => {
     setExportando(true);
@@ -113,6 +146,7 @@ export default function ComprobantesPage() {
             </Select>
           }
         />
+        {errorSifen && <div className="mx-5 mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{errorSifen}</div>}
         {isLoading ? (
           <PageSpinner />
         ) : !data || data.length === 0 ? (
@@ -127,25 +161,51 @@ export default function ComprobantesPage() {
                 <Th>Cliente / Proveedor</Th>
                 <Th className="text-right">Total</Th>
                 <Th>Estado</Th>
+                <Th>SIFEN</Th>
               </tr>
             </Thead>
             <tbody>
-              {data.map((c) => (
-                <Tr key={c.id} onClick={() => setDetailId(c.id)}>
-                  <Td>
-                    <span className="font-mono text-xs text-ink-500">{TIPO_DOCUMENTO_ABREVIADO[c.tipoDocumento]}</span>
-                  </Td>
-                  <Td className="font-mono text-ink-900">{c.numero}</Td>
-                  <Td className="text-ink-500">{formatDate(c.fechaEmision)}</Td>
-                  <Td className="font-medium text-ink-900">{c.cliente?.razonSocial ?? c.proveedor?.razonSocial ?? '—'}</Td>
-                  <Td className="text-right tabular-nums">{formatGs(c.total)}</Td>
-                  <Td>
-                    <Badge tone={c.estado === 'EMITIDO' ? 'success' : c.estado === 'ANULADO' ? 'danger' : 'neutral'}>
-                      {c.estado}
-                    </Badge>
-                  </Td>
-                </Tr>
-              ))}
+              {data.map((c) => {
+                const de = c.documentoElectronico;
+                const puedeReintentar = de && (de.estado === 'PENDIENTE_ENVIO' || de.estado === 'RECHAZADO');
+                return (
+                  <Tr key={c.id} onClick={() => setDetailId(c.id)}>
+                    <Td>
+                      <span className="font-mono text-xs text-ink-500">{TIPO_DOCUMENTO_ABREVIADO[c.tipoDocumento]}</span>
+                    </Td>
+                    <Td className="font-mono text-ink-900">{c.numero}</Td>
+                    <Td className="text-ink-500">{formatDate(c.fechaEmision)}</Td>
+                    <Td className="font-medium text-ink-900">{c.cliente?.razonSocial ?? c.proveedor?.razonSocial ?? '—'}</Td>
+                    <Td className="text-right tabular-nums">{formatGs(c.total)}</Td>
+                    <Td>
+                      <Badge tone={c.estado === 'EMITIDO' ? 'success' : c.estado === 'ANULADO' ? 'danger' : 'neutral'}>
+                        {c.estado}
+                      </Badge>
+                    </Td>
+                    <Td>
+                      {c.timbrado?.esElectronico && de ? (
+                        <div className="flex items-center gap-2">
+                          <Badge tone={SIFEN_ESTADO_TONE[de.estado]}>{SIFEN_ESTADO_LABEL[de.estado]}</Badge>
+                          {puedeReintentar && (
+                            <button
+                              onClick={(ev) => {
+                                ev.stopPropagation();
+                                reintentarSifen.mutate(c.id);
+                              }}
+                              disabled={reintentarSifen.isPending}
+                              className="text-xs font-medium text-brand-700 underline decoration-dotted hover:text-brand-800 disabled:opacity-50"
+                            >
+                              Reintentar
+                            </button>
+                          )}
+                        </div>
+                      ) : c.timbrado?.esElectronico ? (
+                        <span className="text-xs text-ink-400">—</span>
+                      ) : null}
+                    </Td>
+                  </Tr>
+                );
+              })}
             </tbody>
           </Table>
         )}

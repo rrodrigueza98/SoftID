@@ -3,6 +3,7 @@ import { Pantalla, TipoDocumentoElectronico } from '@prisma/client';
 import type { Response } from 'express';
 import { ComprobantesService } from './comprobantes.service';
 import { CreateComprobanteDto } from './dto/create-comprobante.dto';
+import { SifenService } from '../sifen/sifen.service';
 import { RequireModulo } from '../auth/decorators/modulo.decorator';
 import { RequirePantalla } from '../auth/decorators/pantalla.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -11,7 +12,10 @@ import { AuthUser } from '../auth/auth.types';
 @RequireModulo('VENTAS')
 @Controller('comprobantes')
 export class ComprobantesController {
-  constructor(private readonly comprobantesService: ComprobantesService) {}
+  constructor(
+    private readonly comprobantesService: ComprobantesService,
+    private readonly sifenService: SifenService,
+  ) {}
 
   // POS (con sesionCajaId) y Facturacion manual (sin) comparten este mismo
   // endpoint -- no hay forma de restringir por pantalla con un decorador
@@ -120,6 +124,26 @@ export class ComprobantesController {
     const comprobante = await this.comprobantesService.findOne(id);
     this.verificarAccesoPuntoExpedicion(comprobante.puntoExpedicionId, usuario);
     return this.comprobantesService.anular(id);
+  }
+
+  // Reintento manual del envío a SIFEN -- a diferencia del intento
+  // automático en create() (que se traga el error para no bloquear la
+  // venta), esta es una acción explícita del usuario y sí deja que el error
+  // llegue como respuesta HTTP.
+  @Patch(':id/reintentar-sifen')
+  async reintentarSifen(@Param('id') id: string, @CurrentUser() usuario: AuthUser) {
+    this.verificarPantalla(usuario, ['COMPROBANTES_EMITIDOS']);
+    const comprobante = await this.comprobantesService.findOne(id);
+    this.verificarAccesoPuntoExpedicion(comprobante.puntoExpedicionId, usuario);
+    return this.sifenService.generarYEnviar(id);
+  }
+
+  @Get(':id/documento-electronico')
+  async documentoElectronico(@Param('id') id: string, @CurrentUser() usuario: AuthUser) {
+    this.verificarPantalla(usuario, ['COMPROBANTES_EMITIDOS', 'PUNTO_DE_VENTA']);
+    const comprobante = await this.comprobantesService.findOne(id);
+    this.verificarAccesoPuntoExpedicion(comprobante.puntoExpedicionId, usuario);
+    return comprobante.documentoElectronico;
   }
 
   // undefined para ADMIN/superadmin/sin restriccion -- asi el service sabe
