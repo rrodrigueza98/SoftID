@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { EstadoDocumentoElectronico, TipoDocumentoElectronico } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CertificadosSifenService } from './certificados-sifen/certificados-sifen.service';
+import { CiudadesSifenService } from './geografia/ciudades-sifen.service';
 import { buildCdc } from './cdc/cdc.builder';
 import { buildXmlDe, type ComprobanteParaXml } from './xml/xml-builder';
 import { extraerCertificado } from './signing/p12.util';
@@ -37,6 +38,7 @@ export class SifenService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly certificadosSifenService: CertificadosSifenService,
+    private readonly ciudadesSifenService: CiudadesSifenService,
   ) {}
 
   // Genera el CDC/XML/firma y lo envia a SIFEN (endpoint sincrono
@@ -113,12 +115,18 @@ export class SifenService {
       throw err;
     }
 
+    // Resuelve cDisEmi/cCiuEmi contra la tabla ciudades_sifen -- buildXmlDe
+    // es sincrono y puro (no tiene acceso a la DB), asi que se resuelve aca
+    // antes de llamarlo.
+    const codigosCiudad = await this.ciudadesSifenService.buscar(establecimiento.ciudad);
+
     const xmlSinFirmar = buildXmlDe({
       comprobante: comprobante as ComprobanteParaXml,
       cdc,
       codigoSeguridad,
       cdcComprobanteAsociado,
       ambiente: credenciales.ambiente,
+      codigosCiudad,
     });
 
     // gCamFuFD/dCarQR (el QR) es OBLIGATORIO en el propio XML que se manda a

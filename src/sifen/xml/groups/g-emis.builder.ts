@@ -1,5 +1,6 @@
 import type { AmbienteSifen, Empresa, Establecimiento } from '@prisma/client';
-import { codigoDepartamento, codigoDistritoCiudad, ITIPCONT_POR_TIPO } from '../catalogos';
+import { codigoDepartamento, ITIPCONT_POR_TIPO } from '../catalogos';
+import { type CodigosCiudad } from '../../geografia/ciudades-sifen.service';
 import { type XmlNode } from './xml-node';
 
 export interface DatosGEmis {
@@ -16,6 +17,10 @@ export interface DatosGEmis {
     | 'actividadEconomicaDescripcion'
   >;
   establecimiento: Pick<Establecimiento, 'direccion' | 'ciudad' | 'departamento' | 'telefono' | 'email'>;
+  // Resueltos de antemano contra la tabla ciudades_sifen (necesita DB, y
+  // xml-builder.ts/g-emis.builder.ts son sincronos y puros) -- ver
+  // sifen.service.ts, que hace la consulta antes de llamar a buildXmlDe.
+  codigosCiudad: CodigosCiudad;
   ambiente: AmbienteSifen;
 }
 
@@ -53,8 +58,6 @@ export function buildGEmis(parent: XmlNode, datos: DatosGEmis): void {
     gEmis.ele('dNomFanEmi').txt(nombreFantasia).up();
   }
 
-  const { distrito, ciudad } = codigoDistritoCiudad(datos.establecimiento.ciudad);
-
   gEmis
     .ele('dDirEmi')
     .txt(datos.establecimiento.direccion)
@@ -69,13 +72,13 @@ export function buildGEmis(parent: XmlNode, datos: DatosGEmis): void {
     .txt(datos.establecimiento.departamento)
     .up()
     .ele('cDisEmi')
-    .txt(distrito)
+    .txt(datos.codigosCiudad.codigoDistrito)
     .up()
     .ele('dDesDisEmi')
     .txt(datos.establecimiento.ciudad)
     .up()
     .ele('cCiuEmi')
-    .txt(ciudad)
+    .txt(datos.codigosCiudad.codigoCiudad)
     .up()
     .ele('dDesCiuEmi')
     .txt(datos.establecimiento.ciudad)

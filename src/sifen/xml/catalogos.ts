@@ -103,26 +103,11 @@ export function codigoDepartamento(nombreDepartamento: string): string {
   return codigo;
 }
 
-// Tabla de Ciudades/Distritos de SIFEN -- NO publicada como XSD/enum (a
-// diferencia de Departamentos). Confirmada por ahora solo para LUQUE (159 de
-// distrito, 5946 de ciudad), tomado de un DE real ya generado para esta
-// misma empresa de prueba (RUC 3801574-9, establecimiento 001). Faltan el
-// resto de los ~250 distritos de Paraguay -- agregar aca a medida que se
-// facturen otras ciudades. Ver tambien la tarea de fondo sobre reconciliar
-// el catalogo de Unidades de Medida, mismo tipo de brecha.
-const CODIGO_DISTRITO_CIUDAD: Record<string, { distrito: string; ciudad: string }> = {
-  LUQUE: { distrito: '159', ciudad: '5946' },
-};
-
-export function codigoDistritoCiudad(nombreCiudad: string): { distrito: string; ciudad: string } {
-  const codigos = CODIGO_DISTRITO_CIUDAD[normalizarNombreGeografico(nombreCiudad)];
-  if (!codigos) {
-    throw new Error(
-      `codigoDistritoCiudad: "${nombreCiudad}" no esta todavia en el catalogo de Ciudades/Distritos SIFEN (catalogo parcial, ver comentario)`,
-    );
-  }
-  return codigos;
-}
+// La Tabla de Ciudades/Distritos de SIFEN (cDisEmi/cCiuEmi) vive en la
+// tabla ciudades_sifen (6764 filas, importadas del "Codigo de Referencia
+// Geografica" oficial de la DNIT) -- ver
+// src/sifen/geografia/ciudades-sifen.service.ts. No es un mapa chico como
+// Departamentos, asi que no va aca.
 
 // Forma de pago (E606 iTiPago) -- FormaPago.EFECTIVO=1 tiene comentarios con
 // el codigo SIFEN inline en el enum (ver schema.prisma), pero el salto de

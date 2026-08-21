@@ -15,6 +15,7 @@ import type {
   UnidadMedida,
 } from '@prisma/client';
 import { DESC_TIPEMI_POR_TIPO, ITIPEMI_POR_TIPO } from './catalogos';
+import { type CodigosCiudad } from '../geografia/ciudades-sifen.service';
 import { fechaHoraSifen } from './groups/xml-node';
 import { buildGCamAe } from './groups/g-cam-ae.builder';
 import { buildGCamCond, buildGCamFE, buildGCamNcde } from './groups/g-cam-fe.builder';
@@ -43,6 +44,9 @@ export interface BuildXmlDeParams {
   codigoSeguridad: string;
   cdcComprobanteAsociado?: string; // requerido si es NC/ND (comprobanteAsociadoId apunta a una factura ya aprobada)
   ambiente: AmbienteSifen;
+  // Resuelto de antemano por sifen.service.ts contra la tabla
+  // ciudades_sifen (necesita DB; este builder es sincrono y puro).
+  codigosCiudad: CodigosCiudad;
 }
 
 // Arma el XML del rDE (Documento Electronico) sin firmar, siguiendo el
@@ -110,7 +114,7 @@ export function buildXmlDe(params: BuildXmlDeParams): string {
     fechaEmision: comprobante.fechaEmision,
     moneda: comprobante.moneda,
     tipoCambio: comprobante.tipoCambio ? Number(comprobante.tipoCambio) : null,
-    emisor: { empresa, establecimiento, ambiente: params.ambiente },
+    emisor: { empresa, establecimiento, ambiente: params.ambiente, codigosCiudad: params.codigosCiudad },
     receptor: { tercero: receptor },
   });
 

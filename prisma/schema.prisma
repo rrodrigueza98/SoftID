@@ -536,6 +536,28 @@ model UnidadMedida {
   @@map("unidades_medida")
 }
 
+// Tabla de Departamentos/Distritos/Ciudades que exige SIFEN para cDepEmi/
+// cDisEmi/cCiuEmi (gEmis del DE) -- importada completa desde el "Codigo de
+// Referencia Geografica" oficial de la DNIT (fuente: INE,
+// https://www.ine.gov.py/microdatos/codigo-geografico-2022.php), 6764 filas
+// unicas a nivel de ciudad/localidad. codigoCiudad es unico a nivel
+// nacional (verificado: ningun codigo se repite entre distritos distintos),
+// asi que alcanza como clave para resolver un establecimiento a sus tres
+// codigos SIFEN. Ver prisma/seed-data/ciudades-sifen.json y
+// src/sifen/geografia/ciudades-sifen.seed.ts.
+model CiudadSifen {
+  id                 String @id @default(cuid())
+  codigoDepartamento String
+  departamento       String
+  codigoDistrito     String
+  distrito           String
+  codigoCiudad       String @unique
+  ciudad             String
+
+  @@index([departamento, ciudad])
+  @@map("ciudades_sifen")
+}
+
 model Producto {
   id             String        @id @default(cuid())
   empresaId      String
