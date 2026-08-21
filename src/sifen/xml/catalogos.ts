@@ -53,3 +53,52 @@ export function codigoPorPosicion<T extends Record<string, string>>(enumObj: T, 
   }
   return String(posicion + 1);
 }
+
+// Tabla de Departamentos de SIFEN -- confirmada 2026-08-21 contra el XSD
+// oficial (ekuatia.set.gov.py/sifen/xsd/Departamentos_v141.xsd). cDepEmi
+// solo acepta uno de estos 20 codigos; "0" (el placeholder anterior) es
+// invalido y SIFEN lo rechaza (error real recibido: "El valor 0 del
+// elemento: cDepEmi es invalido"). Establecimiento.departamento es texto
+// libre, se normaliza a mayusculas sin acentos antes de buscar.
+const CODIGO_DEPARTAMENTO: Record<string, string> = {
+  CAPITAL: '1',
+  ASUNCION: '1',
+  CONCEPCION: '2',
+  'SAN PEDRO': '3',
+  CORDILLERA: '4',
+  GUAIRA: '5',
+  CAAGUAZU: '6',
+  CAAZAPA: '7',
+  ITAPUA: '8',
+  MISIONES: '9',
+  PARAGUARI: '10',
+  'ALTO PARANA': '11',
+  CENTRAL: '12',
+  NEEMBUCU: '13',
+  AMAMBAY: '14',
+  'PTE. HAYES': '15',
+  'PRESIDENTE HAYES': '15',
+  BOQUERON: '16',
+  'ALTO PARAGUAY': '17',
+  CANINDEYU: '18',
+  CHACO: '19',
+  'NUEVA ASUNCION': '20',
+};
+
+function normalizarNombreGeografico(nombre: string): string {
+  return nombre
+    .trim()
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, ''); // saca acentos (CONCEPCIÓN -> CONCEPCION)
+}
+
+export function codigoDepartamento(nombreDepartamento: string): string {
+  const codigo = CODIGO_DEPARTAMENTO[normalizarNombreGeografico(nombreDepartamento)];
+  if (!codigo) {
+    throw new Error(
+      `codigoDepartamento: "${nombreDepartamento}" no coincide con ningun departamento de la Tabla de Departamentos SIFEN`,
+    );
+  }
+  return codigo;
+}

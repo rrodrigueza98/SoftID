@@ -1,5 +1,5 @@
 import type { Empresa, Establecimiento } from '@prisma/client';
-import { ITIPCONT_POR_TIPO } from '../catalogos';
+import { codigoDepartamento, ITIPCONT_POR_TIPO } from '../catalogos';
 import { type XmlNode } from './xml-node';
 
 export interface DatosGEmis {
@@ -9,12 +9,17 @@ export interface DatosGEmis {
 
 // gEmis -- datos del emisor (Manual Tecnico SIFEN v150, E3).
 //
-// PENDIENTE: cDepEmi/cCiuEmi son codigos numericos de la Tabla de Ciudades y
-// Departamentos de SIFEN, no texto libre -- Establecimiento hoy solo guarda
-// "ciudad"/"departamento" como strings libres (igual que Tercero para el
-// receptor). Hasta que se agregue un catalogo real (mismo patron que
-// UnidadMedida.codigoSifen), estos campos salen con codigo "0" como
-// placeholder: SIFEN va a rechazar el DE por esto hasta resolverlo. gActEco
+// cDepEmi ya sale de la Tabla de Departamentos real de SIFEN (ver
+// catalogos.ts, codigoDepartamento) -- confirmado 2026-08-21 tras un
+// rechazo real de SIFEN ("El valor 0 del elemento: cDepEmi es invalido").
+//
+// PENDIENTE: cCiuEmi (codigo de CIUDAD, tabla distinta a la de
+// departamentos, no publicada como XSD/enum por SIFEN) sigue con un
+// placeholder -- Establecimiento solo guarda "ciudad" como texto libre y
+// todavia no se encontro/incorporo el catalogo real. Se usa "1" (el minimo
+// que el XSD acepta, tcCiuEmi exige >= 1) en vez de "0" para no fallar la
+// validacion de formato con certeza, pero NO es el codigo real de la
+// ciudad -- ver plan de implementacion, "Cosas a verificar". gActEco
 // (actividad economica) tampoco esta modelado en Empresa todavia y se omite
 // -- tambien pendiente.
 export function buildGEmis(parent: XmlNode, datos: DatosGEmis): void {
@@ -45,13 +50,13 @@ export function buildGEmis(parent: XmlNode, datos: DatosGEmis): void {
     .txt('0') // PENDIENTE: Establecimiento no separa numero de casa de la direccion
     .up()
     .ele('cDepEmi')
-    .txt('0') // PENDIENTE: catalogo Tabla de Departamentos SIFEN
+    .txt(codigoDepartamento(datos.establecimiento.departamento))
     .up()
     .ele('dDesDepEmi')
     .txt(datos.establecimiento.departamento)
     .up()
     .ele('cCiuEmi')
-    .txt('0') // PENDIENTE: catalogo Tabla de Ciudades SIFEN
+    .txt('1') // PENDIENTE: catalogo Tabla de Ciudades SIFEN, ver comentario arriba
     .up()
     .ele('dDesCiuEmi')
     .txt(datos.establecimiento.ciudad)
