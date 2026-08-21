@@ -543,10 +543,17 @@ export interface Empresa {
   dvRuc: string;
   razonSocial: string;
   nombreFantasia?: string | null;
+  tipoContribuyente: TipoContribuyente;
+  regimenTributario?: RegimenTributario | null;
   direccion: string;
   ciudad: string;
   departamento: string;
   telefono?: string | null;
+  email?: string | null;
+  // Clasificador de Actividades Economicas de SET (gActEco de SIFEN) --
+  // obligatorio en la practica para emitir Documentos Electronicos.
+  actividadEconomicaCodigo?: string | null;
+  actividadEconomicaDescripcion?: string | null;
   // Data URI (base64) que carga el superadmin al crear la empresa -- se usa
   // en el encabezado de comprobantes y recibos impresos.
   logoUrl?: string | null;

@@ -49,6 +49,17 @@ export class CreateEmpresaDto {
   @IsEmail()
   email?: string;
 
+  // Clasificador de Actividades Economicas de SET (gActEco de SIFEN) --
+  // obligatorio en la practica para emitir Documentos Electronicos, aunque
+  // el XSD lo marca opcional (ver src/sifen/xml/groups/g-emis.builder.ts).
+  @IsOptional()
+  @IsString()
+  actividadEconomicaCodigo?: string;
+
+  @IsOptional()
+  @IsString()
+  actividadEconomicaDescripcion?: string;
+
   @IsOptional()
   @IsString()
   logoUrl?: string;

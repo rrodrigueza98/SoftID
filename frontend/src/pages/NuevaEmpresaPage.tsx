@@ -23,6 +23,8 @@ const emptyEmpresaForm = {
   departamento: '',
   telefono: '',
   email: '',
+  actividadEconomicaCodigo: '',
+  actividadEconomicaDescripcion: '',
   logoUrl: '' as string,
 };
 
@@ -95,6 +97,8 @@ export default function NuevaEmpresaPage() {
           departamento: empresaForm.departamento,
           telefono: empresaForm.telefono || undefined,
           email: empresaForm.email || undefined,
+          actividadEconomicaCodigo: empresaForm.actividadEconomicaCodigo || undefined,
+          actividadEconomicaDescripcion: empresaForm.actividadEconomicaDescripcion || undefined,
           logoUrl: empresaForm.logoUrl || undefined,
         })
       ).data;
@@ -339,6 +343,33 @@ export default function NuevaEmpresaPage() {
                     onChange={(e) => setEmpresaForm({ ...empresaForm, email: e.target.value })}
                   />
                 </FormField>
+              </div>
+
+              <div className="border-t border-ink-100 pt-4">
+                <p className="text-sm font-medium text-ink-900">Actividad económica (opcional acá, se puede cargar después)</p>
+                <p className="mt-1 text-xs text-ink-400">
+                  Clasificador de Actividades Económicas de SET, tal como figura en Marangatú — SIFEN lo exige en todo
+                  Documento Electrónico. Si no lo tenés a mano ahora, se carga después en Configuración → Datos de la
+                  empresa.
+                </p>
+                <div className="mt-3 grid grid-cols-3 gap-4">
+                  <FormField label="Código">
+                    <Input
+                      value={empresaForm.actividadEconomicaCodigo}
+                      onChange={(e) => setEmpresaForm({ ...empresaForm, actividadEconomicaCodigo: e.target.value })}
+                      placeholder="Ej: 47521"
+                    />
+                  </FormField>
+                  <div className="col-span-2">
+                    <FormField label="Descripción">
+                      <Input
+                        value={empresaForm.actividadEconomicaDescripcion}
+                        onChange={(e) => setEmpresaForm({ ...empresaForm, actividadEconomicaDescripcion: e.target.value })}
+                        placeholder="Ej: Comercio al por menor de artículos de ferretería"
+                      />
+                    </FormField>
+                  </div>
+                </div>
               </div>
 
               <div className="flex justify-end border-t border-ink-100 pt-3">

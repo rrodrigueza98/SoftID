@@ -20,6 +20,7 @@ import ContabilidadPage from './pages/ContabilidadPage';
 import BancosPage from './pages/BancosPage';
 import UsuariosPage from './pages/UsuariosPage';
 import EstablecimientosPage from './pages/EstablecimientosPage';
+import DatosEmpresaPage from './pages/DatosEmpresaPage';
 import ConfiguracionSifenPage from './pages/ConfiguracionSifenPage';
 import NuevaEmpresaPage from './pages/NuevaEmpresaPage';
 import ComprobantePrintPage from './pages/ComprobantePrintPage';
@@ -64,6 +65,7 @@ export default function App() {
         <Route path="/formulario-120" element={<F120Page />} />
         <Route path="/bancos" element={<BancosPage />} />
         <Route path="/usuarios" element={<UsuariosPage />} />
+        <Route path="/empresa" element={<DatosEmpresaPage />} />
         <Route path="/establecimientos" element={<EstablecimientosPage />} />
         <Route path="/sifen" element={<ConfiguracionSifenPage />} />
         <Route path="/empresas/nueva" element={<NuevaEmpresaPage />} />
