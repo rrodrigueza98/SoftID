@@ -13,9 +13,9 @@ import type {
 } from '@prisma/client';
 import { DESC_TIPEMI_POR_TIPO, ITIPEMI_POR_TIPO } from './catalogos';
 import { buildGCamAe } from './groups/g-cam-ae.builder';
-import { buildGCamFE } from './groups/g-cam-fe.builder';
+import { buildGCamCond, buildGCamFE, buildGCamNcde } from './groups/g-cam-fe.builder';
 import { buildGCamItem, type ItemConUnidad } from './groups/g-cam-item.builder';
-import { buildGCamNre } from './groups/g-cam-nre.builder';
+import { buildGCamNre, buildGTransp } from './groups/g-cam-nre.builder';
 import { buildGDatGralOpe } from './groups/g-dat-gral-ope.builder';
 import { buildGTimb } from './groups/g-timb.builder';
 import { buildGTotSub } from './groups/g-tot-sub.builder';
@@ -40,11 +40,13 @@ export interface BuildXmlDeParams {
 // esqueleto del Manual Tecnico SIFEN v150. La firma XAdES-BES se aplica
 // despues, en signing/xades.signer.ts.
 //
-// IMPORTANTE: la estructura exacta (nombres de elemento, orden, anidamiento)
-// esta armada con el mejor conocimiento disponible del Manual Tecnico, pero
-// no fue verificada byte a byte contra el XSD oficial -- ver plan de
-// implementacion, seccion "Cosas a verificar" antes de dar esto por
-// funcional contra SIFEN real.
+// Orden y nombres de grupo verificados contra DE_v150.xsd
+// (ekuatia.set.gov.py/sifen/xsd/DE_v150.xsd) el 2026-08-21, corrigiendo
+// varios errores de una version anterior armada solo de memoria (grupos
+// mezclados como gCamFE/gCamCond, campos inventados en gDatRec, gTransp mal
+// ubicado, gTotSub con nombres de campo equivocados). Sigue habiendo
+// simplificaciones documentadas en cada builder de grupo (ver comentarios
+// "PENDIENTE") -- ver plan de implementacion, "Cosas a verificar".
 export function buildXmlDe(params: BuildXmlDeParams): string {
   const { comprobante, cdc, codigoSeguridad } = params;
   const puntoExpedicion = comprobante.timbrado.puntoExpedicion;
@@ -96,26 +98,38 @@ export function buildXmlDe(params: BuildXmlDeParams): string {
 
   const gDtipDE = de.ele('gDtipDE');
 
-  buildGCamFE(gDtipDE, {
-    tipoDocumento: comprobante.tipoDocumento,
-    condicionVenta: comprobante.condicionVenta,
-    condicionCredito: comprobante.condicionCredito,
-    plazoCredito: comprobante.plazoCredito,
-    cantidadCuotas: comprobante.cantidadCuotas,
-    notaCreditoDebito:
-      comprobante.motivoEmision && params.cdcComprobanteAsociado
-        ? { motivoEmision: comprobante.motivoEmision, cdcComprobanteAsociado: params.cdcComprobanteAsociado }
-        : undefined,
-  });
+  // Orden real dentro de gDtipDE: gCamFE, gCamAE, gCamNCDE, gCamNRE,
+  // gCamCond, gCamItem, (gTransp despues de gCamItem, ver mas abajo).
+  const esFacturaOAutofactura =
+    comprobante.tipoDocumento === 'FACTURA_ELECTRONICA' || comprobante.tipoDocumento === 'AUTOFACTURA_ELECTRONICA';
+  if (esFacturaOAutofactura) {
+    buildGCamFE(gDtipDE);
+  }
 
   if (comprobante.datosVendedorAutofactura) {
     buildGCamAe(gDtipDE, comprobante.datosVendedorAutofactura);
   }
+
+  if (comprobante.motivoEmision) {
+    buildGCamNcde(gDtipDE, comprobante.motivoEmision);
+  }
+
   if (comprobante.datosTransporteRemision) {
     buildGCamNre(gDtipDE, comprobante.datosTransporteRemision);
   }
 
+  buildGCamCond(gDtipDE, {
+    condicionVenta: comprobante.condicionVenta,
+    condicionCredito: comprobante.condicionCredito,
+    plazoCredito: comprobante.plazoCredito,
+    cantidadCuotas: comprobante.cantidadCuotas,
+  });
+
   buildGCamItem(gDtipDE, comprobante.items as ItemConUnidad[]);
+
+  if (comprobante.datosTransporteRemision) {
+    buildGTransp(gDtipDE, comprobante.datosTransporteRemision);
+  }
 
   gDtipDE.up();
 
@@ -127,6 +141,13 @@ export function buildXmlDe(params: BuildXmlDeParams): string {
     iva10: Number(comprobante.iva10),
     total: Number(comprobante.total),
   });
+
+  // gCamDEAsoc -- referencia al DE original de una NC/ND. Va como hijo
+  // directo de <DE>, hermano de gTotSub (NO dentro de gDtipDE, error
+  // anterior ya corregido) -- verificado contra DE_v150.xsd el 2026-08-21.
+  if (comprobante.motivoEmision && params.cdcComprobanteAsociado) {
+    de.ele('gCamDEAsoc').ele('iTipDocAso').txt('1').up().ele('dCdCDERef').txt(params.cdcComprobanteAsociado).up().up();
+  }
 
   de.up();
   doc.up();

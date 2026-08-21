@@ -11,8 +11,9 @@ import {
 import { codigoPorPosicion } from '../catalogos';
 import { type XmlNode } from './xml-node';
 
-// gCamNRE -- datos de la Nota de Remision Electronica (Manual Tecnico SIFEN
-// v150, E5/E9), armado 1:1 desde DatosTransporteRemision.
+// gCamNRE -- motivo/responsable de emision de la Nota de Remision
+// Electronica. Va ANTES de gCamCond/gCamItem en gDtipDE (verificado contra
+// DE_v150.xsd el 2026-08-21).
 export function buildGCamNre(parent: XmlNode, datos: DatosTransporteRemision): void {
   const gCamNRE = parent
     .ele('gCamNRE')
@@ -30,7 +31,13 @@ export function buildGCamNre(parent: XmlNode, datos: DatosTransporteRemision): v
     gCamNRE.ele('dFecEmiFactu').txt(datos.fechaEmisionFacturaFutura.toISOString().slice(0, 10)).up();
   }
   gCamNRE.up();
+}
 
+// gTransp -- datos del transporte. A diferencia de gCamNRE, este grupo va
+// DESPUES de gCamItem en gDtipDE (verificado contra DE_v150.xsd el
+// 2026-08-21) -- por eso es una funcion separada, llamada en otro punto de
+// xml-builder.ts.
+export function buildGTransp(parent: XmlNode, datos: DatosTransporteRemision): void {
   const gTransp = parent
     .ele('gTransp')
     .ele('iTipTrans')

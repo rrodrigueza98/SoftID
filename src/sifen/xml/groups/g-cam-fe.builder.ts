@@ -1,4 +1,4 @@
-import type { CondicionCredito, CondicionVenta, MotivoEmisionNotaCD, TipoDocumentoElectronico } from '@prisma/client';
+import type { CondicionCredito, CondicionVenta, MotivoEmisionNotaCD } from '@prisma/client';
 import { type XmlNode } from './xml-node';
 
 const IMOTEMI_POR_MOTIVO: Record<MotivoEmisionNotaCD, string> = {
@@ -12,27 +12,32 @@ const IMOTEMI_POR_MOTIVO: Record<MotivoEmisionNotaCD, string> = {
   AJUSTE_DE_PRECIO: '8',
 };
 
-export interface DatosGCamFE {
-  tipoDocumento: TipoDocumentoElectronico;
+// gCamFE -- campos especificos de Factura Electronica (Manual Tecnico SIFEN
+// v150). Solo se envia iIndPres (indicador de presencia): SoftID no
+// distingue todavia si la operacion fue presencial, por telefono, comercio
+// electronico, etc, asi que se usa "1 = Operacion presencial" como default
+// -- es el caso mas comun para POS/Facturacion manual. dFecEmNR/gCompPub
+// (venta a futuro / factura futura de una remision) no se modelan.
+export function buildGCamFE(parent: XmlNode): void {
+  parent.ele('gCamFE').ele('iIndPres').txt('1').up().ele('dDesIndPres').txt('Operación presencial').up().up();
+}
+
+export interface DatosGCamCond {
   condicionVenta: CondicionVenta;
   condicionCredito?: CondicionCredito | null;
   plazoCredito?: string | null;
   cantidadCuotas?: number | null;
-  // Solo para NC/ND: referencia al comprobante original.
-  notaCreditoDebito?: {
-    motivoEmision: MotivoEmisionNotaCD;
-    cdcComprobanteAsociado: string;
-  };
 }
 
-// gCamFE -- condicion de la operacion (Manual Tecnico SIFEN v150, E6), mas
-// gCamNCDE cuando el documento es Nota de Credito/Debito (referencia al
-// comprobante que ajusta).
-export function buildGCamFE(parent: XmlNode, datos: DatosGCamFE): void {
-  const gCamFE = parent.ele('gCamFE');
-
+// gCamCond -- condicion de la operacion: contado o credito (Manual Tecnico
+// SIFEN v150). Verificado contra DE_v150.xsd el 2026-08-21 -- iCondOpe/
+// dDCondOpe/gPagCred viven aca, NO dentro de gCamFE (error anterior, ya
+// corregido).
+export function buildGCamCond(parent: XmlNode, datos: DatosGCamCond): void {
+  const gCamCond = parent.ele('gCamCond');
   const esCredito = datos.condicionVenta === 'CREDITO';
-  gCamFE
+
+  gCamCond
     .ele('iCondOpe')
     .txt(esCredito ? '2' : '1')
     .up()
@@ -41,7 +46,7 @@ export function buildGCamFE(parent: XmlNode, datos: DatosGCamFE): void {
     .up();
 
   if (esCredito && datos.condicionCredito) {
-    const gPagCred = gCamFE.ele('gPagCred').ele('iCondCred').txt(datos.condicionCredito === 'PLAZO' ? '1' : '2').up();
+    const gPagCred = gCamCond.ele('gPagCred').ele('iCondCred').txt(datos.condicionCredito === 'PLAZO' ? '1' : '2').up();
     if (datos.condicionCredito === 'PLAZO' && datos.plazoCredito) {
       gPagCred.ele('dPlazoCre').txt(datos.plazoCredito).up();
     }
@@ -51,23 +56,12 @@ export function buildGCamFE(parent: XmlNode, datos: DatosGCamFE): void {
     gPagCred.up();
   }
 
-  gCamFE.up();
+  gCamCond.up();
+}
 
-  if (datos.notaCreditoDebito) {
-    parent
-      .ele('gCamNCDE')
-      .ele('iMotEmi')
-      .txt(IMOTEMI_POR_MOTIVO[datos.notaCreditoDebito.motivoEmision])
-      .up()
-      .ele('dDesMotEmi')
-      .txt(datos.notaCreditoDebito.motivoEmision)
-      .up()
-      .up();
-
-    // Referencia al DE original -- va en gGrupGen/gCamDEAsoc segun el manual;
-    // se modela como bloque propio para que quede claro que es un campo
-    // pendiente de ubicar en su grupo exacto del XSD (ver plan, "cosas a
-    // verificar").
-    parent.ele('gCamDEAsoc').ele('iTipDocAso').txt('1').up().ele('dCdCDERef').txt(datos.notaCreditoDebito.cdcComprobanteAsociado).up().up();
-  }
+// gCamNCDE -- motivo de emision de Nota de Credito/Debito. Solo iMotEmi/
+// dDesMotEmi (la referencia al DE original va aparte, como gCamDEAsoc a
+// nivel de <DE>, no dentro de este grupo -- ver xml-builder.ts).
+export function buildGCamNcde(parent: XmlNode, motivoEmision: MotivoEmisionNotaCD): void {
+  parent.ele('gCamNCDE').ele('iMotEmi').txt(IMOTEMI_POR_MOTIVO[motivoEmision]).up().ele('dDesMotEmi').txt(motivoEmision).up().up();
 }

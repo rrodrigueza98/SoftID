@@ -44,11 +44,17 @@ export function buildGCamItem(parent: XmlNode, items: ItemConUnidad[]): void {
       .txt(num(Number(item.precioUnitario) * Number(item.cantidad), 2))
       .up();
 
+    // gValorRestaItem -- verificado contra DE_v150.xsd el 2026-08-21: NO es
+    // opcional-solo-si-hay-descuento como se habia asumido antes; dTotOpeItem
+    // (el total final del item) vive DENTRO de este grupo, no como hijo
+    // directo de gValorItem (error anterior, ya corregido). Va siempre.
+    const gValorRestaItem = gValorItem.ele('gValorRestaItem');
     if (Number(item.descuento) > 0) {
-      gValorItem.ele('gValorRestaItem').ele('dDescItem').txt(num(item.descuento, 2)).up().up();
+      gValorRestaItem.ele('dDescItem').txt(num(item.descuento, 2)).up();
     }
+    gValorRestaItem.ele('dTotOpeItem').txt(num(item.total, 2)).up();
+    gValorRestaItem.up();
 
-    gValorItem.ele('dTotOpeItem').txt(num(item.total, 2)).up();
     gValorItem.up(); // cierra gValorItem, vuelve a gCamItem
 
     const gCamIVA = gCamItem

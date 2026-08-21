@@ -11,7 +11,9 @@ export interface DatosGDatGralOpe {
 }
 
 // gDatGralOpe -- datos generales de la operacion (Manual Tecnico SIFEN v150,
-// E2): fecha, gOpeCom (moneda/tipo de cambio), gEmis, gDatRec.
+// E2): fecha, gOpeCom (tipo de transaccion/impuesto, moneda/tipo de
+// cambio), gEmis, gDatRec. Orden y nombres de campo verificados contra
+// DE_v150.xsd (ekuatia.set.gov.py/sifen/xsd/DE_v150.xsd) el 2026-08-21.
 export function buildGDatGralOpe(parent: XmlNode, datos: DatosGDatGralOpe): void {
   const gDatGralOpe = parent
     .ele('gDatGralOpe')
@@ -22,6 +24,22 @@ export function buildGDatGralOpe(parent: XmlNode, datos: DatosGDatGralOpe): void
   const esExtranjera = datos.moneda !== 'PYG';
   const gOpeCom = gDatGralOpe
     .ele('gOpeCom')
+    // iTipTra/iTImp -- SoftID no distingue tipo de transaccion por
+    // comprobante (mercaderia/servicio/mixto) ni impuestos distintos de
+    // IVA todavia -- se usa el default mas comun (1=venta de mercaderia,
+    // 1=IVA) hasta modelarlo explicitamente.
+    .ele('iTipTra')
+    .txt('1')
+    .up()
+    .ele('dDesTipTra')
+    .txt('Venta de mercadería')
+    .up()
+    .ele('iTImp')
+    .txt('1')
+    .up()
+    .ele('dDesTImp')
+    .txt('IVA')
+    .up()
     .ele('cMoneOpe')
     .txt(datos.moneda)
     .up()

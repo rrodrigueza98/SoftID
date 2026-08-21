@@ -1,4 +1,5 @@
 import type { Tercero } from '@prisma/client';
+import { ITIPCONT_POR_TIPO } from '../catalogos';
 import { type XmlNode } from './xml-node';
 
 // iTipIDRec -- solo se usa cuando el receptor NO es contribuyente (no tiene
@@ -13,16 +14,38 @@ const ITIPIDREC_POR_TIPO: Partial<Record<Tercero['tipoDocumento'], string>> = {
   OTRO: '9',
 };
 
+const DESC_TIPIDREC_POR_TIPO: Partial<Record<Tercero['tipoDocumento'], string>> = {
+  CEDULA_PARAGUAYA: 'Cédula paraguaya',
+  PASAPORTE: 'Pasaporte',
+  CEDULA_EXTRANJERA: 'Cédula extranjera',
+  CARNET_RESIDENCIA: 'Carnet de residencia',
+  INNOMINADO: 'Innominado',
+  TARJETA_DIPLOMATICA: 'Tarjeta diplomática',
+  OTRO: 'Otro',
+};
+
 export interface DatosGDatRec {
   tercero: Pick<
     Tercero,
-    'tipoDocumento' | 'numeroDocumento' | 'dvRuc' | 'razonSocial' | 'direccion' | 'ciudad' | 'departamento' | 'telefono' | 'email'
+    | 'tipoDocumento'
+    | 'numeroDocumento'
+    | 'dvRuc'
+    | 'razonSocial'
+    | 'tipoContribuyente'
+    | 'direccion'
+    | 'ciudad'
+    | 'departamento'
+    | 'telefono'
+    | 'email'
   >;
 }
 
-// gDatRec -- datos del receptor (Manual Tecnico SIFEN v150, E4/E7 segun
-// version). Si el receptor tiene RUC (es contribuyente), va por dRucRec; si
-// no, por iTipIDRec/dNumIDRec.
+// gDatRec -- datos del receptor. Orden y nombres de campo verificados
+// contra DE_v150.xsd (ekuatia.set.gov.py/sifen/xsd/DE_v150.xsd) el
+// 2026-08-21: iNatRec, iTiOpe, cPaisRec, dDesPaisRe, iTiContRec, dRucRec,
+// dDVRec, iTipIDRec, dDTipIDRec, dNumIDRec, dNomRec, ... -- ojo que NO
+// existen campos "dDesNatRec"/"dDesTiOpe" en el schema real (se habian
+// incluido antes por error, ya sacados).
 export function buildGDatRec(parent: XmlNode, datos: DatosGDatRec): void {
   const esContribuyente = datos.tercero.tipoDocumento === 'RUC';
 
@@ -31,17 +54,11 @@ export function buildGDatRec(parent: XmlNode, datos: DatosGDatRec): void {
     .ele('iNatRec')
     .txt(esContribuyente ? '1' : '2')
     .up()
-    .ele('dDesNatRec')
-    .txt(esContribuyente ? 'Contribuyente' : 'No contribuyente')
-    .up()
     // B2B (1) si es contribuyente, B2C (2) si no -- simplificacion: no
     // distingue B2G (gobierno) ni B2F (exterior), que requeririan marcar el
     // tercero como tal explicitamente (no modelado hoy).
     .ele('iTiOpe')
     .txt(esContribuyente ? '1' : '2')
-    .up()
-    .ele('dDesTiOpe')
-    .txt(esContribuyente ? 'B2B' : 'B2C')
     .up()
     .ele('cPaisRec')
     .txt('PRY')
@@ -51,6 +68,9 @@ export function buildGDatRec(parent: XmlNode, datos: DatosGDatRec): void {
     .up();
 
   if (esContribuyente) {
+    if (datos.tercero.tipoContribuyente) {
+      gDatRec.ele('iTiContRec').txt(ITIPCONT_POR_TIPO[datos.tercero.tipoContribuyente]).up();
+    }
     gDatRec
       .ele('dRucRec')
       .txt(datos.tercero.numeroDocumento)
@@ -60,9 +80,13 @@ export function buildGDatRec(parent: XmlNode, datos: DatosGDatRec): void {
       .up();
   } else {
     const iTipIDRec = ITIPIDREC_POR_TIPO[datos.tercero.tipoDocumento] ?? '9';
+    const dDTipIDRec = DESC_TIPIDREC_POR_TIPO[datos.tercero.tipoDocumento] ?? 'Otro';
     gDatRec
       .ele('iTipIDRec')
       .txt(iTipIDRec)
+      .up()
+      .ele('dDTipIDRec')
+      .txt(dDTipIDRec)
       .up()
       .ele('dNumIDRec')
       .txt(datos.tercero.numeroDocumento)
