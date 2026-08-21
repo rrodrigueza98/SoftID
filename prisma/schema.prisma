@@ -224,6 +224,12 @@ model Empresa {
   tipoContribuyente               TipoContribuyente
   regimenTributario               RegimenTributario     @default(IRE_GENERAL)
   regimenEspecialSifen            RegimenEspecialSifen? // solo si opera bajo un regimen especial (Tabla 1 SIFEN); la mayoria lo deja vacio
+  // Actividad economica registrada en SET (gActEco de SIFEN es obligatorio,
+  // hasta 9 por DE -- se soporta una sola, alcanza para el minOccurs=1 que
+  // exige el XSD). Codigo del Clasificador de Actividades Economicas (CIIU
+  // adaptado por SET), tal como figura en Marangatu para el RUC.
+  actividadEconomicaCodigo        String?
+  actividadEconomicaDescripcion   String?
   direccion                       String
   ciudad                          String
   departamento                    String

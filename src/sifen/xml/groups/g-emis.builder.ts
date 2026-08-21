@@ -3,7 +3,18 @@ import { codigoDepartamento, ITIPCONT_POR_TIPO } from '../catalogos';
 import { type XmlNode } from './xml-node';
 
 export interface DatosGEmis {
-  empresa: Pick<Empresa, 'ruc' | 'dvRuc' | 'tipoContribuyente' | 'razonSocial' | 'nombreFantasia' | 'telefono' | 'email'>;
+  empresa: Pick<
+    Empresa,
+    | 'ruc'
+    | 'dvRuc'
+    | 'tipoContribuyente'
+    | 'razonSocial'
+    | 'nombreFantasia'
+    | 'telefono'
+    | 'email'
+    | 'actividadEconomicaCodigo'
+    | 'actividadEconomicaDescripcion'
+  >;
   establecimiento: Pick<Establecimiento, 'direccion' | 'ciudad' | 'departamento' | 'telefono' | 'email'>;
 }
 
@@ -86,6 +97,26 @@ export function buildGEmis(parent: XmlNode, datos: DatosGEmis): void {
     );
   }
   gEmis.ele('dEmailE').txt(email).up();
+
+  // gActEco (Clasificador de Actividades Economicas de SET) tambien resulto
+  // obligatorio (rechazo real: "Elemento esperado: gActEco dentro de:
+  // gEmis") -- va DESPUES de dEmailE, verificado contra DE_v150.xsd
+  // 2026-08-21. Empresa solo guarda una actividad (el XSD permite hasta 9,
+  // pero una alcanza para el minOccurs=1 que exige).
+  if (!datos.empresa.actividadEconomicaCodigo || !datos.empresa.actividadEconomicaDescripcion) {
+    throw new Error(
+      'buildGEmis: falta la actividad económica de la empresa emisora -- SIFEN lo exige (gActEco). Cargala en Configuración → Datos de la empresa.',
+    );
+  }
+  gEmis
+    .ele('gActEco')
+    .ele('cActEco')
+    .txt(datos.empresa.actividadEconomicaCodigo)
+    .up()
+    .ele('dDesActEco')
+    .txt(datos.empresa.actividadEconomicaDescripcion)
+    .up()
+    .up();
 
   gEmis.up();
 }
