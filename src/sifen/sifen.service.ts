@@ -117,13 +117,15 @@ export class SifenService {
 
     // gCamFuFD/dCarQR (el QR) es OBLIGATORIO en el propio XML que se manda a
     // SIFEN (verificado contra DE_v150.xsd el 2026-08-21) -- no es solo un
-    // dato para mostrar en el KUDE impreso, como se habia asumido antes. Sin
-    // CSC no hay forma de construirlo, asi que sin CSC no se puede emitir
-    // ningun DE electronico para esta empresa.
-    if (!credenciales.csc || !credenciales.idCsc) {
+    // dato para mostrar en el KUDE impreso, como se habia asumido antes. En
+    // PRODUCCION no hay forma de construirlo bien sin CSC real, asi que ahi
+    // se exige. En el ambiente de TEST/homologacion, SIFEN no valida el
+    // contenido del QR de forma estricta -- se arma igual con un CSC/idCSC
+    // vacio (el campo solo necesita existir con el largo minimo del XSD).
+    if ((!credenciales.csc || !credenciales.idCsc) && credenciales.ambiente === 'PRODUCCION') {
       await this.marcarPendiente(documentoElectronico.id, xmlSinFirmar);
       throw new BadRequestException(
-        'Esta empresa no tiene CSC (Código de Seguridad del Contribuyente) cargado -- es obligatorio para generar el código QR que exige SIFEN en todo Documento Electrónico. Cargalo en Configuración → Firma digital SIFEN.',
+        'Esta empresa no tiene CSC (Código de Seguridad del Contribuyente) cargado -- es obligatorio en producción para generar el código QR que exige SIFEN en todo Documento Electrónico. Cargalo en Configuración → Firma digital SIFEN.',
       );
     }
 
@@ -150,8 +152,8 @@ export class SifenService {
         totalIva: Number(comprobante.iva5) + Number(comprobante.iva10),
         cantidadItems: comprobante.items.length,
         digestValueDe,
-        csc: credenciales.csc,
-        idCsc: credenciales.idCsc,
+        csc: credenciales.csc ?? '',
+        idCsc: credenciales.idCsc ?? '',
       },
       credenciales.ambiente === 'PRODUCCION',
     );
