@@ -1,4 +1,4 @@
-import { Body, Controller, ForbiddenException, Get, Param, Patch, Post, Query, Res, StreamableFile } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, NotFoundException, Param, Patch, Post, Query, Res, StreamableFile } from '@nestjs/common';
 import { Pantalla, TipoDocumentoElectronico } from '@prisma/client';
 import type { Response } from 'express';
 import { ComprobantesService } from './comprobantes.service';
@@ -144,6 +144,25 @@ export class ComprobantesController {
     const comprobante = await this.comprobantesService.findOne(id);
     this.verificarAccesoPuntoExpedicion(comprobante.puntoExpedicionId, usuario);
     return comprobante.documentoElectronico;
+  }
+
+  // Descarga el XML firmado tal cual se envio/aprobo en SIFEN (xmlFirmado)
+  // -- no el que se genera antes de firmar, para que lo que se descargue
+  // sea exactamente lo que quedo registrado ante SIFEN.
+  @Get(':id/xml')
+  async descargarXml(@Param('id') id: string, @CurrentUser() usuario: AuthUser, @Res({ passthrough: true }) res: Response) {
+    this.verificarPantalla(usuario, ['COMPROBANTES_EMITIDOS', 'PUNTO_DE_VENTA']);
+    const comprobante = await this.comprobantesService.findOne(id);
+    this.verificarAccesoPuntoExpedicion(comprobante.puntoExpedicionId, usuario);
+    const de = comprobante.documentoElectronico;
+    if (!de?.xmlFirmado) {
+      throw new NotFoundException('Este comprobante todavía no tiene un XML firmado generado');
+    }
+    res.set({
+      'Content-Type': 'application/xml; charset=utf-8',
+      'Content-Disposition': `attachment; filename="${de.cdc ?? id}.xml"`,
+    });
+    return new StreamableFile(Buffer.from(de.xmlFirmado, 'utf8'));
   }
 
   // undefined para ADMIN/superadmin/sin restriccion -- asi el service sabe

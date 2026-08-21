@@ -21,6 +21,7 @@ export function ComprobanteDetailDialog({
 }) {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
+  const [descargando, setDescargando] = useState(false);
 
   const { data: comprobante, isLoading } = useQuery({
     queryKey: ['comprobante', comprobanteId],
@@ -36,6 +37,30 @@ export function ComprobanteDetailDialog({
     },
     onError: (err) => setError(apiErrorMessage(err)),
   });
+
+  const handleDescargarXml = async () => {
+    if (!comprobante) return;
+    setDescargando(true);
+    setError(null);
+    try {
+      const res = await api.get(`/comprobantes/${comprobante.id}/xml`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${comprobante.documentoElectronico?.cdc ?? comprobante.numero}.xml`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(apiErrorMessage(err));
+    } finally {
+      setDescargando(false);
+    }
+  };
+
+  const deAprobado =
+    comprobante?.documentoElectronico?.estado === 'APROBADO' || comprobante?.documentoElectronico?.estado === 'APROBADO_CON_OBSERVACION';
 
   return (
     <Dialog open={open} onClose={onClose} title="Comprobante" width="lg">
@@ -121,8 +146,13 @@ export function ComprobanteDetailDialog({
               variant="secondary"
               onClick={() => window.open(`/imprimir/comprobantes/${comprobante.id}`, '_blank')}
             >
-              Imprimir
+              {comprobante.timbrado?.esElectronico ? 'Ver KuDE' : 'Imprimir'}
             </Button>
+            {deAprobado && (
+              <Button variant="secondary" onClick={handleDescargarXml} disabled={descargando}>
+                {descargando ? 'Descargando…' : 'Descargar XML'}
+              </Button>
+            )}
             {comprobante.estado === 'EMITIDO' && (
               <Button variant="danger" onClick={() => anular.mutate()} disabled={anular.isPending}>
                 {anular.isPending ? 'Anulando…' : 'Anular'}
