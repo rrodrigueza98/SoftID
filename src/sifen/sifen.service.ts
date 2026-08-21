@@ -5,7 +5,7 @@ import { CertificadosSifenService } from './certificados-sifen/certificados-sife
 import { buildCdc } from './cdc/cdc.builder';
 import { buildXmlDe, type ComprobanteParaXml } from './xml/xml-builder';
 import { extraerCertificado } from './signing/p12.util';
-import { firmarXmlDe } from './signing/xades.signer';
+import { firmarXmlDe } from './signing/xml.signer';
 import { buildQrUrl } from './qr/qr-url.builder';
 import { buildSoapEnvelopeRecepcionDe } from './transport/soap-envelope.builder';
 import { buildHttpsAgent, postSoapEnvelope } from './transport/sifen.http-client';
@@ -133,14 +133,19 @@ export class SifenService {
     const xmlFirmadoSinQr = firmarXmlDe(xmlSinFirmar, {
       privateKeyPem: certificado.privateKeyPem,
       certPem: certificado.certPem,
-      certDerBase64: certificado.certDerBase64,
     });
 
     // El digest del QR es el mismo DigestValue que la firma ya calculo para
     // la Referencia sobre <DE> -- se reutiliza en vez de recalcularlo. Se
     // extrae por regex porque en este punto solo tenemos el XML como string
-    // (xml-crypto no expone el digest calculado como valor aparte).
-    const digestMatch = xmlFirmadoSinQr.match(new RegExp(`URI="#${cdc}"[\\s\\S]*?<ds:DigestValue>([^<]+)</ds:DigestValue>`));
+    // (xml-crypto no expone el digest calculado como valor aparte). La
+    // Referencia sobre <DE> usa URI="#{cdc}"; xml-crypto (sin prefix
+    // explicito, ver xml.signer.ts) escribe los elementos de la firma sin
+    // prefijo de namespace (xmlns por defecto), por eso "DigestValue" y no
+    // "ds:DigestValue" aca.
+    const digestMatch = xmlFirmadoSinQr.match(
+      new RegExp(`URI="#${cdc}"[\\s\\S]*?<DigestValue>([^<]+)</DigestValue>`),
+    );
     const digestValueDe = digestMatch?.[1] ?? '';
 
     const qrUrl = buildQrUrl(
@@ -250,11 +255,11 @@ export class SifenService {
     const { buildSoapEnvelopeEvento } = await import('./transport/soap-envelope.builder');
 
     const xmlEvento = buildXmlEventoCancelacion({ cdc: documentoElectronico.cdc, motivo });
-    const xmlEventoFirmado = firmarXmlDe(xmlEvento, {
-      privateKeyPem: certificado.privateKeyPem,
-      certPem: certificado.certPem,
-      certDerBase64: certificado.certDerBase64,
-    });
+    const xmlEventoFirmado = firmarXmlDe(
+      xmlEvento,
+      { privateKeyPem: certificado.privateKeyPem, certPem: certificado.certPem },
+      'rEve',
+    );
 
     const soapEnvelope = buildSoapEnvelopeEvento(xmlEventoFirmado);
     const endpoint = endpointsPara(credenciales.ambiente).recepcionEvento;

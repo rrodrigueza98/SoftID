@@ -38,7 +38,7 @@ export interface BuildXmlDeParams {
 
 // Arma el XML del rDE (Documento Electronico) sin firmar, siguiendo el
 // esqueleto del Manual Tecnico SIFEN v150. La firma XAdES-BES se aplica
-// despues, en signing/xades.signer.ts.
+// despues, en signing/xml.signer.ts.
 //
 // Orden y nombres de grupo verificados contra DE_v150.xsd
 // (ekuatia.set.gov.py/sifen/xsd/DE_v150.xsd) el 2026-08-21, corrigiendo

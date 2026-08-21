@@ -7,9 +7,10 @@ export interface DatosEventoCancelacion {
 
 // Arma el XML del Evento de Cancelacion (Manual Tecnico SIFEN v150, Anexo
 // "Eventos del Documento Electronico") -- se firma igual que un DE (misma
-// funcion firmarXmlDe de signing/xades.signer.ts, ya que el perfil de firma
-// XAdES-BES es el mismo para eventos). VERIFICAR la estructura exacta contra
-// el manual -- ver plan de implementacion, "Cosas a verificar".
+// funcion firmarXmlDe de signing/xml.signer.ts, pasando tagRaiz='rEve' ya
+// que el elemento con el Id a referenciar es <rEve>, no <rEventoDE>).
+// VERIFICAR la estructura exacta contra el manual -- ver plan de
+// implementacion, "Cosas a verificar".
 export function buildXmlEventoCancelacion(datos: DatosEventoCancelacion): string {
   const eventoId = `EVT-${datos.cdc}`;
 
