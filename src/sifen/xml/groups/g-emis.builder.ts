@@ -4,7 +4,7 @@ import { type XmlNode } from './xml-node';
 
 export interface DatosGEmis {
   empresa: Pick<Empresa, 'ruc' | 'dvRuc' | 'tipoContribuyente' | 'razonSocial' | 'nombreFantasia' | 'telefono' | 'email'>;
-  establecimiento: Pick<Establecimiento, 'direccion' | 'ciudad' | 'departamento'>;
+  establecimiento: Pick<Establecimiento, 'direccion' | 'ciudad' | 'departamento' | 'telefono' | 'email'>;
 }
 
 // gEmis -- datos del emisor (Manual Tecnico SIFEN v150, E3).
@@ -62,11 +62,23 @@ export function buildGEmis(parent: XmlNode, datos: DatosGEmis): void {
     .txt(datos.establecimiento.ciudad)
     .up();
 
-  if (datos.empresa.telefono) {
-    gEmis.ele('dTelEmi').txt(datos.empresa.telefono).up();
+  // dTelEmi resulto ser obligatorio en la practica (rechazo real de SIFEN:
+  // "Elemento esperado: dTelEmi dentro de: gEmis" -- el DE_v150.xsd lo
+  // marca opcional, pero SIFEN igual lo exige). Se usa el telefono del
+  // establecimiento si esta cargado, si no el de la empresa; si ninguno
+  // esta cargado se corta ahi con un error claro en vez de mandar un DE que
+  // SIFEN va a rechazar de nuevo.
+  const telefono = datos.establecimiento.telefono ?? datos.empresa.telefono;
+  if (!telefono) {
+    throw new Error(
+      'buildGEmis: falta el telefono del establecimiento/empresa emisora -- SIFEN lo exige (dTelEmi). Cargalo en Configuración → Establecimientos o en los datos de la empresa.',
+    );
   }
-  if (datos.empresa.email) {
-    gEmis.ele('dEmailE').txt(datos.empresa.email).up();
+  gEmis.ele('dTelEmi').txt(telefono).up();
+
+  const email = datos.establecimiento.email ?? datos.empresa.email;
+  if (email) {
+    gEmis.ele('dEmailE').txt(email).up();
   }
 
   gEmis.up();
