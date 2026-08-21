@@ -76,10 +76,16 @@ export function buildGEmis(parent: XmlNode, datos: DatosGEmis): void {
   }
   gEmis.ele('dTelEmi').txt(telefono).up();
 
+  // dEmailE resulto ser obligatorio tambien (mismo hallazgo que dTelEmi, ver
+  // comentario arriba -- rechazo real: "Elemento esperado: dEmailE dentro
+  // de: gEmis").
   const email = datos.establecimiento.email ?? datos.empresa.email;
-  if (email) {
-    gEmis.ele('dEmailE').txt(email).up();
+  if (!email) {
+    throw new Error(
+      'buildGEmis: falta el email del establecimiento/empresa emisora -- SIFEN lo exige (dEmailE). Cargalo en Configuración → Establecimientos o en los datos de la empresa.',
+    );
   }
+  gEmis.ele('dEmailE').txt(email).up();
 
   gEmis.up();
 }
