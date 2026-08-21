@@ -731,6 +731,26 @@ export interface MovimientoBancario {
   fechaConciliacion?: string | null;
 }
 
+export interface LineaExtracto {
+  fecha: string;
+  concepto: string;
+  tipo: TipoMovimientoBancario;
+  monto: number;
+  referencia?: string;
+}
+
+export interface MatchExtracto {
+  movimiento: MovimientoBancario;
+  linea: LineaExtracto;
+  diferenciaDias: number;
+}
+
+export interface ImportarExtractoResultado {
+  matches: MatchExtracto[];
+  sinCoincidencia: LineaExtracto[];
+  errores: { fila: number; mensaje: string }[];
+}
+
 export interface ConciliacionBancaria {
   id: string;
   cuentaBancariaId: string;
