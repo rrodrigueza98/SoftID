@@ -1,4 +1,4 @@
-import type { AfectacionIVA, ComprobanteItem, UnidadMedida } from '@prisma/client';
+import type { AfectacionIVA, ComprobanteItem, Producto, UnidadMedida } from '@prisma/client';
 import { type XmlNode, num } from './xml-node';
 
 const IAFECIVA_POR_TIPO: Record<AfectacionIVA, string> = {
@@ -15,13 +15,27 @@ const DESC_AFECIVA_POR_TIPO: Record<AfectacionIVA, string> = {
   GRAVADO_PARCIAL: 'Gravado parcial (Exento y Gravado)',
 };
 
-export type ItemConUnidad = ComprobanteItem & { unidadMedida: Pick<UnidadMedida, 'codigoSifen' | 'descripcion'> };
+export type ItemConUnidad = ComprobanteItem & {
+  unidadMedida: Pick<UnidadMedida, 'codigoSifen' | 'descripcion'>;
+  producto: Pick<Producto, 'codigo'> | null;
+};
 
 // gCamItem -- uno por cada ComprobanteItem (Manual Tecnico SIFEN v150, E7).
 export function buildGCamItem(parent: XmlNode, items: ItemConUnidad[]): void {
   for (const item of items) {
+    // dCodInt (codigo interno del producto/servicio) resulto obligatorio y
+    // va ANTES de dDesProSer (rechazo real: "El elemento esperado es:
+    // dCodInt en lugar de: dDesProSer", confirmado contra DE_v150.xsd
+    // 2026-08-21). Se usa el SKU del producto si el item esta vinculado a
+    // uno; si es un item libre (sin productoId) se usa el id del propio
+    // ComprobanteItem como codigo interno, ya que SIFEN solo exige que sea
+    // un identificador no vacio (tdCodInt, 1-50 caracteres), no que exista
+    // en ningun catalogo externo.
     const gCamItem = parent
       .ele('gCamItem')
+      .ele('dCodInt')
+      .txt(item.producto?.codigo ?? item.id)
+      .up()
       .ele('dDesProSer')
       .txt(item.descripcion)
       .up()

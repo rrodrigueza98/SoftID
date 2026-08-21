@@ -21,7 +21,7 @@ const TIPOS_CON_DE_SOPORTADOS: TipoDocumentoElectronico[] = [
 ];
 
 const INCLUDE_COMPROBANTE_PARA_XML = {
-  items: { include: { unidadMedida: true } },
+  items: { include: { unidadMedida: true, producto: { select: { codigo: true } } } },
   timbrado: { include: { puntoExpedicion: { include: { establecimiento: { include: { empresa: true } } } } } },
   cliente: true,
   proveedor: true,

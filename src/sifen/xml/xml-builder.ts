@@ -6,6 +6,7 @@ import type {
   DatosVendedorAutofactura,
   Empresa,
   Establecimiento,
+  Producto,
   PuntoExpedicion,
   Tercero,
   Timbrado,
@@ -22,7 +23,10 @@ import { buildGTimb } from './groups/g-timb.builder';
 import { buildGTotSub } from './groups/g-tot-sub.builder';
 
 export type ComprobanteParaXml = Comprobante & {
-  items: (ComprobanteItem & { unidadMedida: Pick<UnidadMedida, 'codigoSifen' | 'descripcion'> })[];
+  items: (ComprobanteItem & {
+    unidadMedida: Pick<UnidadMedida, 'codigoSifen' | 'descripcion'>;
+    producto: Pick<Producto, 'codigo'> | null;
+  })[];
   timbrado: Timbrado & { puntoExpedicion: PuntoExpedicion & { establecimiento: Establecimiento & { empresa: Empresa } } };
   cliente: Tercero | null;
   proveedor: Tercero | null;
