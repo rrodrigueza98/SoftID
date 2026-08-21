@@ -166,11 +166,13 @@ export class SifenService {
     const csc = credenciales.ambiente === 'PRODUCCION' ? (credenciales.csc ?? '') : CSC_GENERICO_TEST;
     const idCsc = credenciales.ambiente === 'PRODUCCION' ? (credenciales.idCsc ?? '') : ID_CSC_GENERICO_TEST;
 
+    const receptor = comprobante.cliente ?? comprobante.proveedor;
     const qrUrl = buildQrUrl(
       {
         cdc,
         fechaEmision: comprobante.fechaEmision,
-        rucReceptor: (comprobante.cliente ?? comprobante.proveedor)?.numeroDocumento ?? '',
+        parametroReceptor: receptor?.tipoDocumento === 'RUC' ? 'dRucRec' : 'dNumIDRec',
+        identificacionReceptor: receptor?.numeroDocumento ?? '',
         totalGeneral: Number(comprobante.total),
         totalIva: Number(comprobante.iva5) + Number(comprobante.iva10),
         cantidadItems: comprobante.items.length,
