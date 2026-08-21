@@ -28,8 +28,9 @@ export async function postSoapEnvelope(url: string, soapXml: string, agent: Agen
         path: pathname,
         method: 'POST',
         headers: {
-          'Content-Type': 'text/xml; charset=UTF-8',
+          'Content-Type': 'application/xml; charset=utf-8',
           'Content-Length': Buffer.byteLength(soapXml, 'utf8'),
+          'User-Agent': 'SoftID',
         },
         timeout: TIMEOUT_MS,
       },
