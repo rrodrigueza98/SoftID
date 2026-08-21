@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { EstadoDocumentoElectronico, TipoDocumentoElectronico } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CertificadosSifenService } from './certificados-sifen/certificados-sifen.service';
@@ -115,16 +115,56 @@ export class SifenService {
       throw err;
     }
 
+    // gCamFuFD/dCarQR (el QR) es OBLIGATORIO en el propio XML que se manda a
+    // SIFEN (verificado contra DE_v150.xsd el 2026-08-21) -- no es solo un
+    // dato para mostrar en el KUDE impreso, como se habia asumido antes. Sin
+    // CSC no hay forma de construirlo, asi que sin CSC no se puede emitir
+    // ningun DE electronico para esta empresa.
+    if (!credenciales.csc || !credenciales.idCsc) {
+      await this.marcarPendiente(documentoElectronico.id, xmlSinFirmar);
+      throw new BadRequestException(
+        'Esta empresa no tiene CSC (Código de Seguridad del Contribuyente) cargado -- es obligatorio para generar el código QR que exige SIFEN en todo Documento Electrónico. Cargalo en Configuración → Firma digital SIFEN.',
+      );
+    }
+
     const certificado = extraerCertificado(credenciales.p12Buffer, credenciales.password);
-    const xmlFirmado = firmarXmlDe(xmlSinFirmar, {
+    const xmlFirmadoSinQr = firmarXmlDe(xmlSinFirmar, {
       privateKeyPem: certificado.privateKeyPem,
       certPem: certificado.certPem,
       certDerBase64: certificado.certDerBase64,
     });
 
+    // El digest del QR es el mismo DigestValue que la firma ya calculo para
+    // la Referencia sobre <DE> -- se reutiliza en vez de recalcularlo. Se
+    // extrae por regex porque en este punto solo tenemos el XML como string
+    // (xml-crypto no expone el digest calculado como valor aparte).
+    const digestMatch = xmlFirmadoSinQr.match(new RegExp(`URI="#${cdc}"[\\s\\S]*?<ds:DigestValue>([^<]+)</ds:DigestValue>`));
+    const digestValueDe = digestMatch?.[1] ?? '';
+
+    const qrUrl = buildQrUrl(
+      {
+        cdc,
+        fechaEmision: comprobante.fechaEmision,
+        rucReceptor: (comprobante.cliente ?? comprobante.proveedor)?.numeroDocumento ?? '',
+        totalGeneral: Number(comprobante.total),
+        totalIva: Number(comprobante.iva5) + Number(comprobante.iva10),
+        cantidadItems: comprobante.items.length,
+        digestValueDe,
+        csc: credenciales.csc,
+        idCsc: credenciales.idCsc,
+      },
+      credenciales.ambiente === 'PRODUCCION',
+    );
+
+    // gCamFuFD va DESPUES de ds:Signature dentro de <rDE> (hermano de <DE>,
+    // no parte de lo firmado) -- se agrega recien aca, sobre el XML ya
+    // firmado, sin invalidar ninguna referencia de la firma.
+    const gCamFuFD = `<gCamFuFD><dCarQR>${qrUrl}</dCarQR></gCamFuFD>`;
+    const xmlFirmado = xmlFirmadoSinQr.replace(/(<\/rDE>)/, `${gCamFuFD}$1`);
+
     await this.prisma.documentoElectronico.update({
       where: { id: documentoElectronico.id },
-      data: { xmlGenerado: xmlSinFirmar, xmlFirmado, fechaFirma: new Date() },
+      data: { xmlGenerado: xmlSinFirmar, xmlFirmado, qrUrl, fechaFirma: new Date() },
     });
 
     const soapEnvelope = buildSoapEnvelopeRecepcionDe(xmlFirmado);
@@ -148,29 +188,6 @@ export class SifenService {
           ? EstadoDocumentoElectronico.APROBADO_CON_OBSERVACION
           : EstadoDocumentoElectronico.RECHAZADO;
 
-    let qrUrl: string | undefined;
-    if (estadoFinal !== EstadoDocumentoElectronico.RECHAZADO && credenciales.csc && credenciales.idCsc) {
-      const digestMatch = xmlFirmado.match(
-        new RegExp(`URI="#${cdc}"[\\s\\S]*?<ds:DigestValue>([^<]+)</ds:DigestValue>`),
-      );
-      if (digestMatch) {
-        qrUrl = buildQrUrl(
-          {
-            cdc,
-            fechaEmision: comprobante.fechaEmision,
-            rucReceptor: (comprobante.cliente ?? comprobante.proveedor)?.numeroDocumento ?? '',
-            totalGeneral: Number(comprobante.total),
-            totalIva: Number(comprobante.iva5) + Number(comprobante.iva10),
-            cantidadItems: comprobante.items.length,
-            digestValueDe: digestMatch[1],
-            csc: credenciales.csc,
-            idCsc: credenciales.idCsc,
-          },
-          credenciales.ambiente === 'PRODUCCION',
-        );
-      }
-    }
-
     return this.prisma.documentoElectronico.update({
       where: { id: documentoElectronico.id },
       data: {
@@ -178,7 +195,6 @@ export class SifenService {
         xmlRespuestaSet: respuesta.raw,
         protocoloAutorizacion: respuesta.protocoloAutorizacion,
         motivoRechazo: estadoFinal === EstadoDocumentoElectronico.RECHAZADO ? (respuesta.mensaje ?? 'Rechazado por SIFEN') : null,
-        qrUrl,
         fechaEnvio: new Date(),
         fechaProceso: new Date(),
       },

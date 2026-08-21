@@ -84,10 +84,16 @@ export function firmarXmlDe(xmlSinFirmar: string, firmante: DatosFirmante): stri
     transforms: [C14N_EXC],
   });
 
+  // action: 'after' (no 'append') -- verificado contra DE_v150.xsd el
+  // 2026-08-21: dentro de <rDE>, ds:Signature es HERMANO de <DE>, no hijo
+  // suyo (error real encontrado tras la primera prueba contra SIFEN real,
+  // que respondio "Firma difiere del estandar. [El documento XML no tiene
+  // firma]" -- SIFEN buscaba la firma en rDE/Signature y no la encontraba
+  // en rDE/DE/Signature).
   signedXml.computeSignature(xmlConSignedProperties, {
     prefix: 'ds',
     attrs: { Id: SIGNATURE_ID },
-    location: { reference: "//*[local-name(.)='DE']", action: 'append' },
+    location: { reference: "//*[local-name(.)='DE']", action: 'after' },
   });
 
   let signed = signedXml.getSignedXml();
