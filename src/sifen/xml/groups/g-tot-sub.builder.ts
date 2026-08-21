@@ -7,6 +7,7 @@ export interface DatosGTotSub {
   iva5: number;
   iva10: number;
   total: number;
+  moneda: string;
 }
 
 // gTotSub -- subtotales y totales de la operacion. Orden y nombres de
@@ -33,8 +34,8 @@ export function buildGTotSub(parent: XmlNode, datos: DatosGTotSub): void {
   const baseGrav5 = num(datos.subtotalGravada5 - datos.iva5, 2);
   const baseGrav10 = num(datos.subtotalGravada10 - datos.iva10, 2);
 
-  parent
-    .ele('gTotSub')
+  const gTotSub = parent.ele('gTotSub');
+  gTotSub
     .ele('dSubExe')
     .txt(subExe)
     .up()
@@ -100,9 +101,16 @@ export function buildGTotSub(parent: XmlNode, datos: DatosGTotSub): void {
     .up()
     .ele('dTBasGraIVA')
     .txt(num(datos.subtotalGravada5 + datos.subtotalGravada10, 2))
-    .up()
-    .ele('dTotalGs')
-    .txt(num(datos.total, 2))
-    .up()
     .up();
+
+  // dTotalGs (total convertido a guaranies) solo aplica cuando la moneda de
+  // la operacion NO es guaranies -- rechazo real: "El total general de la
+  // operacion en guaranies no requerido para el tipo de moneda de la
+  // operacion" (lo mandaba siempre, tambien para PYG). Confirmado ademas
+  // contra un DE real en PYG para esta empresa, que no trae este campo.
+  if (datos.moneda !== 'PYG') {
+    gTotSub.ele('dTotalGs').txt(num(datos.total, 2)).up();
+  }
+
+  gTotSub.up();
 }

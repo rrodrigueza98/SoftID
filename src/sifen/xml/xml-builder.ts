@@ -160,6 +160,7 @@ export function buildXmlDe(params: BuildXmlDeParams): string {
     iva5: Number(comprobante.iva5),
     iva10: Number(comprobante.iva10),
     total: Number(comprobante.total),
+    moneda: comprobante.moneda,
   });
 
   // gCamDEAsoc -- referencia al DE original de una NC/ND. Va como hijo
