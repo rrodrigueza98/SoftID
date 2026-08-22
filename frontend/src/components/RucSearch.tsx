@@ -59,9 +59,6 @@ export function RucSearchBox({ onSelect }: { onSelect: (r: ResultadoBusquedaRuc)
           {buscando ? 'Buscando…' : 'Buscar'}
         </Button>
       </div>
-      <p className="mt-1.5 text-xs text-ink-400">
-        Fuente no oficial (datos públicos de la DNIT indexados por terceros) — verificá antes de confiar el dato.
-      </p>
       {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
       {resultados && resultados.length === 0 && <p className="mt-2 text-xs text-ink-500">Sin resultados.</p>}
       {resultados && resultados.length > 0 && (
