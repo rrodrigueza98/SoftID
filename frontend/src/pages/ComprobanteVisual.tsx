@@ -132,7 +132,11 @@ export function ComprobanteVisual({ data }: { data: ComprobanteVisualData }) {
       <div className="flex items-start justify-between border-2 border-ink-900 p-4">
         <div className="flex max-w-[55%] items-start gap-3">
           {data.empresa?.logoUrl && (
-            <img src={data.empresa.logoUrl} alt="" className="h-14 w-14 shrink-0 object-contain" />
+            <img
+              src={data.empresa.logoUrl}
+              alt=""
+              className="h-auto max-h-24 w-auto max-w-[180px] shrink-0 object-contain"
+            />
           )}
           <div>
             <p className="text-base font-bold">{data.empresa?.razonSocial ?? '—'}</p>
