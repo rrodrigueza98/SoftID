@@ -130,7 +130,7 @@ export function ComprobanteVisual({ data }: { data: ComprobanteVisualData }) {
       )}
 
       <div className="flex items-start justify-between border-2 border-ink-900 p-4">
-        <div className="flex max-w-[55%] items-start gap-3">
+        <div className="flex max-w-[55%] items-center gap-3">
           {data.empresa?.logoUrl && (
             <img
               src={data.empresa.logoUrl}
