@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ChangeEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, apiErrorMessage } from '../lib/api-client';
 import { useAuth } from '../lib/auth-context';
@@ -20,7 +20,22 @@ const emptyForm = {
   email: '',
   actividadEconomicaCodigo: '',
   actividadEconomicaDescripcion: '',
+  logoUrl: '' as string,
 };
+
+// Mismo criterio que NuevaEmpresaPage: se guarda como data URI en la propia
+// fila de la empresa, no en un storage aparte -- limite generoso para un
+// isotipo chico sin dejar la fila gigante.
+const LOGO_MAX_BYTES = 300 * 1024;
+
+function leerImagenComoDataUri(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
 
 // Edicion de los datos de la empresa activa -- a diferencia de
 // Establecimientos (una lista), esto es un formulario unico porque cada
@@ -36,6 +51,7 @@ export default function DatosEmpresaPage() {
 
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState<string | null>(null);
+  const [logoError, setLogoError] = useState<string | null>(null);
   const [guardado, setGuardado] = useState(false);
 
   const { data: empresa, isLoading } = useQuery({
@@ -57,8 +73,22 @@ export default function DatosEmpresaPage() {
       email: empresa.email ?? '',
       actividadEconomicaCodigo: empresa.actividadEconomicaCodigo ?? '',
       actividadEconomicaDescripcion: empresa.actividadEconomicaDescripcion ?? '',
+      logoUrl: empresa.logoUrl ?? '',
     });
   }, [empresa]);
+
+  const handleLogoChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > LOGO_MAX_BYTES) {
+      setLogoError('El logo no puede pesar más de 300 KB. Probá con una imagen más chica o comprimida.');
+      return;
+    }
+    setLogoError(null);
+    const dataUri = await leerImagenComoDataUri(file);
+    setForm((f) => ({ ...f, logoUrl: dataUri }));
+  };
 
   const guardarMutation = useMutation({
     mutationFn: () =>
@@ -74,6 +104,10 @@ export default function DatosEmpresaPage() {
         email: form.email || undefined,
         actividadEconomicaCodigo: form.actividadEconomicaCodigo || undefined,
         actividadEconomicaDescripcion: form.actividadEconomicaDescripcion || undefined,
+        // Sin "|| undefined" a proposito: si el usuario lo quita, tiene que
+        // viajar la cadena vacia para limpiar el valor guardado -- omitir el
+        // campo en un PATCH deja el logo anterior intacto.
+        logoUrl: form.logoUrl,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['empresa', empresaId] });
@@ -178,6 +212,35 @@ export default function DatosEmpresaPage() {
                   <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
                 </FormField>
               </div>
+
+              <FormField label="Logo (opcional)">
+                <div className="flex items-center gap-3">
+                  {form.logoUrl ? (
+                    <img src={form.logoUrl} alt="Logo de la empresa" className="h-12 w-12 rounded border border-ink-200 object-contain" />
+                  ) : (
+                    <div className="flex h-12 w-12 items-center justify-center rounded border border-dashed border-ink-300 text-[9px] text-ink-400">
+                      Sin logo
+                    </div>
+                  )}
+                  <label className="cursor-pointer rounded-md border border-ink-200 px-3 py-1.5 text-sm font-medium text-ink-700 hover:bg-ink-50">
+                    {form.logoUrl ? 'Cambiar' : 'Subir imagen'}
+                    <input type="file" accept="image/*" className="hidden" onChange={handleLogoChange} />
+                  </label>
+                  {form.logoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, logoUrl: '' }))}
+                      className="text-xs font-medium text-ink-500 underline decoration-dotted hover:text-ink-700"
+                    >
+                      Quitar
+                    </button>
+                  )}
+                </div>
+                {logoError && <p className="mt-1 text-xs text-red-600">{logoError}</p>}
+                <p className="mt-1 text-xs text-ink-400">
+                  Se muestra en el encabezado de los comprobantes y recibos impresos de esta empresa.
+                </p>
+              </FormField>
 
               <div className="border-t border-ink-100 pt-4">
                 <p className="text-sm font-medium text-ink-900">Actividad económica</p>
