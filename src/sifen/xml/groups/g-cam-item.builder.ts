@@ -27,14 +27,15 @@ export function buildGCamItem(parent: XmlNode, items: ItemConUnidad[]): void {
     // va ANTES de dDesProSer (rechazo real: "El elemento esperado es:
     // dCodInt en lugar de: dDesProSer", confirmado contra DE_v150.xsd
     // 2026-08-21). Se usa el SKU del producto si el item esta vinculado a
-    // uno; si es un item libre (sin productoId) se usa el id del propio
-    // ComprobanteItem como codigo interno, ya que SIFEN solo exige que sea
+    // uno; si es un item libre se usa el codigo cargado a mano
+    // (ComprobanteItem.codigo); si tampoco hay eso, se cae al id del propio
+    // ComprobanteItem como ultimo recurso, ya que SIFEN solo exige que sea
     // un identificador no vacio (tdCodInt, 1-50 caracteres), no que exista
     // en ningun catalogo externo.
     const gCamItem = parent
       .ele('gCamItem')
       .ele('dCodInt')
-      .txt(item.producto?.codigo ?? item.id)
+      .txt(item.producto?.codigo ?? item.codigo ?? item.id)
       .up()
       .ele('dDesProSer')
       .txt(item.descripcion)

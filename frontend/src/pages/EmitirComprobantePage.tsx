@@ -202,6 +202,7 @@ function emptyDatosVendedor(): DatosVendedorForm {
 interface ItemRow {
   key: string;
   productoId: string;
+  codigo: string;
   descripcion: string;
   cantidad: string;
   unidadMedidaId: string;
@@ -216,6 +217,7 @@ function emptyRow(unidadMedidaId = ''): ItemRow {
   return {
     key: crypto.randomUUID(),
     productoId: '',
+    codigo: '',
     descripcion: '',
     cantidad: '1',
     unidadMedidaId,
@@ -298,6 +300,7 @@ export default function EmitirComprobantePage() {
       c.items.map((it) => ({
         key: crypto.randomUUID(),
         productoId: it.productoId ?? '',
+        codigo: it.codigo ?? '',
         descripcion: it.descripcion,
         cantidad: it.cantidad,
         unidadMedidaId: it.unidadMedidaId,
@@ -687,6 +690,7 @@ export default function EmitirComprobantePage() {
         observacion: observacion || undefined,
         items: items.map((row) => ({
           productoId: row.productoId || undefined,
+          codigo: !row.productoId && row.codigo ? row.codigo : undefined,
           descripcion: row.descripcion,
           cantidad: Number(row.cantidad),
           unidadMedidaId: row.unidadMedidaId,
@@ -826,7 +830,7 @@ export default function EmitirComprobantePage() {
     motivoEmisionLabel: esNota ? MOTIVOS.find((m) => m.value === motivoEmision)?.label : undefined,
     items: itemsCalculados.map(({ row, calc }) => ({
       key: row.key,
-      codigo: productos?.find((p) => p.id === row.productoId)?.codigo,
+      codigo: productos?.find((p) => p.id === row.productoId)?.codigo ?? row.codigo,
       descripcion: row.descripcion,
       cantidad: row.cantidad,
       unidad: unidades?.find((u) => u.id === row.unidadMedidaId)?.descripcion,
@@ -1528,7 +1532,7 @@ export default function EmitirComprobantePage() {
                 {itemsCalculados.map(({ row, calc }) => (
                   <div key={row.key} className="rounded-md border border-ink-200 p-3">
                     <div className="grid grid-cols-12 gap-2">
-                      <div className="col-span-4">
+                      <div className="col-span-3">
                         <Select
                           value={row.productoId}
                           onChange={(e) => selectProducto(row.key, e.target.value)}
@@ -1541,6 +1545,16 @@ export default function EmitirComprobantePage() {
                             </option>
                           ))}
                         </Select>
+                      </div>
+                      <div className="col-span-1">
+                        <Input
+                          placeholder="Código"
+                          value={row.productoId ? (productos?.find((p) => p.id === row.productoId)?.codigo ?? '') : row.codigo}
+                          onChange={(e) => updateRow(row.key, { codigo: e.target.value })}
+                          disabled={Boolean(row.productoId)}
+                          title="Código interno del ítem para SIFEN/KuDE (dCodInt) -- solo editable en ítems libres"
+                          className="text-xs"
+                        />
                       </div>
                       <div className="col-span-4">
                         <Input

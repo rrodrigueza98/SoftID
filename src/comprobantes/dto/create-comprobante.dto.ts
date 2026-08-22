@@ -29,6 +29,13 @@ class ComprobanteItemDto {
   @IsString()
   productoId?: string;
 
+  // Codigo interno del item (dCodInt de SIFEN) para items libres, sin
+  // productoId -- si el item esta vinculado a un producto se ignora y se usa
+  // Producto.codigo en su lugar.
+  @IsOptional()
+  @IsString()
+  codigo?: string;
+
   @IsString()
   @IsNotEmpty()
   descripcion: string;

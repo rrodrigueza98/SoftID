@@ -58,7 +58,7 @@ function toVisualData(comprobante: Comprobante): ComprobanteVisualData {
     motivoEmisionLabel: comprobante.motivoEmision?.replace(/_/g, ' ').toLowerCase(),
     items: comprobante.items.map((item) => ({
       key: item.id,
-      codigo: item.producto?.codigo,
+      codigo: item.producto?.codigo ?? item.codigo,
       descripcion: item.descripcion,
       cantidad: item.cantidad,
       unidad: item.unidadMedida?.descripcion,

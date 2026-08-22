@@ -364,6 +364,7 @@ export interface ComprobanteItem {
   id: string;
   productoId?: string | null;
   producto?: { codigo: string } | null;
+  codigo?: string | null;
   descripcion: string;
   cantidad: string;
   unidadMedidaId: string;

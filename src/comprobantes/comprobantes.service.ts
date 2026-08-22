@@ -137,6 +137,7 @@ export class ComprobantesService {
           items: {
             create: itemsCalculados.map((item) => ({
               productoId: item.productoId,
+              codigo: item.codigo,
               descripcion: item.descripcion,
               cantidad: item.cantidad,
               unidadMedidaId: item.unidadMedidaId,
@@ -614,6 +615,7 @@ export class ComprobantesService {
           items: {
             create: itemsCalculados.map((item) => ({
               productoId: item.productoId,
+              codigo: item.codigo,
               descripcion: item.descripcion,
               cantidad: item.cantidad,
               unidadMedidaId: item.unidadMedidaId,

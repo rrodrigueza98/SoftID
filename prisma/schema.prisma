@@ -904,6 +904,11 @@ model ComprobanteItem {
   id                String        @id @default(cuid())
   comprobanteId     String
   productoId        String?
+  // Codigo interno del item para SIFEN (dCodInt, obligatorio en todo DE) y
+  // para el KuDE -- solo tiene sentido cargarlo a mano en items libres (sin
+  // productoId); si el item esta vinculado a un producto se usa
+  // Producto.codigo en su lugar y este campo queda sin usar.
+  codigo            String?
   descripcion       String
   cantidad          Decimal       @db.Decimal(15, 3)
   unidadMedidaId    String
