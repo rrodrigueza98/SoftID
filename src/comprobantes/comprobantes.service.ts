@@ -14,6 +14,7 @@ import { CuentasCorrientesService } from '../cuentas-corrientes/cuentas-corrient
 import { AsientosContablesService } from '../contabilidad/asientos-contables.service';
 import { SifenService } from '../sifen/sifen.service';
 import { CreateComprobanteDto } from './dto/create-comprobante.dto';
+import { CorregirComprobanteDto } from './dto/corregir-comprobante.dto';
 import { calcularItem, calcularSubtotales } from './comprobantes.util';
 
 const NOTAS_QUE_REQUIEREN_MOTIVO: TipoDocumentoElectronico[] = [
@@ -458,6 +459,276 @@ export class ComprobantesService {
       return tx.comprobante.update({
         where: { id },
         data: { estado: EstadoComprobante.ANULADO },
+      });
+    });
+  }
+
+  // Corregir: para un comprobante cuyo Documento Electronico fue RECHAZADO
+  // por SIFEN (nunca aprobado, asi que no hay nada que cancelar ni ninguna
+  // divergencia con SIFEN posible). Permite editar todo lo que NO compone el
+  // CDC (cliente/proveedor, items, condicion de venta/credito, moneda, forma
+  // de pago, motivo de NC/ND, datos de remision/autofactura, observacion) --
+  // el tipo de documento, establecimiento/punto de expedicion (via
+  // timbradoId), numero y fecha de emision quedan fijos, tal como se
+  // generaron la primera vez (ver CorregirComprobanteDto). Estructuralmente
+  // es "anular() sin marcar ANULADO" + "create() sin asignar numero nuevo":
+  // revierte los efectos automaticos generados con los datos viejos
+  // (stock, asiento contable, cobro/pago, cuenta corriente) y los rehace con
+  // los datos corregidos, dentro de la misma transaccion. Despues de
+  // corregir, el usuario reintenta el envio a SIFEN con el botion/endpoint
+  // que ya existe (reintentar-sifen) -- no se encadena automaticamente aca.
+  async corregir(id: string, dto: CorregirComprobanteDto) {
+    const paraVerificar = await this.prisma.comprobante.findUnique({
+      where: { id },
+      include: { documentoElectronico: true, timbrado: true },
+    });
+    if (!paraVerificar) throw new NotFoundException(`Comprobante ${id} no encontrado`);
+    if (paraVerificar.estado === EstadoComprobante.ANULADO) {
+      throw new BadRequestException('No se puede corregir un comprobante anulado');
+    }
+    if (
+      !paraVerificar.timbrado.esElectronico ||
+      !paraVerificar.documentoElectronico ||
+      paraVerificar.documentoElectronico.estado !== EstadoDocumentoElectronico.RECHAZADO
+    ) {
+      throw new BadRequestException(
+        'Solo se puede corregir un comprobante electrónico cuyo Documento Electrónico fue rechazado por SIFEN',
+      );
+    }
+
+    const tipoDocumento = paraVerificar.tipoDocumento;
+    if (NOTAS_QUE_REQUIEREN_MOTIVO.includes(tipoDocumento) && !dto.motivoEmision) {
+      throw new BadRequestException(
+        `${tipoDocumento} requiere motivoEmision (catalogo SIFEN de Nota de Credito/Debito)`,
+      );
+    }
+    if (tipoDocumento === TipoDocumentoElectronico.NOTA_REMISION_ELECTRONICA && !dto.datosTransporteRemision) {
+      throw new BadRequestException(
+        'NOTA_REMISION_ELECTRONICA requiere datosTransporteRemision (grupos E6/E10 del Manual Tecnico SIFEN)',
+      );
+    }
+    if (tipoDocumento === TipoDocumentoElectronico.AUTOFACTURA_ELECTRONICA && !dto.datosVendedorAutofactura) {
+      throw new BadRequestException(
+        'AUTOFACTURA_ELECTRONICA requiere datosVendedorAutofactura (grupo E4 del Manual Tecnico SIFEN)',
+      );
+    }
+
+    const itemsCalculados = dto.items.map((item) => ({ ...item, ...calcularItem(item) }));
+    const subtotales = calcularSubtotales(itemsCalculados);
+
+    const productoIds = [...new Set(itemsCalculados.map((i) => i.productoId).filter((pid): pid is string => !!pid))];
+    const productos = productoIds.length
+      ? await this.prisma.producto.findMany({ where: { id: { in: productoIds } } })
+      : [];
+    const costoPorProducto = new Map(productos.map((p) => [p.id, p.precioCosto]));
+
+    return this.prisma.$transaction(async (tx) => {
+      const comprobante = await tx.comprobante.findUnique({
+        where: { id },
+        include: {
+          movimientosStock: true,
+          movimientosCuentaCorriente: true,
+          asientosContables: true,
+          pagos: { include: { movimientoBancario: true } },
+        },
+      });
+      if (!comprobante) throw new NotFoundException(`Comprobante ${id} no encontrado`);
+
+      const aplicaciones = await tx.reciboAplicacion.count({ where: { comprobanteId: id } });
+      if (aplicaciones > 0) {
+        throw new BadRequestException(
+          'Este comprobante ya tiene cobros aplicados -- revertí esos recibos antes de corregirlo',
+        );
+      }
+
+      for (const pago of comprobante.pagos) {
+        if (!pago.movimientoBancario) continue;
+        if (pago.movimientoBancario.conciliado) {
+          throw new BadRequestException(
+            'El cobro de este comprobante ya esta conciliado en Bancos -- desconcilialo antes de corregir',
+          );
+        }
+        await tx.movimientoBancario.delete({ where: { id: pago.movimientoBancario.id } });
+      }
+      await tx.comprobantePago.deleteMany({ where: { comprobanteId: id } });
+
+      for (const mov of comprobante.movimientosStock) {
+        if (mov.tipo !== TipoMovimientoStock.VENTA) continue;
+        await this.stockService.registrarMovimiento(
+          {
+            productoId: mov.productoId,
+            depositoId: mov.depositoId,
+            tipo: TipoMovimientoStock.DEVOLUCION_VENTA,
+            cantidad: Number(mov.cantidad),
+            comprobanteId: comprobante.id,
+            observacion: `Reversión por corrección de comprobante Nº ${comprobante.numero}`,
+          },
+          tx,
+        );
+      }
+
+      for (const mov of comprobante.movimientosCuentaCorriente) {
+        await this.cuentasCorrientesService.registrarMovimiento(
+          {
+            cuentaCorrienteId: mov.cuentaCorrienteId,
+            tipo:
+              mov.tipo === TipoMovimientoCuentaCorriente.DEBITO
+                ? TipoMovimientoCuentaCorriente.CREDITO
+                : TipoMovimientoCuentaCorriente.DEBITO,
+            monto: Number(mov.monto),
+            concepto: `Corrección Comprobante Nº ${comprobante.numero}`,
+            comprobanteId: comprobante.id,
+          },
+          tx,
+        );
+      }
+
+      for (const asiento of comprobante.asientosContables) {
+        await this.asientosContablesService.generarContraAsiento(
+          tx,
+          asiento.id,
+          `Corrección Comprobante Nº ${comprobante.numero}`,
+        );
+      }
+
+      await tx.comprobanteItem.deleteMany({ where: { comprobanteId: id } });
+      await tx.datosTransporteRemision.deleteMany({ where: { comprobanteId: id } });
+      await tx.datosVendedorAutofactura.deleteMany({ where: { comprobanteId: id } });
+
+      const actualizado = await tx.comprobante.update({
+        where: { id },
+        data: {
+          clienteId: dto.clienteId,
+          proveedorId: dto.proveedorId,
+          condicionVenta: dto.condicionVenta ?? CondicionVenta.CONTADO,
+          condicionPagoId: dto.condicionPagoId,
+          condicionCredito: dto.condicionCredito,
+          plazoCredito: dto.plazoCredito,
+          cantidadCuotas: dto.cantidadCuotas,
+          moneda: dto.moneda ?? 'PYG',
+          tipoCambio: dto.tipoCambio,
+          comprobanteAsociadoId: dto.comprobanteAsociadoId,
+          motivoEmision: dto.motivoEmision,
+          observacion: dto.observacion,
+          ...subtotales,
+          items: {
+            create: itemsCalculados.map((item) => ({
+              productoId: item.productoId,
+              descripcion: item.descripcion,
+              cantidad: item.cantidad,
+              unidadMedidaId: item.unidadMedidaId,
+              precioUnitario: item.precioUnitario,
+              descuento: item.descuento ?? 0,
+              afectacionIva: item.afectacionIva,
+              tasaIva: item.tasaIva,
+              proporcionGravada: item.proporcionGravada,
+              montoExenta: item.montoExenta,
+              montoGravado: item.montoGravado,
+              liquidacionIva: item.liquidacionIva,
+              total: item.total,
+              costoUnitario: item.productoId ? costoPorProducto.get(item.productoId) : undefined,
+            })),
+          },
+          datosTransporteRemision: dto.datosTransporteRemision
+            ? {
+                create: {
+                  ...dto.datosTransporteRemision,
+                  fechaEmisionFacturaFutura: dto.datosTransporteRemision.fechaEmisionFacturaFutura
+                    ? new Date(dto.datosTransporteRemision.fechaEmisionFacturaFutura)
+                    : undefined,
+                  fechaInicioTraslado: new Date(dto.datosTransporteRemision.fechaInicioTraslado),
+                  fechaFinTraslado: new Date(dto.datosTransporteRemision.fechaFinTraslado),
+                },
+              }
+            : undefined,
+          datosVendedorAutofactura: dto.datosVendedorAutofactura
+            ? { create: dto.datosVendedorAutofactura }
+            : undefined,
+        },
+        include: { items: true },
+      });
+
+      if (tipoDocumento === TipoDocumentoElectronico.FACTURA_ELECTRONICA && dto.depositoId) {
+        for (const item of actualizado.items) {
+          if (!item.productoId) continue;
+          const producto = await tx.producto.findUnique({ where: { id: item.productoId } });
+          if (!producto?.controlaStock) continue;
+          await this.stockService.registrarMovimiento(
+            {
+              productoId: item.productoId,
+              depositoId: dto.depositoId,
+              tipo: TipoMovimientoStock.VENTA,
+              cantidad: Number(item.cantidad),
+              comprobanteId: actualizado.id,
+            },
+            tx,
+          );
+        }
+      }
+
+      if (tipoDocumento === TipoDocumentoElectronico.FACTURA_ELECTRONICA) {
+        await this.asientosContablesService.generarAsientoVenta(tx, actualizado, dto.formaPago, dto.cuentaBancariaId);
+      }
+
+      const esFacturaOAutofactura =
+        tipoDocumento === TipoDocumentoElectronico.FACTURA_ELECTRONICA ||
+        tipoDocumento === TipoDocumentoElectronico.AUTOFACTURA_ELECTRONICA;
+      if (esFacturaOAutofactura && actualizado.condicionVenta === CondicionVenta.CONTADO && dto.formaPago) {
+        const comprobantePago = await tx.comprobantePago.create({
+          data: {
+            comprobanteId: actualizado.id,
+            formaPago: dto.formaPago,
+            monto: subtotales.total,
+            fecha: actualizado.fechaEmision,
+            cuentaBancariaId: dto.cuentaBancariaId,
+          },
+        });
+
+        if (dto.cuentaBancariaId) {
+          await tx.movimientoBancario.create({
+            data: {
+              cuentaBancariaId: dto.cuentaBancariaId,
+              fecha: actualizado.fechaEmision,
+              concepto: `Venta ${tipoDocumento} Nº ${actualizado.numero}`,
+              tipo: 'CREDITO',
+              monto: subtotales.total,
+              referencia: actualizado.numero,
+              comprobantePagoId: comprobantePago.id,
+            },
+          });
+        }
+      }
+
+      if (dto.clienteId && dto.condicionVenta === CondicionVenta.CREDITO) {
+        const cuenta = await tx.cuentaCorriente.findUnique({ where: { terceroId: dto.clienteId } });
+        if (!cuenta) throw new NotFoundException(`El cliente ${dto.clienteId} no tiene cuenta corriente`);
+
+        const esNotaCredito = tipoDocumento === TipoDocumentoElectronico.NOTA_CREDITO_ELECTRONICA;
+        let fechaVencimiento: Date | undefined;
+        if (!esNotaCredito) {
+          const condicionPago = dto.condicionPagoId
+            ? await tx.condicionPago.findUnique({ where: { id: dto.condicionPagoId } })
+            : null;
+          fechaVencimiento = new Date(actualizado.fechaEmision);
+          fechaVencimiento.setDate(fechaVencimiento.getDate() + (condicionPago?.diasPlazo ?? 0));
+        }
+
+        await this.cuentasCorrientesService.registrarMovimiento(
+          {
+            cuentaCorrienteId: cuenta.id,
+            tipo: esNotaCredito ? TipoMovimientoCuentaCorriente.CREDITO : TipoMovimientoCuentaCorriente.DEBITO,
+            monto: subtotales.total,
+            concepto: `${tipoDocumento} Nº ${actualizado.numero}`,
+            comprobanteId: actualizado.id,
+            fechaVencimiento,
+          },
+          tx,
+        );
+      }
+
+      return tx.comprobante.findUniqueOrThrow({
+        where: { id },
+        include: { items: true, cliente: true, proveedor: true },
       });
     });
   }

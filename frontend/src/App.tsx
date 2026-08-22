@@ -51,6 +51,7 @@ export default function App() {
         <Route path="/panel-ventas" element={<PanelVentasPage />} />
         <Route path="/panel-rentabilidad" element={<PanelRentabilidadPage />} />
         <Route path="/facturacion/emitir" element={<EmitirComprobantePage />} />
+        <Route path="/facturacion/corregir/:id" element={<EmitirComprobantePage />} />
         <Route path="/pos" element={<PosPage />} />
         <Route path="/clientes" element={<TercerosPage tipo="CLIENTE" />} />
         <Route path="/proveedores" element={<TercerosPage tipo="PROVEEDOR" />} />

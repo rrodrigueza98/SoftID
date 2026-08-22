@@ -419,6 +419,8 @@ export interface Comprobante {
   comprobanteAsociadoId?: string | null;
   motivoEmision?: MotivoEmisionNotaCD | null;
   observacion?: string | null;
+  moneda: string;
+  tipoCambio?: string | null;
   subtotalExenta: string;
   subtotalGravada10: string;
   subtotalGravada5: string;
@@ -433,6 +435,8 @@ export interface Comprobante {
   datosTransporteRemision?: DatosTransporteRemision | null;
   datosVendedorAutofactura?: DatosVendedorAutofactura | null;
   documentoElectronico?: DocumentoElectronico | null;
+  pagos?: ComprobantePago[];
+  movimientosStock?: MovimientoStock[];
 }
 
 export type EstadoDocumentoElectronico =
@@ -479,6 +483,7 @@ export interface ComprobantePago {
   monto: string;
   banco?: string | null;
   numeroCheque?: string | null;
+  cuentaBancariaId?: string | null;
   fecha: string;
 }
 

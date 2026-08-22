@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api, apiErrorMessage } from '../lib/api-client';
 import { useEmpresaId } from '../lib/hooks';
 import { useAuth } from '../lib/auth-context';
@@ -231,6 +231,13 @@ export default function EmitirComprobantePage() {
   const empresaId = useEmpresaId();
   const { esAdmin, usuario } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const { id: comprobanteIdParam } = useParams<{ id: string }>();
+  // Modo corrección: se entra por /facturacion/corregir/:id (comprobante
+  // cuyo Documento Electrónico fue RECHAZADO por SIFEN) en vez de
+  // /facturacion/emitir -- ver ComprobantesService.corregir en el backend
+  // para el alcance exacto de qué se puede corregir.
+  const modoCorreccion = Boolean(comprobanteIdParam);
   const [error, setError] = useState<string | null>(null);
   const [fiscalSetupOpen, setFiscalSetupOpen] = useState(false);
   const [previewing, setPreviewing] = useState(false);
@@ -253,6 +260,94 @@ export default function EmitirComprobantePage() {
   const [items, setItems] = useState<ItemRow[]>([emptyRow()]);
   const [datosRemision, setDatosRemision] = useState<DatosRemisionForm>(emptyDatosRemision());
   const [datosVendedor, setDatosVendedor] = useState<DatosVendedorForm>(emptyDatosVendedor());
+
+  const { data: comprobanteExistente } = useQuery({
+    queryKey: ['comprobante', comprobanteIdParam],
+    queryFn: async () => (await api.get<Comprobante>(`/comprobantes/${comprobanteIdParam}`)).data,
+    enabled: modoCorreccion,
+  });
+
+  // Precarga el formulario UNA sola vez con los datos del comprobante
+  // rechazado -- despues de esto el usuario edita libremente, no se vuelve a
+  // pisar nada aunque la query se revalide.
+  const precargado = useRef(false);
+  useEffect(() => {
+    if (!comprobanteExistente || precargado.current) return;
+    precargado.current = true;
+    const c = comprobanteExistente;
+    setTipoDocumento(c.tipoDocumento);
+    setEstablecimientoId(c.timbrado?.puntoExpedicion?.establecimiento?.id ?? '');
+    setPuntoExpedicionId(c.timbrado?.puntoExpedicionId ?? '');
+    setTimbradoId(c.timbradoId);
+    setClienteId(c.clienteId ?? '');
+    setProveedorId(c.proveedorId ?? '');
+    setCondicionVenta(c.condicionVenta);
+    setCondicionCredito(c.condicionCredito ?? 'PLAZO');
+    setPlazoCredito(c.plazoCredito ?? '');
+    setCantidadCuotas(c.cantidadCuotas ? String(c.cantidadCuotas) : '');
+    const pago = c.pagos?.[0];
+    if (pago) {
+      setFormaPago(pago.formaPago);
+      setCuentaBancariaId(pago.cuentaBancariaId ?? '');
+    }
+    setDepositoId(c.movimientosStock?.[0]?.depositoId ?? '');
+    setComprobanteAsociadoId(c.comprobanteAsociadoId ?? '');
+    if (c.motivoEmision) setMotivoEmision(c.motivoEmision);
+    setObservacion(c.observacion ?? '');
+    setItems(
+      c.items.map((it) => ({
+        key: crypto.randomUUID(),
+        productoId: it.productoId ?? '',
+        descripcion: it.descripcion,
+        cantidad: it.cantidad,
+        unidadMedidaId: it.unidadMedidaId,
+        precioUnitario: it.precioUnitario,
+        descuento: Number(it.descuento) > 0 ? it.descuento : '',
+        afectacionIva: it.afectacionIva,
+        tasaIva: it.tasaIva,
+        proporcionGravada: it.proporcionGravada ?? '',
+      })),
+    );
+    if (c.datosTransporteRemision) {
+      const d = c.datosTransporteRemision;
+      setDatosRemision({
+        motivoEmision: d.motivoEmision,
+        motivoEmisionOtro: d.motivoEmisionOtro ?? '',
+        responsableEmision: d.responsableEmision,
+        kmEstimados: d.kmEstimados != null ? String(d.kmEstimados) : '',
+        tipoTransporte: d.tipoTransporte,
+        modalidadTransporte: d.modalidadTransporte,
+        responsableFlete: d.responsableFlete,
+        fechaInicioTraslado: d.fechaInicioTraslado.slice(0, 10),
+        fechaFinTraslado: d.fechaFinTraslado.slice(0, 10),
+        direccionSalida: d.direccionSalida,
+        numeroCasaSalida: d.numeroCasaSalida,
+        ciudadSalida: d.ciudadSalida,
+        departamentoSalida: d.departamentoSalida,
+        direccionEntrega: d.direccionEntrega,
+        numeroCasaEntrega: d.numeroCasaEntrega,
+        ciudadEntrega: d.ciudadEntrega,
+        departamentoEntrega: d.departamentoEntrega,
+        tipoVehiculo: d.tipoVehiculo,
+        marcaVehiculo: d.marcaVehiculo,
+        tipoIdentificacionVehiculo: d.tipoIdentificacionVehiculo,
+        numeroIdentificacionVehiculo: d.numeroIdentificacionVehiculo ?? '',
+        numeroMatriculaVehiculo: d.numeroMatriculaVehiculo ?? '',
+        numeroVuelo: d.numeroVuelo ?? '',
+        naturalezaTransportista: d.naturalezaTransportista,
+        nombreTransportista: d.nombreTransportista,
+        rucTransportista: d.rucTransportista ?? '',
+        dvRucTransportista: d.dvRucTransportista ?? '',
+        tipoDocIdentidadTransportista: d.tipoDocIdentidadTransportista ?? '',
+        numeroDocIdentidadTransportista: d.numeroDocIdentidadTransportista ?? '',
+        numeroDocIdentidadChofer: d.numeroDocIdentidadChofer,
+        nombreChofer: d.nombreChofer,
+      });
+    }
+    if (c.datosVendedorAutofactura) {
+      setDatosVendedor({ ...c.datosVendedorAutofactura });
+    }
+  }, [comprobanteExistente]);
 
   const esAutofactura = tipoDocumento === 'AUTOFACTURA_ELECTRONICA';
   const esNota = tipoDocumento === 'NOTA_CREDITO_ELECTRONICA' || tipoDocumento === 'NOTA_DEBITO_ELECTRONICA';
@@ -375,10 +470,16 @@ export default function EmitirComprobantePage() {
   );
 
   useEffect(() => {
+    // En modo corrección el timbrado ya viene fijo del comprobante existente
+    // (ver precarga) -- no se lo auto-selecciona ni se lo pisa aunque ya no
+    // figure entre los "disponibles" (p.ej. si mientras tanto se agotó su
+    // rango de numeración).
+    if (modoCorreccion) return;
     setTimbradoId(timbradosDisponibles[0]?.id ?? '');
-  }, [timbradosDisponibles]);
+  }, [timbradosDisponibles, modoCorreccion]);
 
-  const timbradoSeleccionado = timbradosDisponibles.find((t) => t.id === timbradoId);
+  const timbradoSeleccionado =
+    timbradosDisponibles.find((t) => t.id === timbradoId) ?? (modoCorreccion ? comprobanteExistente?.timbrado : undefined);
   // Un timbrado tradicional (preimpreso/virtual, sin DTE) no tiene ninguna
   // de las exigencias de SIFEN -- por defecto true hasta elegir timbrado,
   // asi el formulario no "relaja" campos antes de saber cual es el regimen.
@@ -559,54 +660,67 @@ export default function EmitirComprobantePage() {
   }
 
   const mutation = useMutation({
-    mutationFn: async () =>
-      (
+    mutationFn: async () => {
+      const datosComunes = {
+        clienteId: esAutofactura ? undefined : clienteId || undefined,
+        proveedorId: esAutofactura ? proveedorId || undefined : undefined,
+        condicionVenta,
+        formaPago: requiereCondicionOperacion && condicionVenta === 'CONTADO' ? formaPago : undefined,
+        cuentaBancariaId:
+          requiereCondicionOperacion && condicionVenta === 'CONTADO' && esFormaPagoBancaria && cuentaBancariaId
+            ? cuentaBancariaId
+            : undefined,
+        condicionCredito: requiereCondicionOperacion && condicionVenta === 'CREDITO' ? condicionCredito : undefined,
+        plazoCredito:
+          requiereCondicionOperacion && condicionVenta === 'CREDITO' && condicionCredito === 'PLAZO'
+            ? plazoCredito || undefined
+            : undefined,
+        cantidadCuotas:
+          requiereCondicionOperacion && condicionVenta === 'CREDITO' && condicionCredito === 'CUOTA'
+            ? Number(cantidadCuotas)
+            : undefined,
+        depositoId: esFactura ? depositoId || undefined : undefined,
+        comprobanteAsociadoId: esNota ? comprobanteAsociadoId || undefined : undefined,
+        motivoEmision: esNota ? motivoEmision : undefined,
+        datosTransporteRemision: datosTransporteRemisionPayload(),
+        datosVendedorAutofactura: datosVendedorAutofacturaPayload(),
+        observacion: observacion || undefined,
+        items: items.map((row) => ({
+          productoId: row.productoId || undefined,
+          descripcion: row.descripcion,
+          cantidad: Number(row.cantidad),
+          unidadMedidaId: row.unidadMedidaId,
+          precioUnitario: Number(row.precioUnitario),
+          descuento: row.descuento ? Number(row.descuento) : undefined,
+          afectacionIva: row.afectacionIva,
+          tasaIva: row.tasaIva,
+          proporcionGravada: row.proporcionGravada ? Number(row.proporcionGravada) : undefined,
+        })),
+      };
+
+      if (modoCorreccion) {
+        return (await api.patch<Comprobante>(`/comprobantes/${comprobanteIdParam}/corregir`, datosComunes)).data;
+      }
+      return (
         await api.post<Comprobante>('/comprobantes', {
+          ...datosComunes,
           empresaId,
           puntoExpedicionId: puntoExpedicion!.id,
           timbradoId,
           tipoDocumento,
-          clienteId: esAutofactura ? undefined : clienteId || undefined,
-          proveedorId: esAutofactura ? proveedorId || undefined : undefined,
-          condicionVenta,
-          formaPago: requiereCondicionOperacion && condicionVenta === 'CONTADO' ? formaPago : undefined,
-          cuentaBancariaId:
-            requiereCondicionOperacion && condicionVenta === 'CONTADO' && esFormaPagoBancaria && cuentaBancariaId
-              ? cuentaBancariaId
-              : undefined,
-          condicionCredito: requiereCondicionOperacion && condicionVenta === 'CREDITO' ? condicionCredito : undefined,
-          plazoCredito:
-            requiereCondicionOperacion && condicionVenta === 'CREDITO' && condicionCredito === 'PLAZO'
-              ? plazoCredito || undefined
-              : undefined,
-          cantidadCuotas:
-            requiereCondicionOperacion && condicionVenta === 'CREDITO' && condicionCredito === 'CUOTA'
-              ? Number(cantidadCuotas)
-              : undefined,
-          depositoId: esFactura ? depositoId || undefined : undefined,
-          comprobanteAsociadoId: esNota ? comprobanteAsociadoId || undefined : undefined,
-          motivoEmision: esNota ? motivoEmision : undefined,
-          datosTransporteRemision: datosTransporteRemisionPayload(),
-          datosVendedorAutofactura: datosVendedorAutofacturaPayload(),
-          observacion: observacion || undefined,
-          items: items.map((row) => ({
-            productoId: row.productoId || undefined,
-            descripcion: row.descripcion,
-            cantidad: Number(row.cantidad),
-            unidadMedidaId: row.unidadMedidaId,
-            precioUnitario: Number(row.precioUnitario),
-            descuento: row.descuento ? Number(row.descuento) : undefined,
-            afectacionIva: row.afectacionIva,
-            tasaIva: row.tasaIva,
-            proporcionGravada: row.proporcionGravada ? Number(row.proporcionGravada) : undefined,
-          })),
         })
-      ).data,
+      ).data;
+    },
     onSuccess: (comprobante) => {
       queryClient.invalidateQueries({ queryKey: ['comprobantes'] });
       queryClient.invalidateQueries({ queryKey: ['stock'] });
       queryClient.invalidateQueries({ queryKey: ['cuenta-corriente'] });
       queryClient.invalidateQueries({ queryKey: ['puntos-expedicion'] });
+      if (modoCorreccion) {
+        queryClient.invalidateQueries({ queryKey: ['comprobante', comprobanteIdParam] });
+        navigate('/facturacion');
+        return;
+      }
       setEmitido({ id: comprobante.id, numero: comprobante.numero });
     },
     onError: (err) => setError(apiErrorMessage(err)),
@@ -737,8 +851,14 @@ export default function EmitirComprobantePage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-xl font-semibold text-ink-900">Facturación</h1>
-        <p className="mt-1 text-sm text-ink-500">Cargá los datos, previsualizá y confirmá la emisión.</p>
+        <h1 className="text-xl font-semibold text-ink-900">
+          {modoCorreccion ? `Corregir comprobante Nº ${comprobanteExistente?.numero ?? ''}` : 'Facturación'}
+        </h1>
+        <p className="mt-1 text-sm text-ink-500">
+          {modoCorreccion
+            ? 'Corregí lo que causó el rechazo de SIFEN y guardá -- después reintentá el envío desde Comprobantes emitidos.'
+            : 'Cargá los datos, previsualizá y confirmá la emisión.'}
+        </p>
       </div>
 
       <Card className="p-5">
@@ -781,7 +901,13 @@ export default function EmitirComprobantePage() {
                 Volver a editar
               </Button>
               <Button type="button" onClick={() => mutation.mutate()} disabled={mutation.isPending}>
-                {mutation.isPending ? 'Emitiendo…' : 'Confirmar y emitir'}
+                {mutation.isPending
+                  ? modoCorreccion
+                    ? 'Guardando…'
+                    : 'Emitiendo…'
+                  : modoCorreccion
+                    ? 'Guardar corrección'
+                    : 'Confirmar y emitir'}
               </Button>
             </div>
           </div>
@@ -798,7 +924,7 @@ export default function EmitirComprobantePage() {
             {establecimientosVisibles && establecimientosVisibles.length > 0 && (
               <div className="grid grid-cols-2 gap-4">
                 <FormField label="Establecimiento" required>
-                  <Select value={establecimientoId} onChange={(e) => setEstablecimientoId(e.target.value)}>
+                  <Select value={establecimientoId} onChange={(e) => setEstablecimientoId(e.target.value)} disabled={modoCorreccion}>
                     {establecimientosVisibles.map((est) => (
                       <option key={est.id} value={est.id}>
                         {est.codigo} — {est.nombre}
@@ -810,7 +936,7 @@ export default function EmitirComprobantePage() {
                   {!puntosExpedicionVisibles || puntosExpedicionVisibles.length === 0 ? (
                     <p className="text-xs text-amber-700">Este establecimiento no tiene puntos de expedición.</p>
                   ) : (
-                    <Select value={puntoExpedicionId} onChange={(e) => setPuntoExpedicionId(e.target.value)}>
+                    <Select value={puntoExpedicionId} onChange={(e) => setPuntoExpedicionId(e.target.value)} disabled={modoCorreccion}>
                       {puntosExpedicionVisibles.map((pe) => (
                         <option key={pe.id} value={pe.id}>
                           {pe.codigo} — {pe.descripcion}
@@ -824,7 +950,11 @@ export default function EmitirComprobantePage() {
 
             <div className="grid grid-cols-2 gap-4">
               <FormField label="Tipo de documento" required>
-                <Select value={tipoDocumento} onChange={(e) => setTipoDocumento(e.target.value as TipoDocumentoElectronico)}>
+                <Select
+                  value={tipoDocumento}
+                  onChange={(e) => setTipoDocumento(e.target.value as TipoDocumentoElectronico)}
+                  disabled={modoCorreccion}
+                >
                   {tiposConLabel.map((t) => (
                     <option key={t.value} value={t.value}>
                       {t.label}
@@ -833,7 +963,11 @@ export default function EmitirComprobantePage() {
                 </Select>
               </FormField>
               <FormField label="Timbrado" required>
-                {timbradosDisponibles.length === 0 ? (
+                {modoCorreccion ? (
+                  <p className="rounded-md border border-ink-200 bg-ink-50 px-3 py-2 text-sm text-ink-700">
+                    Nº {timbradoSeleccionado?.numeroTimbrado ?? '—'} (fijo, no se puede cambiar al corregir)
+                  </p>
+                ) : timbradosDisponibles.length === 0 ? (
                   <div className="flex flex-col gap-1">
                     <p className="text-xs text-amber-700">
                       No hay timbrado vigente para {tipoDocumentoLabel(tipoDocumento, esElectronico)}. Cada tipo de documento

@@ -3,6 +3,7 @@ import { Pantalla, TipoDocumentoElectronico } from '@prisma/client';
 import type { Response } from 'express';
 import { ComprobantesService } from './comprobantes.service';
 import { CreateComprobanteDto } from './dto/create-comprobante.dto';
+import { CorregirComprobanteDto } from './dto/corregir-comprobante.dto';
 import { SifenService } from '../sifen/sifen.service';
 import { RequireModulo } from '../auth/decorators/modulo.decorator';
 import { RequirePantalla } from '../auth/decorators/pantalla.decorator';
@@ -124,6 +125,18 @@ export class ComprobantesController {
     const comprobante = await this.comprobantesService.findOne(id);
     this.verificarAccesoPuntoExpedicion(comprobante.puntoExpedicionId, usuario);
     return this.comprobantesService.anular(id);
+  }
+
+  // Corrige un comprobante cuyo Documento Electronico fue RECHAZADO por
+  // SIFEN -- ver ComprobantesService.corregir para el alcance exacto (todo
+  // lo que no compone el CDC). Despues de corregir, el usuario reintenta el
+  // envio con reintentar-sifen (no se encadena automaticamente aca).
+  @Patch(':id/corregir')
+  async corregir(@Param('id') id: string, @Body() dto: CorregirComprobanteDto, @CurrentUser() usuario: AuthUser) {
+    this.verificarPantalla(usuario, ['COMPROBANTES_EMITIDOS']);
+    const comprobante = await this.comprobantesService.findOne(id);
+    this.verificarAccesoPuntoExpedicion(comprobante.puntoExpedicionId, usuario);
+    return this.comprobantesService.corregir(id, dto);
   }
 
   // Reintento manual del envío a SIFEN -- a diferencia del intento

@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { api, apiErrorMessage } from '../lib/api-client';
 import { formatDateTime, formatGs } from '../lib/format';
 import { Dialog } from '../components/ui/Dialog';
@@ -20,6 +21,7 @@ export function ComprobanteDetailDialog({
   comprobanteId: string | null;
 }) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [descargando, setDescargando] = useState(false);
 
@@ -32,6 +34,16 @@ export function ComprobanteDetailDialog({
   const anular = useMutation({
     mutationFn: () => api.patch(`/comprobantes/${comprobanteId}/anular`),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['comprobantes'] });
+      queryClient.invalidateQueries({ queryKey: ['comprobante', comprobanteId] });
+    },
+    onError: (err) => setError(apiErrorMessage(err)),
+  });
+
+  const reintentar = useMutation({
+    mutationFn: () => api.patch(`/comprobantes/${comprobanteId}/reintentar-sifen`),
+    onSuccess: () => {
+      setError(null);
       queryClient.invalidateQueries({ queryKey: ['comprobantes'] });
       queryClient.invalidateQueries({ queryKey: ['comprobante', comprobanteId] });
     },
@@ -61,6 +73,7 @@ export function ComprobanteDetailDialog({
 
   const deAprobado =
     comprobante?.documentoElectronico?.estado === 'APROBADO' || comprobante?.documentoElectronico?.estado === 'APROBADO_CON_OBSERVACION';
+  const deRechazado = comprobante?.documentoElectronico?.estado === 'RECHAZADO';
 
   return (
     <Dialog open={open} onClose={onClose} title="Comprobante" width="lg">
@@ -69,6 +82,13 @@ export function ComprobanteDetailDialog({
       ) : (
         <div className="flex flex-col gap-5">
           {error && <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+
+          {deRechazado && (
+            <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+              <p className="font-medium">Rechazado por SIFEN</p>
+              <p className="mt-0.5">{comprobante.documentoElectronico?.motivoRechazo ?? 'Sin detalle del motivo.'}</p>
+            </div>
+          )}
 
           <div className="flex items-start justify-between">
             <div>
@@ -152,6 +172,16 @@ export function ComprobanteDetailDialog({
               <Button variant="secondary" onClick={handleDescargarXml} disabled={descargando}>
                 {descargando ? 'Descargando…' : 'Descargar XML'}
               </Button>
+            )}
+            {deRechazado && (
+              <>
+                <Button variant="secondary" onClick={() => navigate(`/facturacion/corregir/${comprobante.id}`)}>
+                  Corregir
+                </Button>
+                <Button variant="secondary" onClick={() => reintentar.mutate()} disabled={reintentar.isPending}>
+                  {reintentar.isPending ? 'Reintentando…' : 'Reintentar'}
+                </Button>
+              </>
             )}
             {comprobante.estado === 'EMITIDO' && (
               <Button variant="danger" onClick={() => anular.mutate()} disabled={anular.isPending}>
