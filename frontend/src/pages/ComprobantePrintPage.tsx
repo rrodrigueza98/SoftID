@@ -25,21 +25,40 @@ function toVisualData(comprobante: Comprobante): ComprobanteVisualData {
   const numeroCompleto = est && pe ? `${est.codigo}-${pe.codigo}-${comprobante.numero}` : comprobante.numero;
 
   return {
-    empresa: comprobante.empresa ?? null,
+    empresa: comprobante.empresa
+      ? {
+          razonSocial: comprobante.empresa.razonSocial,
+          nombreFantasia: comprobante.empresa.nombreFantasia,
+          ruc: comprobante.empresa.ruc,
+          dvRuc: comprobante.empresa.dvRuc,
+          actividadEconomicaDescripcion: comprobante.empresa.actividadEconomicaDescripcion,
+          logoUrl: comprobante.empresa.logoUrl,
+        }
+      : null,
+    establecimiento: est
+      ? { direccion: est.direccion, ciudad: est.ciudad, departamento: est.departamento, telefono: est.telefono, email: est.email }
+      : null,
     tipoDocumento: comprobante.tipoDocumento,
     numeroCompleto,
     timbradoNumero: comprobante.timbrado?.numeroTimbrado,
     timbradoVigenciaDesde: comprobante.timbrado?.fechaInicioVigencia,
+    timbradoVigenciaHasta: comprobante.timbrado?.fechaFinVigencia,
     fechaEmision: comprobante.fechaEmision,
+    moneda: comprobante.moneda,
+    tipoCambio: comprobante.tipoCambio,
     receptorLabel: comprobante.proveedorId ? 'Proveedor' : 'Cliente',
     receptorNombre: receptor?.razonSocial ?? 'Consumidor final',
     receptorIdentidadLabel: receptor ? CONDICION_IDENTIDAD_LABEL[receptor.tipoDocumento] : undefined,
     receptorNumeroDocumento: receptor?.numeroDocumento,
     receptorDireccion: receptor?.direccion,
+    receptorTelefono: receptor?.telefono,
+    receptorEmail: receptor?.email,
     condicionVenta: comprobante.condicionVenta,
+    cantidadCuotas: comprobante.cantidadCuotas,
     motivoEmisionLabel: comprobante.motivoEmision?.replace(/_/g, ' ').toLowerCase(),
     items: comprobante.items.map((item) => ({
       key: item.id,
+      codigo: item.producto?.codigo,
       descripcion: item.descripcion,
       cantidad: item.cantidad,
       unidad: item.unidadMedida?.descripcion,

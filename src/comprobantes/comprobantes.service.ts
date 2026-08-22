@@ -335,7 +335,7 @@ export class ComprobantesService {
     const comprobante = await this.prisma.comprobante.findUnique({
       where: { id },
       include: {
-        items: { include: { unidadMedida: true } },
+        items: { include: { unidadMedida: true, producto: { select: { codigo: true } } } },
         cliente: true,
         proveedor: true,
         pagos: true,

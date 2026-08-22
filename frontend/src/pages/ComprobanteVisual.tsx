@@ -1,4 +1,4 @@
-import { formatDate, formatGs } from '../lib/format';
+import { formatDate, formatDateTime, formatGs } from '../lib/format';
 import { QrCode } from '../components/ui/QrCode';
 import {
   MODALIDAD_TRANSPORTE_LABEL,
@@ -21,6 +21,7 @@ import type {
 
 export interface ComprobanteVisualItem {
   key: string;
+  codigo?: string | null;
   descripcion: string;
   cantidad: string | number;
   unidad?: string;
@@ -35,23 +36,38 @@ export interface ComprobanteVisualData {
     nombreFantasia?: string | null;
     ruc: string;
     dvRuc: string;
-    direccion: string;
-    ciudad: string;
-    departamento: string;
-    telefono?: string | null;
+    actividadEconomicaDescripcion?: string | null;
     logoUrl?: string | null;
+  } | null;
+  // Direccion/ciudad/telefono/email del ESTABLECIMIENTO emisor, no de la
+  // empresa -- es lo que realmente va en el XML firmado (gEmis usa
+  // Establecimiento, no los datos generales de Empresa), y el KuDE no puede
+  // mostrar informacion que no forme parte del DE (Manual Tecnico SIFEN
+  // v150, 13.2).
+  establecimiento?: {
+    direccion?: string | null;
+    ciudad?: string | null;
+    departamento?: string | null;
+    telefono?: string | null;
+    email?: string | null;
   } | null;
   tipoDocumento: TipoDocumentoElectronico;
   numeroCompleto: string;
   timbradoNumero?: string | null;
   timbradoVigenciaDesde?: string | null;
+  timbradoVigenciaHasta?: string | null;
   fechaEmision: string;
+  moneda: string;
+  tipoCambio?: string | number | null;
   receptorLabel: string;
   receptorNombre: string;
   receptorIdentidadLabel?: string;
   receptorNumeroDocumento?: string;
   receptorDireccion?: string | null;
+  receptorTelefono?: string | null;
+  receptorEmail?: string | null;
   condicionVenta: CondicionVenta;
+  cantidadCuotas?: number | null;
   motivoEmisionLabel?: string | null;
   items: ComprobanteVisualItem[];
   subtotalExenta: string | number;
@@ -72,13 +88,38 @@ export interface ComprobanteVisualData {
   estadoDocumentoElectronico?: EstadoDocumentoElectronico | null;
 }
 
+// CDC en once grupos de 4 posiciones -- exigido tal cual por el Manual
+// Tecnico SIFEN v150, 13.4.4 ("CDC en once grupos de 4 posiciones").
+function formatCdc(cdc: string): string {
+  return (cdc.match(/.{1,4}/g) ?? [cdc]).join(' ');
+}
+
+// La URL de consulta que hay que mostrar junto al CDC/QR (13.4.4) es la raiz
+// de consulta (produccion o test segun corresponda), no la URL completa del
+// QR con todos sus parametros -- se deriva de qrUrl para no duplicar la
+// logica de que ambiente es cada comprobante.
+function consultaUrlBase(qrUrl: string): string {
+  try {
+    const url = new URL(qrUrl);
+    return `${url.origin}${url.pathname.replace(/\/qr$/, '/')}`;
+  } catch {
+    return 'https://ekuatia.set.gov.py/consultas/';
+  }
+}
+
 // Componente presentacional puro -- lo usan tanto la pagina de impresion
 // (datos reales guardados) como el paso de previsualizacion del formulario
 // (datos calculados en el momento, todavia sin guardar). Misma vista para
 // que "previsualizar" y "representacion grafica" sean literalmente la misma
 // pieza, no dos cosas separadas que se puedan desincronizar.
+//
+// Estructura y campos ajustados 2026-08-22 contra el Manual Tecnico SIFEN
+// v150, capitulo 13 (Grafica/KuDE) -- encabezado, condicion de la
+// operacion, datos del receptor, items e informacion de consulta en SIFEN.
 export function ComprobanteVisual({ data }: { data: ComprobanteVisualData }) {
   const receptor = data.receptorNombre;
+  const esCredito = data.condicionVenta === 'CREDITO';
+  const monedaDesc = data.moneda === 'PYG' ? 'Guaraníes' : data.moneda;
 
   return (
     <div className="mx-auto max-w-3xl bg-white p-8 text-ink-900 print:p-0">
@@ -96,14 +137,21 @@ export function ComprobanteVisual({ data }: { data: ComprobanteVisualData }) {
           <div>
             <p className="text-base font-bold">{data.empresa?.razonSocial ?? '—'}</p>
             {data.empresa?.nombreFantasia && <p className="text-sm">{data.empresa.nombreFantasia}</p>}
+            {data.empresa?.actividadEconomicaDescripcion && (
+              <p className="text-xs">{data.empresa.actividadEconomicaDescripcion}</p>
+            )}
             <p className="mt-1 text-xs">
               RUC: {data.empresa?.ruc}-{data.empresa?.dvRuc}
             </p>
-            <p className="text-xs">{data.empresa?.direccion}</p>
-            <p className="text-xs">
-              {data.empresa?.ciudad}, {data.empresa?.departamento}
-            </p>
-            {data.empresa?.telefono && <p className="text-xs">Tel: {data.empresa.telefono}</p>}
+            {data.establecimiento?.direccion && <p className="text-xs">{data.establecimiento.direccion}</p>}
+            {(data.establecimiento?.ciudad || data.establecimiento?.departamento) && (
+              <p className="text-xs">
+                {data.establecimiento?.ciudad}
+                {data.establecimiento?.ciudad && data.establecimiento?.departamento ? ', ' : ''}
+                {data.establecimiento?.departamento}
+              </p>
+            )}
+            {data.establecimiento?.telefono && <p className="text-xs">Tel: {data.establecimiento.telefono}</p>}
           </div>
         </div>
         <div className="max-w-[40%] border-l-2 border-ink-900 pl-4 text-right">
@@ -115,20 +163,42 @@ export function ComprobanteVisual({ data }: { data: ComprobanteVisualData }) {
               {data.timbradoVigenciaDesde && (
                 <p className="text-xs">Vigente desde {formatDate(data.timbradoVigenciaDesde)}</p>
               )}
+              {data.timbradoVigenciaHasta && (
+                <p className="text-xs">Vigente hasta {formatDate(data.timbradoVigenciaHasta)}</p>
+              )}
             </>
           )}
-          <p className="mt-1 text-xs">Fecha emisión: {formatDate(data.fechaEmision)}</p>
+          <p className="mt-1 text-xs">Fecha y hora emisión: {formatDateTime(data.fechaEmision)}</p>
         </div>
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-1 border border-ink-300 p-3 text-xs">
         <p>
-          <span className="font-semibold">{data.receptorLabel}: </span>
-          {receptor || 'Consumidor final'}
+          <span className="font-semibold">Condición de la operación: </span>
+          {esCredito ? 'Crédito' : 'Contado'}
+          {esCredito && data.cantidadCuotas ? ` — ${data.cantidadCuotas} cuota(s)` : ''}
         </p>
         <p>
-          <span className="font-semibold">Condición de venta: </span>
-          {data.condicionVenta === 'CREDITO' ? 'Crédito' : 'Contado'}
+          <span className="font-semibold">Moneda: </span>
+          {monedaDesc}
+          {data.tipoCambio ? ` — Tipo de cambio: ${data.tipoCambio}` : ''}
+        </p>
+        <p>
+          <span className="font-semibold">Tipo de transacción: </span>
+          Venta de mercadería
+        </p>
+        {data.motivoEmisionLabel && (
+          <p>
+            <span className="font-semibold">Motivo de emisión: </span>
+            {data.motivoEmisionLabel}
+          </p>
+        )}
+      </div>
+
+      <div className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 border border-ink-300 p-3 text-xs">
+        <p>
+          <span className="font-semibold">{data.receptorLabel}: </span>
+          {receptor || 'Consumidor final'}
         </p>
         {data.receptorNumeroDocumento && (
           <p>
@@ -142,10 +212,16 @@ export function ComprobanteVisual({ data }: { data: ComprobanteVisualData }) {
             {data.receptorDireccion}
           </p>
         )}
-        {data.motivoEmisionLabel && (
+        {data.receptorTelefono && (
+          <p>
+            <span className="font-semibold">Teléfono: </span>
+            {data.receptorTelefono}
+          </p>
+        )}
+        {data.receptorEmail && (
           <p className="col-span-2">
-            <span className="font-semibold">Motivo de emisión: </span>
-            {data.motivoEmisionLabel}
+            <span className="font-semibold">Correo electrónico: </span>
+            {data.receptorEmail}
           </p>
         )}
       </div>
@@ -153,6 +229,7 @@ export function ComprobanteVisual({ data }: { data: ComprobanteVisualData }) {
       <table className="mt-4 w-full border-collapse text-xs">
         <thead>
           <tr className="border-b-2 border-ink-900 text-left">
+            <th className="py-1.5">Código</th>
             <th className="py-1.5">Descripción</th>
             <th className="py-1.5 text-right">Cant.</th>
             <th className="py-1.5">Unidad</th>
@@ -164,6 +241,7 @@ export function ComprobanteVisual({ data }: { data: ComprobanteVisualData }) {
         <tbody>
           {data.items.map((item) => (
             <tr key={item.key} className="border-b border-ink-200">
+              <td className="py-1.5">{item.codigo ?? '—'}</td>
               <td className="py-1.5">{item.descripcion || '—'}</td>
               <td className="py-1.5 text-right tabular-nums">{item.cantidad}</td>
               <td className="py-1.5">{item.unidad ?? ''}</td>
@@ -211,6 +289,14 @@ export function ComprobanteVisual({ data }: { data: ComprobanteVisualData }) {
             <span>Total a pagar</span>
             <span className="tabular-nums">{formatGs(data.total)}</span>
           </div>
+          {data.moneda !== 'PYG' && (
+            <div className="flex justify-between py-0.5 text-[10px] text-ink-500">
+              <span>Total en guaraníes</span>
+              <span className="tabular-nums">
+                {formatGs(Number(data.total) * (data.tipoCambio ? Number(data.tipoCambio) : 1))}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -318,8 +404,8 @@ export function ComprobanteVisual({ data }: { data: ComprobanteVisualData }) {
                   ? 'Documento Electrónico aprobado por SIFEN, con observación'
                   : 'Documento Electrónico aprobado por SIFEN'}
               </p>
-              <p className="mt-1 font-mono tracking-wide">CDC: {data.cdc}</p>
-              <p className="mt-1">Consulte este documento en: ekuatia.set.gov.py</p>
+              <p className="mt-1 font-mono tracking-wide">CDC: {formatCdc(data.cdc)}</p>
+              {data.qrUrl && <p className="mt-1">Consulte este documento en: {consultaUrlBase(data.qrUrl)}</p>}
             </div>
           </div>
         ) : (

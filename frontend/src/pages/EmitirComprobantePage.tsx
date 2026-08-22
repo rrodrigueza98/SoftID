@@ -793,6 +793,15 @@ export default function EmitirComprobantePage() {
 
   const previewData: ComprobanteVisualData = {
     empresa: empresa ?? null,
+    establecimiento: establecimiento
+      ? {
+          direccion: establecimiento.direccion,
+          ciudad: establecimiento.ciudad,
+          departamento: establecimiento.departamento,
+          telefono: establecimiento.telefono,
+          email: establecimiento.email,
+        }
+      : null,
     tipoDocumento,
     numeroCompleto:
       establecimiento && puntoExpedicion && timbradoSeleccionado
@@ -800,16 +809,24 @@ export default function EmitirComprobantePage() {
         : '(sin timbrado)',
     timbradoNumero: timbradoSeleccionado?.numeroTimbrado,
     timbradoVigenciaDesde: timbradoSeleccionado?.fechaInicioVigencia,
+    timbradoVigenciaHasta: timbradoSeleccionado?.fechaFinVigencia,
     fechaEmision: new Date().toISOString(),
+    // El formulario no ofrece todavia un selector de moneda extranjera --
+    // siempre es PYG hasta que se modele esa opcion.
+    moneda: 'PYG',
     receptorLabel: esAutofactura ? 'Proveedor' : 'Cliente',
     receptorNombre: receptor?.razonSocial ?? 'Consumidor final',
     receptorIdentidadLabel: receptor ? CONDICION_IDENTIDAD_LABEL[receptor.tipoDocumento] : undefined,
     receptorNumeroDocumento: receptor?.numeroDocumento,
     receptorDireccion: receptor?.direccion,
+    receptorTelefono: receptor?.telefono,
+    receptorEmail: receptor?.email,
     condicionVenta,
+    cantidadCuotas: cantidadCuotas ? Number(cantidadCuotas) : undefined,
     motivoEmisionLabel: esNota ? MOTIVOS.find((m) => m.value === motivoEmision)?.label : undefined,
     items: itemsCalculados.map(({ row, calc }) => ({
       key: row.key,
+      codigo: productos?.find((p) => p.id === row.productoId)?.codigo,
       descripcion: row.descripcion,
       cantidad: row.cantidad,
       unidad: unidades?.find((u) => u.id === row.unidadMedidaId)?.descripcion,
