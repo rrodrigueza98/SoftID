@@ -68,9 +68,17 @@ export function buildGDatRec(parent: XmlNode, datos: DatosGDatRec): void {
     .up();
 
   if (esContribuyente) {
-    if (datos.tercero.tipoContribuyente) {
-      gDatRec.ele('iTiContRec').txt(ITIPCONT_POR_TIPO[datos.tercero.tipoContribuyente]).up();
+    // iTiContRec resulto obligatorio en la practica (rechazo real: "Es
+    // obligatorio informar el tipo de contribuyente receptor") -- clientes
+    // dados de alta al vuelo desde el buscador de DNIT antes de este chequeo
+    // pueden haber quedado sin este dato, asi que se corta con un error
+    // claro en vez de mandar un DE que SIFEN va a rechazar de nuevo.
+    if (!datos.tercero.tipoContribuyente) {
+      throw new Error(
+        `buildGDatRec: falta el tipo de contribuyente de "${datos.tercero.razonSocial}" (RUC ${datos.tercero.numeroDocumento}) -- SIFEN lo exige (iTiContRec). Cargalo en Clientes/Proveedores.`,
+      );
     }
+    gDatRec.ele('iTiContRec').txt(ITIPCONT_POR_TIPO[datos.tercero.tipoContribuyente]).up();
     gDatRec
       .ele('dRucRec')
       .txt(datos.tercero.numeroDocumento)

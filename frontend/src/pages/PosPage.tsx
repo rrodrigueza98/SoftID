@@ -209,6 +209,7 @@ export default function PosPage() {
           numeroDocumento: r.ruc,
           dvRuc: r.dv,
           razonSocial: r.razonSocial,
+          tipoContribuyente: r.tipoContribuyente,
           activo: true,
         })
       ).data;

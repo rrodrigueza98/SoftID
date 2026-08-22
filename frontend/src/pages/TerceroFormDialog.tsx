@@ -70,7 +70,14 @@ export function TerceroFormDialog({
   const isEdit = Boolean(tercero);
 
   const elegirResultadoDnit = (r: ResultadoBusquedaRuc) => {
-    setForm({ ...form, tipoDocumento: 'RUC', numeroDocumento: r.ruc, dvRuc: r.dv, razonSocial: r.razonSocial });
+    setForm({
+      ...form,
+      tipoDocumento: 'RUC',
+      numeroDocumento: r.ruc,
+      dvRuc: r.dv,
+      razonSocial: r.razonSocial,
+      tipoContribuyente: r.tipoContribuyente,
+    });
   };
 
   useEffect(() => {

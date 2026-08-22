@@ -417,6 +417,7 @@ export default function EmitirComprobantePage() {
           numeroDocumento: r.ruc,
           dvRuc: r.dv,
           razonSocial: r.razonSocial,
+          tipoContribuyente: r.tipoContribuyente,
           activo: true,
         })
       ).data;
